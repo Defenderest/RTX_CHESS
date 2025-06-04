@@ -4,9 +4,9 @@
 #include "ChessBoard.h"
 #include "ChessPiece.h"
 #include "EngineUtils.h" // Для TActorIterator
-#include "PawnPiece.h"   // Для NotifyMoveCompleted
-#include "RookPiece.h"   // Для NotifyMoveCompleted
-#include "KingPiece.h"   // Для NotifyMoveCompleted
+// #include "PawnPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
+// #include "RookPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
+// #include "KingPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 
 AChessGameMode::AChessGameMode()
 {
@@ -259,18 +259,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition); // Обновляем ссылку на доске
 
     // Уведомляем фигуру о завершении хода (для флагов первого хода пешки/ладьи/короля)
-    if (APawnPiece* Pawn = Cast<APawnPiece>(PieceToMove))
-    {
-        Pawn->NotifyMoveCompleted();
-    }
-    else if (ARookPiece* Rook = Cast<ARookPiece>(PieceToMove))
-    {
-        Rook->NotifyMoveCompleted();
-    }
-    else if (AKingPiece* King = Cast<AKingPiece>(PieceToMove))
-    {
-        King->NotifyMoveCompleted();
-    }
+    PieceToMove->NotifyMoveCompleted();
 
     // Очищаем подсветку после успешного хода
     GameBoard->ClearAllHighlights();

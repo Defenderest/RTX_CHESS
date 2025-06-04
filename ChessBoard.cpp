@@ -58,16 +58,21 @@ AChessPiece* AChessBoard::GetPieceAtGridPosition(const FIntPoint& GridPosition) 
     // Эта функция в идеале должна запрашивать AChessGameState для получения фигуры на этой позиции.
     // Пока возвращаем nullptr в качестве заглушки.
     // Если вы поддерживаете локальный PieceGrid на доске (и он синхронизирован), вы можете использовать его.
-    // Пример с GameState:
-    /*
     if (GetWorld())
     {
         if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
         {
             return GS->GetPieceAtGridPosition(GridPosition);
         }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessBoard::GetPieceAtGridPosition: ChessGameState is null."));
+        }
     }
-    */
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessBoard::GetPieceAtGridPosition: GetWorld() is null."));
+    }
     return nullptr;
 }
 
@@ -131,4 +136,56 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
     int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
     int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
     return FIntPoint(GridX, GridY);
+}
+
+bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColor AttackingColor) const
+{
+    if (!GetWorld())
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessBoard::IsSquareAttackedBy: GetWorld() is null."));
+        return false;
+    }
+
+    AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>();
+    if (!GS)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessBoard::IsSquareAttackedBy: ChessGameState is null."));
+        return false;
+    }
+
+    for (AChessPiece* Piece : GS->ActivePieces)
+    {
+        if (Piece && Piece->GetPieceColor() == AttackingColor)
+        {
+            // Для пешек, их "атакующие" ходы - это диагональные ходы, даже если там нет фигуры для взятия.
+            // GetValidMoves для пешки уже включает диагональные ходы только если там есть фигура противника.
+            // Нам нужно проверить "потенциальные" атаки.
+            // Однако, для IsSquareAttackedBy, стандартное GetValidMoves обычно подходит,
+            // так как оно показывает, куда фигура МОЖЕТ пойти и взять.
+            // Если для пешки нужно особое правило "атаки пустой клетки по диагонали", это потребует доработки GetValidMoves или отдельного метода.
+            // Пока будем использовать стандартный GetValidMoves.
+            TArray<FIntPoint> AttackingMoves = Piece->GetValidMoves(this);
+
+            // Специальная логика для пешек: они атакуют диагонали, даже если там нет фигуры для взятия (для проверки шаха)
+            if (Piece->GetPieceType() == EPieceType::Pawn)
+            {
+                AttackingMoves.Empty(); // Очистим стандартные ходы и добавим только атакующие
+                FIntPoint PawnPos = Piece->GetBoardPosition();
+                int32 Direction = (Piece->GetPieceColor() == EPieceColor::White) ? 1 : -1;
+                
+                FIntPoint AttackLeft(PawnPos.X - 1, PawnPos.Y + Direction);
+                if (IsValidGridPosition(AttackLeft)) AttackingMoves.Add(AttackLeft);
+
+                FIntPoint AttackRight(PawnPos.X + 1, PawnPos.Y + Direction);
+                if (IsValidGridPosition(AttackRight)) AttackingMoves.Add(AttackRight);
+            }
+
+
+            if (AttackingMoves.Contains(SquarePosition))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }

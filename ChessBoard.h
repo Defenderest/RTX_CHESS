@@ -77,6 +77,10 @@ public:
     UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Chess Board Visuals")
     void ClearAllHighlights();
 
+    // Проверяет, атакована ли указанная клетка фигурами заданного цвета
+    UFUNCTION(BlueprintPure, Category = "Chess Board")
+    bool IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColor AttackingColor) const;
+
 protected:
     // Может хранить ссылки на фигуры на доске для быстрого доступа, если не используется GameState для этого.
     // TMap<FIntPoint, TWeakObjectPtr<AChessPiece>> PieceGrid; 
