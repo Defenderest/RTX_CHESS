@@ -2,8 +2,25 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
-#include "ChessPiece.h" // Для EPieceColor
+#include "ChessPiece.h" // Для EPieceColor и AChessPiece
+#include "Math/IntPoint.h" // Для FIntPoint
 #include "ChessGameState.generated.h"
+
+// Forward declarations
+class AChessBoard;
+
+// Перечисление для текущей фазы игры
+UENUM(BlueprintType)
+enum class EGamePhase : uint8
+{
+    WaitingToStart UMETA(DisplayName = "Waiting To Start"),
+    InProgress UMETA(DisplayName = "In Progress"),
+    Check UMETA(DisplayName = "Check"),
+    WhiteWins UMETA(DisplayName = "White Wins"),
+    BlackWins UMETA(DisplayName = "Black Wins"),
+    Stalemate UMETA(DisplayName = "Stalemate"),
+    Draw UMETA(DisplayName = "Draw")
+};
 
 UCLASS()
 class RTX_CHESS_API AChessGameState : public AGameStateBase
@@ -13,15 +30,68 @@ class RTX_CHESS_API AChessGameState : public AGameStateBase
 public:
     AChessGameState();
 
-    // Заготовки для реплицируемых переменных состояния игры
-    // UPROPERTY(ReplicatedUsing = OnRep_CurrentTurn)
-    // EPieceColor CurrentTurnColor;
+    // Определяет, чья очередь ходить
+    UPROPERTY(ReplicatedUsing = OnRep_CurrentTurn, BlueprintReadOnly, Category = "Chess Game State")
+    EPieceColor CurrentTurnColor;
 
-    // UFUNCTION()
-    // void OnRep_CurrentTurn();
+    // Вызывается при изменении CurrentTurnColor для обновления на клиентах
+    UFUNCTION()
+    void OnRep_CurrentTurn();
 
-    // UPROPERTY(Replicated)
-    // TArray<AChessPiece*> AllPieces; // Потребует аккуратного управления
+    // Текущая фаза игры
+    UPROPERTY(ReplicatedUsing = OnRep_GamePhase, BlueprintReadOnly, Category = "Chess Game State")
+    EGamePhase CurrentGamePhase;
 
-    // virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    // Вызывается при изменении CurrentGamePhase для обновления на клиентах
+    UFUNCTION()
+    void OnRep_GamePhase();
+
+    // Массив всех активных фигур на доске
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    TArray<TObjectPtr<AChessPiece>> ActivePieces; // Используем TObjectPtr для безопасности
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+    // Возвращает цвет игрока, чей сейчас ход
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    EPieceColor GetCurrentTurnColor() const;
+
+    // Переключает ход на другого игрока (должен вызываться на сервере из GameMode)
+    void Server_SwitchTurn();
+
+    // Возвращает текущую фазу игры
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    EGamePhase GetGamePhase() const;
+
+    // Устанавливает новую фазу игры (должен вызываться на сервере из GameMode)
+    void SetGamePhase(EGamePhase NewPhase);
+
+    // Добавляет фигуру в список активных фигур (обычно при спавне)
+    void AddPieceToState(AChessPiece* PieceToAdd);
+
+    // Удаляет фигуру из списка активных фигур (обычно при захвате)
+    void RemovePieceFromState(AChessPiece* PieceToRemove);
+
+    // Возвращает фигуру, находящуюся в указанной клетке доски
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    AChessPiece* GetPieceAtGridPosition(const FIntPoint& GridPosition) const;
+
+    // Проверяет, находится ли указанный игрок под шахом
+    // Board необходим для анализа возможных ходов фигур противника
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    bool IsPlayerInCheck(EPieceColor PlayerColor, const AChessBoard* Board) const;
+
+    // Проверяет, поставлен ли указанному игроку мат
+    // Board необходим для анализа возможных ходов и состояния игры
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    bool IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board) const;
+
+    // Проверяет, находится ли игра в состоянии пата для указанного игрока
+    // Board необходим для анализа возможных ходов
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board) const;
+
+protected:
+    // Внутренний метод для изменения цвета текущего хода, вызывается Server_SwitchTurn
+    void SetCurrentTurnColor(EPieceColor NewTurnColor);
 };

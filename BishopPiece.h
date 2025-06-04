@@ -4,6 +4,9 @@
 #include "ChessPiece.h"
 #include "BishopPiece.generated.h"
 
+// Forward declarations
+class AChessBoard;
+
 UCLASS()
 class RTX_CHESS_API ABishopPiece : public AChessPiece
 {
@@ -18,6 +21,8 @@ protected:
 public:
     virtual void Tick(float DeltaTime) override;
 
-    // Переопределение логики перемещения для слона
-    // virtual bool CanMoveTo(int32 TargetX, int32 TargetY /*, AChessBoard* Board */) override;
+    // Переопределяет GetValidMoves из AChessPiece.
+    // Возвращает массив допустимых ходов для Слона с учетом текущего состояния доски.
+    // Слон движется по диагонали на любое количество свободных клеток.
+    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 };

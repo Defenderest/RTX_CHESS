@@ -4,6 +4,9 @@
 #include "ChessPiece.h"
 #include "KnightPiece.generated.h"
 
+// Forward declarations
+class AChessBoard;
+
 UCLASS()
 class RTX_CHESS_API AKnightPiece : public AChessPiece
 {
@@ -18,6 +21,8 @@ protected:
 public:
     virtual void Tick(float DeltaTime) override;
 
-    // Переопределение логики перемещения для коня
-    // virtual bool CanMoveTo(int32 TargetX, int32 TargetY /*, AChessBoard* Board */) override;
+    // Переопределяет GetValidMoves из AChessPiece.
+    // Возвращает массив допустимых ходов для Коня с учетом текущего состояния доски.
+    // Конь движется "L"-образно: две клетки в одном направлении (горизонтально или вертикально) и затем одну клетку перпендикулярно.
+    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 };
