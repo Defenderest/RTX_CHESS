@@ -1,9 +1,18 @@
 #include "ChessPiece.h"
 #include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
+#include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
+#include "Engine/StaticMesh.h" // Для UStaticMesh
 
 AChessPiece::AChessPiece()
 {
     PrimaryActorTick.bCanEverTick = false; // Фигуры обычно не тикают каждый кадр
+
+    PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
+    RootComponent = PieceMeshComponent;
+    PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly); // Для кликов
+    PieceMeshComponent->SetCollisionObjectType(ECC_WorldDynamic);
+    PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+
     PieceColor = EPieceColor::None;
     TypeOfPiece = EPieceType::None;
     BoardPosition = FIntPoint(-1, -1); // Невалидная начальная позиция
@@ -55,6 +64,18 @@ void AChessPiece::SetBoardPosition(const FIntPoint& NewPosition)
     //        (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
     //        *UEnum::GetValueAsString(TypeOfPiece),
     //        BoardPosition.X, BoardPosition.Y);
+}
+
+void AChessPiece::SetPieceMesh(UStaticMesh* NewMesh)
+{
+    if (PieceMeshComponent)
+    {
+        PieceMeshComponent->SetStaticMesh(NewMesh);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessPiece::SetPieceMesh: PieceMeshComponent is null for %s."), *GetName());
+    }
 }
 
 TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessBoard* Board) const

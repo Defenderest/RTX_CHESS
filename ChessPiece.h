@@ -3,10 +3,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Math/IntPoint.h" // Для использования FIntPoint
+#include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "ChessPiece.generated.h"
 
 // Forward declarations
 class AChessBoard;
+class UStaticMeshComponent;
+class UStaticMesh;
 
 // Перечисление для цвета фигуры
 UENUM(BlueprintType)
@@ -57,6 +60,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     bool bHasMoved;
 
+    // Компонент для отображения 3D модели фигуры
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
+
 public:
     virtual void Tick(float DeltaTime) override;
 
@@ -104,4 +111,8 @@ public:
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Chess Piece")
     void NotifyMoveCompleted();
     virtual void NotifyMoveCompleted_Implementation();
+
+    // Устанавливает статический меш для этой фигуры
+    UFUNCTION(BlueprintCallable, Category = "Chess Piece")
+    void SetPieceMesh(UStaticMesh* NewMesh);
 };

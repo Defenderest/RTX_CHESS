@@ -4,6 +4,7 @@
 #include "ChessBoard.h"
 #include "ChessPiece.h"
 #include "EngineUtils.h" // Для TActorIterator
+#include "Engine/StaticMesh.h" // Для UStaticMesh
 // #include "PawnPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 // #include "RookPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 // #include "KingPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
@@ -287,7 +288,12 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     // Обновляем позицию фигуры на доске и в состоянии игры
     GameBoard->ClearSquare(OriginalPosition); // Очищаем старую клетку на доске
-    PieceToMove->SetBoardPosition(TargetGridPosition); // Это также обновляет его мировое положение
+    PieceToMove->SetBoardPosition(TargetGridPosition); 
+    
+    // Обновляем мировое положение актора фигуры
+    FVector NewWorldLocation = GameBoard->GridToWorldPosition(TargetGridPosition);
+    PieceToMove->SetActorLocation(NewWorldLocation);
+    
     GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition); // Обновляем ссылку на доске
 
     // Уведомляем фигуру о завершении хода (для флагов первого хода пешки/ладьи/короля)
@@ -396,7 +402,32 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
     if (NewPiece)
     {
         NewPiece->InitializePiece(Color, Type, GridPosition);
-        NewPiece->SetBoardPosition(GridPosition); // Это также обновляет его мировое положение
+        // NewPiece->SetBoardPosition(GridPosition); // Позиция уже установлена в InitializePiece и используется для WorldLocation при спавне
+
+        // Устанавливаем меш для фигуры
+        UStaticMesh* MeshToSet = nullptr;
+        if (Color == EPieceColor::White)
+        {
+            const TObjectPtr<UStaticMesh>* FoundMesh = WhitePieceMeshes.Find(Type);
+            if (FoundMesh && FoundMesh->IsValid()) MeshToSet = FoundMesh->Get();
+        }
+        else if (Color == EPieceColor::Black)
+        {
+            const TObjectPtr<UStaticMesh>* FoundMesh = BlackPieceMeshes.Find(Type);
+            if (FoundMesh && FoundMesh->IsValid()) MeshToSet = FoundMesh->Get();
+        }
+
+        if (MeshToSet)
+        {
+            NewPiece->SetPieceMesh(MeshToSet);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh not found for %s %s. Ensure it's set in GameMode Blueprint."),
+                (Color == EPieceColor::White ? TEXT("White") : TEXT("Black")),
+                *UEnum::GetValueAsString(Type));
+        }
+        
         AChessGameState* CurrentGS = GetCurrentGameState();
         if (CurrentGS)
         {

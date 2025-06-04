@@ -3,10 +3,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Math/IntPoint.h" // Для FIntPoint
+#include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "ChessBoard.generated.h"
 
 // Forward declarations
 class AChessPiece;
+class UStaticMeshComponent;
 
 UCLASS()
 class RTX_CHESS_API AChessBoard : public AActor
@@ -85,4 +87,9 @@ protected:
     // Может хранить ссылки на фигуры на доске для быстрого доступа, если не используется GameState для этого.
     // TMap<FIntPoint, TWeakObjectPtr<AChessPiece>> PieceGrid; 
     // TWeakObjectPtr используется для избежания циклических ссылок, если фигуры также хранят ссылку на доску.
+
+protected:
+    // Компонент для отображения 3D модели доски
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UStaticMeshComponent> BoardMeshComponent;
 };

@@ -6,10 +6,12 @@
 #include "Math/IntPoint.h" // Для FIntPoint
 #include "ChessGameMode.generated.h"
 
+
 // Forward declarations
 class AChessPlayerController;
 class AChessGameState;
 class AChessBoard;
+class UStaticMesh;
 // AChessPiece уже включен через ChessPiece.h
 
 UCLASS()
@@ -74,6 +76,13 @@ protected:
     TSubclassOf<AChessPiece> QueenClass;
     UPROPERTY(EditDefaultsOnly, Category = "Chess Setup")
     TSubclassOf<AChessPiece> KingClass;
+
+    // Меши для фигур
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes")
+    TMap<EPieceType, TObjectPtr<UStaticMesh>> WhitePieceMeshes;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes")
+    TMap<EPieceType, TObjectPtr<UStaticMesh>> BlackPieceMeshes;
 
     // Расставляет фигуры на доске в начальные позиции
     // Вызывается из StartNewGame

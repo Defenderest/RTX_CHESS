@@ -2,10 +2,14 @@
 #include "ChessPiece.h" // Необходимо для AChessPiece
 #include "ChessGameState.h" // Потенциально необходимо для GetPieceAtGridPosition
 #include "Kismet/GameplayStatics.h" // Потенциально необходимо для GetGameState
+#include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 
 AChessBoard::AChessBoard()
 {
     PrimaryActorTick.bCanEverTick = true;
+
+    BoardMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BoardMesh"));
+    RootComponent = BoardMeshComponent;
 
     // Настройка доски по умолчанию
     BoardSize = FIntPoint(8, 8); // Стандартная доска 8x8
