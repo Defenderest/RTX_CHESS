@@ -1,8 +1,10 @@
 #include "KnightPiece.h"
+#include "ChessBoard.h" // Для AChessBoard
+#include "ChessGameState.h" // Для AChessGameState
 
 AKnightPiece::AKnightPiece()
 {
-    // TypeOfPiece = EPieceType::Knight;
+    TypeOfPiece = EPieceType::Knight;
 }
 
 void AKnightPiece::BeginPlay()
@@ -15,8 +17,36 @@ void AKnightPiece::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 }
 
-// bool AKnightPiece::CanMoveTo(int32 TargetX, int32 TargetY /*, AChessBoard* Board */)
-// {
-//     // Логика ходов коня
-//     return false;
-// }
+TArray<FIntPoint> AKnightPiece::GetValidMoves(const AChessBoard* Board) const
+{
+    TArray<FIntPoint> ValidMoves;
+    if (!Board) return ValidMoves;
+
+    FIntPoint CurrentPos = GetBoardPosition();
+
+    // Все 8 возможных "L"-образных ходов коня
+    FIntPoint PossibleMoves[] = {
+        FIntPoint(CurrentPos.X + 1, CurrentPos.Y + 2),
+        FIntPoint(CurrentPos.X + 1, CurrentPos.Y - 2),
+        FIntPoint(CurrentPos.X - 1, CurrentPos.Y + 2),
+        FIntPoint(CurrentPos.X - 1, CurrentPos.Y - 2),
+        FIntPoint(CurrentPos.X + 2, CurrentPos.Y + 1),
+        FIntPoint(CurrentPos.X + 2, CurrentPos.Y - 1),
+        FIntPoint(CurrentPos.X - 2, CurrentPos.Y + 1),
+        FIntPoint(CurrentPos.X - 2, CurrentPos.Y - 1)
+    };
+
+    for (const FIntPoint& TargetPos : PossibleMoves)
+    {
+        if (Board->IsValidGridPosition(TargetPos))
+        {
+            AChessPiece* PieceAtTarget = Board->GetPieceAtGridPosition(TargetPos);
+            if (!PieceAtTarget || PieceAtTarget->GetPieceColor() != PieceColor)
+            {
+                ValidMoves.Add(TargetPos); // Клетка свободна или занята фигурой противника
+            }
+        }
+    }
+
+    return ValidMoves;
+}
