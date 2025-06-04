@@ -479,7 +479,7 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         const TObjectPtr<UStaticMesh>* FoundBlueprintMeshEntry = BlueprintMeshesMap->Find(Type);
 
-        if (FoundBlueprintMeshEntry && FoundBlueprintMeshEntry->IsValid()) // Найден в Blueprint и указывает на валидный меш
+        if (FoundBlueprintMeshEntry && *FoundBlueprintMeshEntry) // Найден в Blueprint и указывает на валидный меш
         {
             MeshToSet = FoundBlueprintMeshEntry->Get();
             // UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using Blueprint-configured StaticMesh for %s %s."), *ColorName, *TypeName);
@@ -501,7 +501,7 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
             // Пытаемся использовать стандартные меши из C++
             const TObjectPtr<UStaticMesh>* FoundInternalMeshEntry = InternalDefaultMeshesMap->Find(Type);
-            if (FoundInternalMeshEntry && FoundInternalMeshEntry->IsValid())
+            if (FoundInternalMeshEntry && *FoundInternalMeshEntry)
             {
                 MeshToSet = FoundInternalMeshEntry->Get();
                 UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using C++ default StaticMesh for %s %s."), *ColorName, *TypeName);
