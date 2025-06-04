@@ -118,20 +118,21 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Предполагаем, что местоположение актора является углом (0,0) сетки
-    // И что клетки центрированы.
-    // Смещение для центрирования клетки:
+    // Этот расчет предполагает, что точка опоры (pivot) актора доски находится в ее геометрическом центре.
+    // Клетки также центрированы.
     float HalfTile = TileSize / 2.0f;
-    // Вычисляем X и Y относительно начала координат актора доски
-    float XPos = (GridPosition.X * TileSize) + HalfTile;
-    float YPos = (GridPosition.Y * TileSize) + HalfTile;
-    
-    // Z позиция может быть фиксированной или основываться на Z актора.
-    // Этот расчет предполагает, что доска лежит в плоскости XY относительно ее начала координат.
-    // Скорректируйте, если локальное начало координат или ориентация вашей доски отличаются.
+
+    // Общая ширина и высота доски в локальных единицах
+    float BoardTotalWidth = BoardSize.X * TileSize;
+    float BoardTotalHeight = BoardSize.Y * TileSize;
+
+    // Вычисляем локальные X и Y координаты центра клетки GridPosition.
+    // Начало локальных координат (0,0) актора доски - это центр всей доски.
+    float LocalX = (GridPosition.X * TileSize) + HalfTile - (BoardTotalWidth / 2.0f);
+    float LocalY = (GridPosition.Y * TileSize) + HalfTile - (BoardTotalHeight / 2.0f);
     
     // Создаем локальную позицию фигуры на доске (в координатах доски)
-    FVector LocalPiecePosition(XPos, YPos, PieceZOffsetOnBoard);
+    FVector LocalPiecePosition(LocalX, LocalY, PieceZOffsetOnBoard);
     
     // Трансформируем локальную позицию в мировую, учитывая положение и ориентацию доски
     return GetActorTransform().TransformPosition(LocalPiecePosition);
@@ -141,12 +142,21 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 {
     // Обратно GridToWorldPosition.
     // Трансформируем мировую позицию в локальные координаты доски.
+    // Локальное начало координат (0,0) актора доски - это центр всей доски.
     FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Вычисляем координаты сетки из локальной позиции
-    // Деление на TileSize и округление вниз до ближайшего целого.
-    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
-    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
+    // Общая ширина и высота доски в локальных единицах
+    float BoardTotalWidth = BoardSize.X * TileSize;
+    float BoardTotalHeight = BoardSize.Y * TileSize;
+
+    // Вычисляем координаты относительно левого нижнего угла доски в локальной системе координат
+    float XRelativeToBoardCorner = LocalPosition.X + (BoardTotalWidth / 2.0f);
+    float YRelativeToBoardCorner = LocalPosition.Y + (BoardTotalHeight / 2.0f);
+
+    // Вычисляем координаты сетки из этих относительных позиций
+    int32 GridX = FMath::FloorToInt(XRelativeToBoardCorner / TileSize);
+    int32 GridY = FMath::FloorToInt(YRelativeToBoardCorner / TileSize);
+
     return FIntPoint(GridX, GridY);
 }
 
