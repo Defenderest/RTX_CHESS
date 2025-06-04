@@ -57,6 +57,10 @@ protected:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<AChessBoard> GameBoard;
 
+    // Ссылка на выбранную в данный момент фигуру
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<AChessPiece> SelectedPiece;
+
     // Классы фигур для спавна. Устанавливаются в Blueprint или C++ конструкторе.
     UPROPERTY(EditDefaultsOnly, Category = "Chess Setup")
     TSubclassOf<AChessPiece> PawnClass;
