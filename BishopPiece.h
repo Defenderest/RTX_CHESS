@@ -25,4 +25,13 @@ public:
     // Возвращает массив допустимых ходов для Слона с учетом текущего состояния доски.
     // Слон движется по диагонали на любое количество свободных клеток.
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
+
+    // Уведомляет пешку о том, что она сделала ход (для первого хода)
+    UFUNCTION(BlueprintCallable, Category = "Chess Piece|Pawn")
+    void NotifyMoveCompleted();
+
+protected:
+    // Флаг, указывающий, делала ли пешка уже ход (для двойного первого хода)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece|Pawn", meta = (AllowPrivateAccess = "true"))
+    bool bHasMoved;
 };
