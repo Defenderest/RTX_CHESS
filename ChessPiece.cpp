@@ -14,8 +14,8 @@ AChessPiece::AChessPiece()
     PieceMeshComponent->SetCollisionObjectType(ECC_WorldDynamic);
     PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
 
-    PieceColor = EPieceColor::None;
-    TypeOfPiece = EPieceType::None;
+    PieceColor = EPieceColor::White;
+    TypeOfPiece = EPieceType::Pawn;
     BoardPosition = FIntPoint(-1, -1); // Невалидная начальная позиция
     bHasMoved = false; // Инициализация по умолчанию
 }
