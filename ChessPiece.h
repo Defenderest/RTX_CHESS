@@ -10,6 +10,7 @@
 class AChessBoard;
 class UStaticMeshComponent;
 class UStaticMesh;
+class UMaterialInterface; // Добавляем forward declaration для UMaterialInterface
 
 // Перечисление для цвета фигуры
 UENUM(BlueprintType)
@@ -63,6 +64,14 @@ protected:
     // Компонент для отображения 3D модели фигуры
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
+
+    // Материал для белых фигур
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Chess Piece|Materials", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UMaterialInterface> WhiteMaterial;
+
+    // Материал для черных фигур
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Chess Piece|Materials", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UMaterialInterface> BlackMaterial;
 
 public:
     virtual void Tick(float DeltaTime) override;

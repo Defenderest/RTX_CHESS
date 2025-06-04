@@ -2,6 +2,7 @@
 #include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "Engine/StaticMesh.h" // Для UStaticMesh
+#include "Materials/MaterialInterface.h" // Для UMaterialInterface
 
 AChessPiece::AChessPiece()
 {
@@ -35,6 +36,28 @@ void AChessPiece::InitializePiece(EPieceColor InColor, EPieceType InType, FIntPo
     TypeOfPiece = InType;
     BoardPosition = InBoardPosition;
     bHasMoved = false; // Сбрасываем флаг при инициализации/рестарте
+
+    // Устанавливаем материал в зависимости от цвета
+    if (PieceMeshComponent)
+    {
+        if (PieceColor == EPieceColor::White && WhiteMaterial)
+        {
+            PieceMeshComponent->SetMaterial(0, WhiteMaterial);
+        }
+        else if (PieceColor == EPieceColor::Black && BlackMaterial)
+        {
+            PieceMeshComponent->SetMaterial(0, BlackMaterial);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPiece::InitializePiece: Material not set for %s %s. WhiteMaterial: %s, BlackMaterial: %s"),
+                (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
+                *UEnum::GetValueAsString(TypeOfPiece),
+                WhiteMaterial ? *WhiteMaterial->GetName() : TEXT("null"),
+                BlackMaterial ? *BlackMaterial->GetName() : TEXT("null"));
+        }
+    }
+
     UE_LOG(LogTemp, Log, TEXT("AChessPiece: Initialized %s %s at (%d, %d)"),
            (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
            *UEnum::GetValueAsString(TypeOfPiece),
