@@ -59,9 +59,10 @@ TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessBoard* Board) const
 {
     // Базовая реализация: фигура не имеет допустимых ходов.
     // Эта функция должна быть переопределена в дочерних классах для каждого типа фигуры.
-    UE_LOG(LogTemp, Warning, TEXT("AChessPiece::GetValidMoves: Base implementation called for %s %s. No valid moves returned."),
+    UE_LOG(LogTemp, Warning, TEXT("AChessPiece::GetValidMoves: Base implementation called for %s %s at (%d, %d). This should be overridden in derived classes. No valid moves returned."),
            (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-           *UEnum::GetValueAsString(TypeOfPiece));
+           *UEnum::GetValueAsString(TypeOfPiece),
+           BoardPosition.X, BoardPosition.Y);
     return TArray<FIntPoint>();
 }
 
