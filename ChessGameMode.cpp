@@ -6,6 +6,7 @@
 #include "PawnPiece.h" // Добавлено для определения APawnPiece
 #include "EngineUtils.h" // Для TActorIterator
 #include "Engine/StaticMesh.h" // Для UStaticMesh
+#include "UObject/ConstructorHelpers.h" // Для ConstructorHelpers::FObjectFinder
 // #include "RookPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 // #include "KingPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 
@@ -17,6 +18,50 @@ AChessGameMode::AChessGameMode()
     // PlayerControllerClass = AChessPlayerController::StaticClass(); // Обычно устанавливается в Blueprints или DefaultGame.ini
     GameStateClass = AChessGameState::StaticClass(); // Устанавливаем класс состояния игры
     // DefaultPawnClass = nullptr; // Для шахмат игрок обычно не управляет пешкой напрямую
+
+    // --- Загрузка стандартных мешей из C++ ---
+    // ВАЖНО: Замените эти пути на актуальные пути к вашим ассетам статических мешей!
+    TMap<EPieceType, FString> DefaultWhiteMeshAssetPaths;
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::Pawn,   TEXT("/Game/Defaults/Meshes/SM_Pawn_White.SM_Pawn_White"));
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::Rook,   TEXT("/Game/Defaults/Meshes/SM_Rook_White.SM_Rook_White"));
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::Knight, TEXT("/Game/Defaults/Meshes/SM_Knight_White.SM_Knight_White"));
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::Bishop, TEXT("/Game/Defaults/Meshes/SM_Bishop_White.SM_Bishop_White"));
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::Queen,  TEXT("/Game/Defaults/Meshes/SM_Queen_White.SM_Queen_White"));
+    DefaultWhiteMeshAssetPaths.Add(EPieceType::King,   TEXT("/Game/Defaults/Meshes/SM_King_White.SM_King_White"));
+
+    for (const auto& Pair : DefaultWhiteMeshAssetPaths)
+    {
+        ConstructorHelpers::FObjectFinder<UStaticMesh> MeshFinder(*Pair.Value);
+        if (MeshFinder.Succeeded())
+        {
+            CppDefaultWhitePieceMeshes.Add(Pair.Key, MeshFinder.Object);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode Constructor: Failed to find C++ default WHITE %s static mesh at path: %s. Ensure this asset exists."), *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Pair.Key)), *Pair.Value);
+        }
+    }
+
+    TMap<EPieceType, FString> DefaultBlackMeshAssetPaths;
+    DefaultBlackMeshAssetPaths.Add(EPieceType::Pawn,   TEXT("/Game/Defaults/Meshes/SM_Pawn_Black.SM_Pawn_Black"));
+    DefaultBlackMeshAssetPaths.Add(EPieceType::Rook,   TEXT("/Game/Defaults/Meshes/SM_Rook_Black.SM_Rook_Black"));
+    DefaultBlackMeshAssetPaths.Add(EPieceType::Knight, TEXT("/Game/Defaults/Meshes/SM_Knight_Black.SM_Knight_Black"));
+    DefaultBlackMeshAssetPaths.Add(EPieceType::Bishop, TEXT("/Game/Defaults/Meshes/SM_Bishop_Black.SM_Bishop_Black"));
+    DefaultBlackMeshAssetPaths.Add(EPieceType::Queen,  TEXT("/Game/Defaults/Meshes/SM_Queen_Black.SM_Queen_Black"));
+    DefaultBlackMeshAssetPaths.Add(EPieceType::King,   TEXT("/Game/Defaults/Meshes/SM_King_Black.SM_King_Black"));
+
+    for (const auto& Pair : DefaultBlackMeshAssetPaths)
+    {
+        ConstructorHelpers::FObjectFinder<UStaticMesh> MeshFinder(*Pair.Value);
+        if (MeshFinder.Succeeded())
+        {
+            CppDefaultBlackPieceMeshes.Add(Pair.Key, MeshFinder.Object);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode Constructor: Failed to find C++ default BLACK %s static mesh at path: %s. Ensure this asset exists."), *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Pair.Key)), *Pair.Value);
+        }
+    }
 }
 
 void AChessGameMode::BeginPlay()
@@ -426,39 +471,55 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         // Устанавливаем меш для фигуры
         UStaticMesh* MeshToSet = nullptr;
-        const TMap<EPieceType, TObjectPtr<UStaticMesh>>& MeshesMap = (Color == EPieceColor::White) ? WhitePieceMeshes : BlackPieceMeshes;
+        const TMap<EPieceType, TObjectPtr<UStaticMesh>>* BlueprintMeshesMap = (Color == EPieceColor::White) ? &WhitePieceMeshes : &BlackPieceMeshes;
+        const TMap<EPieceType, TObjectPtr<UStaticMesh>>* InternalDefaultMeshesMap = (Color == EPieceColor::White) ? &CppDefaultWhitePieceMeshes : &CppDefaultBlackPieceMeshes;
+
         const FString ColorName = (Color == EPieceColor::White ? TEXT("White") : TEXT("Black"));
-        // Получаем имя типа фигуры, например, "Pawn", "Rook" и т.д. для лога
-        // UEnum::GetValueAsString(Type) вернет что-то вроде "EPieceType::Pawn", что тоже информативно
         const FString TypeName = StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Type));
 
+        const TObjectPtr<UStaticMesh>* FoundBlueprintMeshEntry = BlueprintMeshesMap->Find(Type);
 
-        const TObjectPtr<UStaticMesh>* FoundMeshEntry = MeshesMap.Find(Type);
-
-        if (FoundMeshEntry)
+        if (FoundBlueprintMeshEntry && FoundBlueprintMeshEntry->IsValid()) // Найден в Blueprint и указывает на валидный меш
         {
-            // Тип фигуры (например, Pawn, Rook) существует как ключ в TMap
-            const TObjectPtr<UStaticMesh>& MeshAssetPtr = *FoundMeshEntry;
-            if (MeshAssetPtr) // Проверяем, действительно ли TObjectPtr указывает на ассет меша
+            MeshToSet = FoundBlueprintMeshEntry->Get();
+            // UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using Blueprint-configured StaticMesh for %s %s."), *ColorName, *TypeName);
+        }
+        else // Не найден в Blueprint, или найден, но указатель на меш нулевой
+        {
+            if (FoundBlueprintMeshEntry) // Ключ был в карте Blueprint, но TObjectPtr был null
             {
-                MeshToSet = MeshAssetPtr.Get();
-                NewPiece->SetPieceMesh(MeshToSet);
+                 UE_LOG(LogTemp, Warning,
+                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is configured in GameMode Blueprint's TMap, but the entry is NULL. Attempting to use C++ default."),
+                    *ColorName, *TypeName);
+            }
+            else // Ключ не был найден в карте Blueprint
+            {
+                UE_LOG(LogTemp, Log, 
+                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is NOT configured in GameMode Blueprint's TMap. Attempting to use C++ default."),
+                    *ColorName, *TypeName);
+            }
+
+            // Пытаемся использовать стандартные меши из C++
+            const TObjectPtr<UStaticMesh>* FoundInternalMeshEntry = InternalDefaultMeshesMap->Find(Type);
+            if (FoundInternalMeshEntry && FoundInternalMeshEntry->IsValid())
+            {
+                MeshToSet = FoundInternalMeshEntry->Get();
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using C++ default StaticMesh for %s %s."), *ColorName, *TypeName);
             }
             else
             {
-                // Ключ существует в TMap, но ему не назначен ассет меша в Blueprint
-                UE_LOG(LogTemp, Warning, 
-                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is configured in GameMode Blueprint's TMap, but the entry is NULL (no asset assigned). Please assign a StaticMesh asset for type '%s'."), 
+                // Стандартный меш из C++ также не найден или недействителен
+                 UE_LOG(LogTemp, Error, 
+                    TEXT("AChessGameMode::SpawnPieceAtPosition: CRITICAL - StaticMesh for %s %s NOT found in Blueprint TMap AND C++ defaults are missing or invalid. Piece will have NO MESH. Check Blueprint configuration and C++ default asset paths for type '%s'."),
                     *ColorName, *TypeName, *TypeName);
             }
         }
-        else
+
+        if (MeshToSet)
         {
-            // Тип фигуры даже не является ключом в TMap
-            UE_LOG(LogTemp, Warning, 
-                TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is NOT configured in GameMode Blueprint's TMap. Please add an entry for piece type '%s' and assign a StaticMesh asset."), 
-                *ColorName, *TypeName, *TypeName);
+            NewPiece->SetPieceMesh(MeshToSet);
         }
+        // else: Ошибка об отсутствии меша уже залогирована выше.
         
         AChessGameState* CurrentGS = GetCurrentGameState();
         if (CurrentGS)

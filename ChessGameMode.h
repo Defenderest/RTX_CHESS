@@ -106,4 +106,9 @@ protected:
 private:
     // Вспомогательная функция для получения ChessGameState с проверкой типа
     AChessGameState* GetCurrentGameState() const;
+
+    // Внутренние карты для стандартных мешей, загружаемых из C++
+    // Используются как fallback, если меши не настроены в Blueprint
+    TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultWhitePieceMeshes;
+    TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultBlackPieceMeshes;
 };
