@@ -409,12 +409,12 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
         if (Color == EPieceColor::White)
         {
             const TObjectPtr<UStaticMesh>* FoundMesh = WhitePieceMeshes.Find(Type);
-            if (FoundMesh && FoundMesh->IsValid()) MeshToSet = FoundMesh->Get();
+            if (FoundMesh && *FoundMesh) MeshToSet = (*FoundMesh).Get();
         }
         else if (Color == EPieceColor::Black)
         {
             const TObjectPtr<UStaticMesh>* FoundMesh = BlackPieceMeshes.Find(Type);
-            if (FoundMesh && FoundMesh->IsValid()) MeshToSet = FoundMesh->Get();
+            if (FoundMesh && *FoundMesh) MeshToSet = (*FoundMesh).Get();
         }
 
         if (MeshToSet)
