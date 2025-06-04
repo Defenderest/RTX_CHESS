@@ -4,10 +4,12 @@
 #include "GameFramework/GameStateBase.h"
 #include "ChessPiece.h" // Для EPieceColor и AChessPiece
 #include "Math/IntPoint.h" // Для FIntPoint
+#include "Net/UnrealNetwork.h" // Для репликации
 #include "ChessGameState.generated.h"
 
 // Forward declarations
 class AChessBoard;
+class APawnPiece; // Для хранения ссылки на пешку для взятия на проходе
 
 // Перечисление для текущей фазы игры
 UENUM(BlueprintType)
@@ -49,6 +51,14 @@ public:
     // Массив всех активных фигур на доске
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
     TArray<TObjectPtr<AChessPiece>> ActivePieces; // Используем TObjectPtr для безопасности
+
+    // Клетка, на которую можно совершить взятие на проходе. FIntPoint(-1,-1) если нет такой возможности.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State") // VisibleInstanceOnly убрано, т.к. BlueprintReadOnly уже подразумевает видимость
+    FIntPoint EnPassantTargetSquare;
+
+    // Пешка, которая может быть взята на проходе. nullptr если нет такой возможности.
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State") // VisibleInstanceOnly убрано
+    TWeakObjectPtr<APawnPiece> EnPassantPawnToCapture;
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -94,4 +104,19 @@ public:
 public: // Changed from protected
     // Внутренний метод для изменения цвета текущего хода, вызывается Server_SwitchTurn
     void SetCurrentTurnColor(EPieceColor NewTurnColor);
+
+    // --- En Passant Logic ---
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    FIntPoint GetEnPassantTargetSquare() const;
+
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    APawnPiece* GetEnPassantPawnToCapture() const;
+
+    // Устанавливает данные для возможного взятия на проходе (вызывается GameMode)
+    // Должен вызываться на сервере
+    void SetEnPassantData(const FIntPoint& TargetSquare, APawnPiece* PawnToCapture);
+
+    // Очищает данные о взятии на проходе (вызывается GameMode)
+    // Должен вызываться на сервере
+    void ClearEnPassantData();
 };

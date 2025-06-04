@@ -6,6 +6,7 @@
 
 // Forward declarations
 class AChessBoard;
+class AChessGameState; // Добавлено для доступа к состоянию игры (например, для en passant)
 
 UCLASS()
 class RTX_CHESS_API APawnPiece : public AChessPiece
@@ -26,10 +27,6 @@ public:
     // Логика включает движение вперед, первый двойной ход, взятие по диагонали и ан пассан (опционально).
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 
-    // Флаг, указывающий, совершила ли пешка свой первый ход (важно для двойного хода)
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Pawn Logic")
-    bool bHasMoved;
-
-    // Вызывается после того, как пешка совершила ход, чтобы обновить bHasMoved
-    void NotifyMoveCompleted();
+    // bHasMoved теперь наследуется от AChessPiece
+    // NotifyMoveCompleted() теперь наследуется от AChessPiece
 };
