@@ -14,8 +14,8 @@ AChessGameMode::AChessGameMode()
     PrimaryActorTick.bCanEverTick = false; // Обычно GameMode не тикает каждый кадр
 
     // Установка классов по умолчанию
-    // PlayerControllerClass = AChessPlayerController::StaticClass();
-    // GameStateClass = AChessGameState::StaticClass();
+    // PlayerControllerClass = AChessPlayerController::StaticClass(); // Обычно устанавливается в Blueprints или DefaultGame.ini
+    GameStateClass = AChessGameState::StaticClass(); // Устанавливаем класс состояния игры
     // DefaultPawnClass = nullptr; // Для шахмат игрок обычно не управляет пешкой напрямую
 }
 
