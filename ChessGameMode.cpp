@@ -23,6 +23,26 @@ void AChessGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
+    // Дополнительное логирование для диагностики GameState
+    if (GameStateClass)
+    {
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode::BeginPlay: Configured GameStateClass is: %s"), *GameStateClass->GetName());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::BeginPlay: GameStateClass is NOT configured on this GameMode instance!"));
+    }
+
+    AChessGameState* TempGS = GetGameState<AChessGameState>();
+    if (TempGS)
+    {
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode::BeginPlay: GetGameState<AChessGameState>() returned a valid GameState: %s"), *TempGS->GetName());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::BeginPlay: GetGameState<AChessGameState>() returned NULL!"));
+    }
+
     FindGameBoard(); // Находим доску
     StartNewGame();  // Запускаем новую игру
 }
