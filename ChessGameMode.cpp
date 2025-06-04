@@ -238,19 +238,51 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     }
 
     // --- Выполняем фактический ход ---
+
+    // Перед выполнением хода, очистим предыдущие данные о взятии на проходе,
+    // если только этот ход сам не создает новую возможность для взятия на проходе.
+    bool bIsPawnTwoStep = false;
+    if (PieceToMove->GetPieceType() == EPieceType::Pawn && FMath::Abs(TargetGridPosition.Y - OriginalPosition.Y) == 2)
+    {
+        bIsPawnTwoStep = true;
+    }
+
+    if (!bIsPawnTwoStep)
+    {
+        CurrentGS->ClearEnPassantData();
+    }
+
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Executing move for %s from (%d, %d) to (%d, %d)."),
            *UEnum::GetValueAsString(PieceToMove->GetPieceType()),
            OriginalPosition.X, OriginalPosition.Y,
            TargetGridPosition.X, TargetGridPosition.Y);
 
-    if (CapturedPiece)
+    // Обработка взятия (обычного или на проходе)
+    if (CapturedPiece) // Обычное взятие
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d)."),
                *UEnum::GetValueAsString(CapturedPiece->GetPieceType()),
                TargetGridPosition.X, TargetGridPosition.Y);
         CurrentGS->RemovePieceFromState(CapturedPiece);
+        GameBoard->ClearSquare(CapturedPiece->GetBoardPosition()); // Очищаем клетку захваченной фигуры на доске
         CapturedPiece->OnCaptured(); // Уведомляем захваченную фигуру
         CapturedPiece->Destroy(); // Уничтожаем актора захваченной фигуры
+    }
+    else if (PieceToMove->GetPieceType() == EPieceType::Pawn &&
+             TargetGridPosition == CurrentGS->GetEnPassantTargetSquare() &&
+             CurrentGS->GetEnPassantPawnToCapture() != nullptr) // Взятие на проходе
+    {
+        APawnPiece* EnPassantCapturedPawn = CurrentGS->GetEnPassantPawnToCapture();
+        if (EnPassantCapturedPawn)
+        {
+            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d) via En Passant."),
+                   *UEnum::GetValueAsString(EnPassantCapturedPawn->GetPieceType()),
+                   EnPassantCapturedPawn->GetBoardPosition().X, EnPassantCapturedPawn->GetBoardPosition().Y);
+            CurrentGS->RemovePieceFromState(EnPassantCapturedPawn);
+            GameBoard->ClearSquare(EnPassantCapturedPawn->GetBoardPosition()); // Очищаем клетку захваченной пешки
+            EnPassantCapturedPawn->OnCaptured();
+            EnPassantCapturedPawn->Destroy();
+        }
     }
 
     // Обновляем позицию фигуры на доске и в состоянии игры
@@ -260,6 +292,20 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     // Уведомляем фигуру о завершении хода (для флагов первого хода пешки/ладьи/короля)
     PieceToMove->NotifyMoveCompleted();
+
+    // Если это был двойной ход пешки, устанавливаем данные для взятия на проходе
+    if (bIsPawnTwoStep)
+    {
+        APawnPiece* MovedPawn = Cast<APawnPiece>(PieceToMove);
+        if (MovedPawn)
+        {
+            int32 Direction = (MovedPawn->GetPieceColor() == EPieceColor::White) ? 1 : -1;
+            FIntPoint EnPassantSquare = FIntPoint(OriginalPosition.X, OriginalPosition.Y + Direction);
+            CurrentGS->SetEnPassantData(EnPassantSquare, MovedPawn);
+            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: En Passant opportunity created at (%d, %d) for pawn at (%d, %d)"),
+                EnPassantSquare.X, EnPassantSquare.Y, MovedPawn->GetBoardPosition().X, MovedPawn->GetBoardPosition().Y);
+        }
+    }
 
     // Очищаем подсветку после успешного хода
     GameBoard->ClearAllHighlights();

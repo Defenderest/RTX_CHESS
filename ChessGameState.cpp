@@ -7,6 +7,8 @@ AChessGameState::AChessGameState()
     PrimaryActorTick.bCanEverTick = false; // GameState обычно не тикает
     CurrentTurnColor = EPieceColor::White;
     CurrentGamePhase = EGamePhase::WaitingToStart;
+    EnPassantTargetSquare = FIntPoint(-1, -1); // Инициализация невалидным значением
+    EnPassantPawnToCapture = nullptr;
 }
 
 void AChessGameState::OnRep_CurrentTurn()
@@ -27,6 +29,8 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, CurrentTurnColor);
     DOREPLIFETIME(AChessGameState, CurrentGamePhase);
     DOREPLIFETIME(AChessGameState, ActivePieces);
+    DOREPLIFETIME(AChessGameState, EnPassantTargetSquare);
+    DOREPLIFETIME(AChessGameState, EnPassantPawnToCapture);
 }
 
 EPieceColor AChessGameState::GetCurrentTurnColor() const
@@ -247,7 +251,48 @@ void AChessGameState::SetCurrentTurnColor(EPieceColor NewTurnColor)
         if (CurrentTurnColor != NewTurnColor)
         {
             CurrentTurnColor = NewTurnColor;
-            OnRep_CurrentTurn(); // Вызываем OnRep_CurrentTurn вручную на сервере
+            // OnRep_CurrentTurn(); // Вызываем OnRep_CurrentTurn вручную на сервере - OnRep вызывается автоматически при изменении реплицируемого свойства
+        }
+    }
+}
+
+// --- En Passant Logic ---
+
+FIntPoint AChessGameState::GetEnPassantTargetSquare() const
+{
+    return EnPassantTargetSquare;
+}
+
+APawnPiece* AChessGameState::GetEnPassantPawnToCapture() const
+{
+    return EnPassantPawnToCapture.Get(); // TWeakObjectPtr::Get()
+}
+
+void AChessGameState::SetEnPassantData(const FIntPoint& TargetSquare, APawnPiece* PawnToCapture)
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        EnPassantTargetSquare = TargetSquare;
+        EnPassantPawnToCapture = PawnToCapture;
+        // Ручной вызов OnRep не нужен для TWeakObjectPtr или FIntPoint, если они реплицируются.
+        // Однако, если клиенты должны немедленно отреагировать, можно рассмотреть OnRep функции.
+        // Для FIntPoint OnRep может быть полезен, если есть визуализация EnPassantTargetSquare.
+        // OnRep_EnPassantTargetSquare(); // Если бы такая функция была
+        UE_LOG(LogTemp, Log, TEXT("AChessGameState: En Passant data SET - Target: (%d,%d), Pawn: %s"),
+            TargetSquare.X, TargetSquare.Y, PawnToCapture ? *PawnToCapture->GetName() : TEXT("nullptr"));
+    }
+}
+
+void AChessGameState::ClearEnPassantData()
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        if (EnPassantTargetSquare != FIntPoint(-1, -1) || EnPassantPawnToCapture.IsValid())
+        {
+            EnPassantTargetSquare = FIntPoint(-1, -1);
+            EnPassantPawnToCapture = nullptr;
+            UE_LOG(LogTemp, Log, TEXT("AChessGameState: En Passant data CLEARED."));
+            // OnRep_EnPassantTargetSquare(); // Если бы такая функция была
         }
     }
 }

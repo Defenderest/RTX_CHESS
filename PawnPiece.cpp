@@ -65,7 +65,32 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
         }
     }
 
-    // TODO: Добавить логику для "взятия на проходе" (En Passant)
+    // 4. Взятие на проходе (En Passant)
+    if (GetWorld())
+    {
+        AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+        if (GameState)
+        {
+            FIntPoint EnPassantTarget = GameState->GetEnPassantTargetSquare();
+            APawnPiece* PawnToCaptureEP = GameState->GetEnPassantPawnToCapture();
+
+            // Проверяем, является ли диагональный ход ходом на клетку для взятия на проходе
+            // И что пешка для взятия на проходе существует и имеет противоположный цвет
+            if (PawnToCaptureEP && PawnToCaptureEP->GetPieceColor() != PieceColor)
+            {
+                if (Board->IsValidGridPosition(DiagonalLeft) && DiagonalLeft == EnPassantTarget &&
+                    PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X - 1, CurrentPos.Y))
+                {
+                    ValidMoves.Add(DiagonalLeft);
+                }
+                if (Board->IsValidGridPosition(DiagonalRight) && DiagonalRight == EnPassantTarget &&
+                     PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X + 1, CurrentPos.Y))
+                {
+                    ValidMoves.Add(DiagonalRight);
+                }
+            }
+        }
+    }
 
     return ValidMoves;
 }
