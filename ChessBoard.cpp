@@ -14,7 +14,7 @@ AChessBoard::AChessBoard()
     // Настройка доски по умолчанию
     BoardSize = FIntPoint(8, 8); // Стандартная доска 8x8
     TileSize = 100.0f;           // Пример: 100 юнитов Unreal на клетку
-    PieceZOffsetOnBoard = 0.0f;  // По умолчанию фигуры спавнятся на уровне Z доски
+    PieceZOffsetOnBoard = 5.0f;  // Небольшое смещение над доской, чтобы фигуры не проваливались
 }
 
 void AChessBoard::BeginPlay()
@@ -55,7 +55,7 @@ FIntPoint AChessBoard::GetBoardSize() const
 bool AChessBoard::IsValidGridPosition(const FIntPoint& GridPosition) const
 {
     return GridPosition.X >= 0 && GridPosition.X < BoardSize.X &&
-           GridPosition.Y >= 0 && GridPosition.Y < BoardSize.Y;
+        GridPosition.Y >= 0 && GridPosition.Y < BoardSize.Y;
 }
 
 AChessPiece* AChessBoard::GetPieceAtGridPosition(const FIntPoint& GridPosition) const
@@ -86,20 +86,23 @@ void AChessBoard::SetPieceAtGridPosition(AChessPiece* Piece, const FIntPoint& Gr
     // Эта функция обычно обновляет AChessGameState.
     // Если доска поддерживает собственную сетку фигур (PieceGrid), обновите ее здесь.
     // Убедитесь, что внутренняя позиция фигуры на доске также обновлена.
-    // Пример:
-    /*
-    if (IsValidGridPosition(GridPosition))
+    if (IsValidGridPosition(GridPosition) && Piece)
     {
-        // Если используется локальный PieceGrid:
-        // PieceGrid.Add(GridPosition, Piece);
+        // Устанавливаем позицию фигуры на доске
+        FVector WorldPos = GridToWorldPosition(GridPosition);
+        Piece->SetActorLocation(WorldPos);
 
-        if (Piece)
-        {
-            // Piece->SetBoardPosition(GridPosition); // Это также должно обновить мировое положение
-        }
+        // Обновляем внутреннюю позицию фигуры
+        Piece->SetBoardPosition(GridPosition);
+
+        UE_LOG(LogTemp, Log, TEXT("AChessBoard::SetPieceAtGridPosition: Piece set at (%d, %d) world pos (%f, %f, %f)"),
+            GridPosition.X, GridPosition.Y, WorldPos.X, WorldPos.Y, WorldPos.Z);
     }
-    */
-    UE_LOG(LogTemp, Log, TEXT("AChessBoard::SetPieceAtGridPosition called for (%d, %d)."), GridPosition.X, GridPosition.Y);
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessBoard::SetPieceAtGridPosition: Invalid position (%d, %d) or null piece"),
+            GridPosition.X, GridPosition.Y);
+    }
 }
 
 void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
@@ -118,33 +121,53 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Этот расчет предполагает, что точка опоры (pivot) актора доски находится в углу (0,0) доски.
-    // Фигуры будут центрированы на клетках.
-    float HalfTile = TileSize / 2.0f;
+    // Получаем локацию и размеры доски
+    FVector BoardLocation = GetActorLocation();
+    FVector BoardScale = GetActorScale3D();
 
-    // Вычисляем локальные X и Y координаты центра клетки GridPosition.
-    // Начало локальных координат (0,0) актора доски - это угол (0,0) доски.
-    float LocalX = (GridPosition.X * TileSize) + HalfTile;
-    float LocalY = (GridPosition.Y * TileSize) + HalfTile;
-    
-    // Создаем локальную позицию фигуры на доске (в координатах доски)
-    FVector LocalPiecePosition(LocalX, LocalY, PieceZOffsetOnBoard);
-    
-    // Трансформируем локальную позицию в мировую, учитывая положение и ориентацию доски
-    return GetActorTransform().TransformPosition(LocalPiecePosition);
+    // Вычисляем размеры доски с учетом масштаба
+    float ScaledTileSize = TileSize * BoardScale.X;
+    float TotalBoardWidth = BoardSize.X * ScaledTileSize;
+    float TotalBoardHeight = BoardSize.Y * ScaledTileSize;
+
+    // Вычисляем начальную позицию (левый нижний угол доски)
+    float StartX = BoardLocation.X - (TotalBoardWidth / 2.0f) + (ScaledTileSize / 2.0f);
+    float StartY = BoardLocation.Y - (TotalBoardHeight / 2.0f) + (ScaledTileSize / 2.0f);
+
+    // Вычисляем мировую позицию центра клетки
+    float WorldX = StartX + (GridPosition.X * ScaledTileSize);
+    float WorldY = StartY + (GridPosition.Y * ScaledTileSize);
+    float WorldZ = BoardLocation.Z + PieceZOffsetOnBoard;
+
+    return FVector(WorldX, WorldY, WorldZ);
 }
 
 FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 {
-    // Обратно GridToWorldPosition.
-    // Трансформируем мировую позицию в локальные координаты доски.
-    // Локальное начало координат (0,0) актора доски - это угол (0,0) доски.
-    FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
+    // Получаем локацию и размеры доски
+    FVector BoardLocation = GetActorLocation();
+    FVector BoardScale = GetActorScale3D();
 
-    // Вычисляем координаты сетки из локальной позиции.
-    // Предполагается, что фигуры центрированы на клетках.
-    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
-    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
+    // Вычисляем размеры доски с учетом масштаба
+    float ScaledTileSize = TileSize * BoardScale.X;
+    float TotalBoardWidth = BoardSize.X * ScaledTileSize;
+    float TotalBoardHeight = BoardSize.Y * ScaledTileSize;
+
+    // Вычисляем начальную позицию (левый нижний угол доски)
+    float StartX = BoardLocation.X - (TotalBoardWidth / 2.0f);
+    float StartY = BoardLocation.Y - (TotalBoardHeight / 2.0f);
+
+    // Вычисляем относительную позицию от начала доски
+    float RelativeX = WorldPosition.X - StartX;
+    float RelativeY = WorldPosition.Y - StartY;
+
+    // Преобразуем в координаты сетки
+    int32 GridX = FMath::FloorToInt(RelativeX / ScaledTileSize);
+    int32 GridY = FMath::FloorToInt(RelativeY / ScaledTileSize);
+
+    // Ограничиваем значения в пределах доски
+    GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
+    GridY = FMath::Clamp(GridY, 0, BoardSize.Y - 1);
 
     return FIntPoint(GridX, GridY);
 }
@@ -183,14 +206,13 @@ bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColo
                 AttackingMoves.Empty(); // Очистим стандартные ходы и добавим только атакующие
                 FIntPoint PawnPos = Piece->GetBoardPosition();
                 int32 Direction = (Piece->GetPieceColor() == EPieceColor::White) ? 1 : -1;
-                
+
                 FIntPoint AttackLeft(PawnPos.X - 1, PawnPos.Y + Direction);
                 if (IsValidGridPosition(AttackLeft)) AttackingMoves.Add(AttackLeft);
 
                 FIntPoint AttackRight(PawnPos.X + 1, PawnPos.Y + Direction);
                 if (IsValidGridPosition(AttackRight)) AttackingMoves.Add(AttackRight);
             }
-
 
             if (AttackingMoves.Contains(SquarePosition))
             {

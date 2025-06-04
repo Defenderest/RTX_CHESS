@@ -12,16 +12,15 @@ class UStaticMeshComponent;
 class UStaticMesh;
 class UMaterialInterface; // Добавляем forward declaration для UMaterialInterface
 
-// Перечисление для цвета фигуры
+
 UENUM(BlueprintType)
 enum class EPieceColor : uint8
 {
     White UMETA(DisplayName = "White"),
-    Black UMETA(DisplayName = "Black"),
-    None UMETA(DisplayName = "None") // Для случаев, когда цвет не определен или не важен
+    Black UMETA(DisplayName = "Black")
 };
 
-// Перечисление для типа фигуры
+// Enum для типов фигур (если используется)
 UENUM(BlueprintType)
 enum class EPieceType : uint8
 {
@@ -30,10 +29,8 @@ enum class EPieceType : uint8
     Knight UMETA(DisplayName = "Knight"),
     Bishop UMETA(DisplayName = "Bishop"),
     Queen UMETA(DisplayName = "Queen"),
-    King UMETA(DisplayName = "King"),
-    None UMETA(DisplayName = "None") // Для случаев, когда тип не определен
+    King UMETA(DisplayName = "King")
 };
-
 UCLASS()
 class RTX_CHESS_API AChessPiece : public AActor
 {
