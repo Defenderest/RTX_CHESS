@@ -439,7 +439,7 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
         {
             // Тип фигуры (например, Pawn, Rook) существует как ключ в TMap
             const TObjectPtr<UStaticMesh>& MeshAssetPtr = *FoundMeshEntry;
-            if (MeshAssetPtr.IsValid()) // Проверяем, действительно ли TObjectPtr указывает на ассет меша
+            if (MeshAssetPtr) // Проверяем, действительно ли TObjectPtr указывает на ассет меша
             {
                 MeshToSet = MeshAssetPtr.Get();
                 NewPiece->SetPieceMesh(MeshToSet);
