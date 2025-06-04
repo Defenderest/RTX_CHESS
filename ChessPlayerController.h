@@ -28,11 +28,23 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputAction* SelectAction;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* LookUpAction; // Для вращения камеры вверх/вниз
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* LookRightAction; // Для вращения камеры влево/вправо
+
     // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     // UInputAction* MoveAction; // Assuming MoveAction might be used later
 
     /** Handles the select action input. */
     void HandleSelectAction();
+
+    /** Handles looking up/down. */
+    void HandleLookUp(const struct FInputActionValue& Value);
+
+    /** Handles looking left/right. */
+    void HandleLookRight(const struct FInputActionValue& Value);
 
 public:
     virtual void Tick(float DeltaTime) override;

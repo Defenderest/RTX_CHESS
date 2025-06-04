@@ -1,6 +1,7 @@
 #include "ChessPlayerController.h"
 #include "EnhancedInputSubsystems.h" // Для Enhanced Input
 #include "EnhancedInputComponent.h"   // Для Enhanced Input
+#include "InputActionValue.h"         // Для FInputActionValue
 #include "ChessPiece.h"               // Для AChessPiece
 #include "ChessBoard.h"               // Для AChessBoard
 #include "ChessGameMode.h"            // Для AChessGameMode
@@ -33,6 +34,24 @@ void AChessPlayerController::BeginPlay()
     }
 }
 
+void AChessPlayerController::HandleLookUp(const FInputActionValue& Value)
+{
+    const float LookAxisValue = Value.Get<float>();
+    if (LookAxisValue != 0.f)
+    {
+        AddPitchInput(LookAxisValue);
+    }
+}
+
+void AChessPlayerController::HandleLookRight(const FInputActionValue& Value)
+{
+    const float LookAxisValue = Value.Get<float>();
+    if (LookAxisValue != 0.f)
+    {
+        AddYawInput(LookAxisValue);
+    }
+}
+
 void AChessPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
@@ -48,6 +67,26 @@ void AChessPlayerController::SetupInputComponent()
         else
         {
             UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: SelectAction is not set!"));
+        }
+
+        if (LookUpAction)
+        {
+            EnhancedInput->BindAction(LookUpAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLookUp);
+            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookUpAction bound."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookUpAction is not set!"));
+        }
+
+        if (LookRightAction)
+        {
+            EnhancedInput->BindAction(LookRightAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLookRight);
+            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookRightAction bound."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookRightAction is not set!"));
         }
     }
     else
