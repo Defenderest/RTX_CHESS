@@ -14,6 +14,7 @@ AChessBoard::AChessBoard()
     // Настройка доски по умолчанию
     BoardSize = FIntPoint(8, 8); // Стандартная доска 8x8
     TileSize = 100.0f;           // Пример: 100 юнитов Unreal на клетку
+    PieceZOffsetOnBoard = 0.0f;  // По умолчанию фигуры спавнятся на уровне Z доски
 }
 
 void AChessBoard::BeginPlay()
@@ -128,15 +129,22 @@ FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
     // Z позиция может быть фиксированной или основываться на Z актора.
     // Этот расчет предполагает, что доска лежит в плоскости XY относительно ее начала координат.
     // Скорректируйте, если локальное начало координат или ориентация вашей доски отличаются.
-    return GetActorLocation() + FVector(XPos, YPos, GetActorLocation().Z); // Используем Z актора для высоты
+    
+    // Создаем локальную позицию фигуры на доске (в координатах доски)
+    FVector LocalPiecePosition(XPos, YPos, PieceZOffsetOnBoard);
+    
+    // Трансформируем локальную позицию в мировую, учитывая положение и ориентацию доски
+    return GetActorTransform().TransformPosition(LocalPiecePosition);
 }
 
 FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 {
     // Обратно GridToWorldPosition.
-    // Этот расчет предполагает,
-    // что доска лежит в плоскости XY относительно ее начала координат.
-    FVector LocalPosition = WorldPosition - GetActorLocation();
+    // Трансформируем мировую позицию в локальные координаты доски.
+    FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
+
+    // Вычисляем координаты сетки из локальной позиции
+    // Деление на TileSize и округление вниз до ближайшего целого.
     int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
     int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
     return FIntPoint(GridX, GridY);

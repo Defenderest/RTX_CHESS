@@ -29,6 +29,10 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chess Board Setup")
     float TileSize;
 
+    // Смещение по оси Z для фигур относительно поверхности клетки доски
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Board Setup")
+    float PieceZOffsetOnBoard;
+
 public:
     virtual void Tick(float DeltaTime) override;
 
