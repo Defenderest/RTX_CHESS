@@ -27,10 +27,8 @@ public:
     // Также включает логику для рокировки.
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 
-    // Флаг, указывающий, совершил ли король свой первый ход (важно для рокировки)
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="King Logic")
-    bool bHasMoved;
+    // bHasMoved теперь наследуется от AChessPiece
 
     // Вызывается после того, как король совершил ход, чтобы обновить bHasMoved
-    void NotifyMoveCompleted();
+    virtual void NotifyMoveCompleted_Implementation() override;
 };

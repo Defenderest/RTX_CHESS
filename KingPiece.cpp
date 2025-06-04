@@ -5,7 +5,7 @@
 AKingPiece::AKingPiece()
 {
     TypeOfPiece = EPieceType::King;
-    bHasMoved = false; // Король изначально не делал ход
+    // bHasMoved теперь инициализируется в AChessPiece::InitializePiece
 }
 
 void AKingPiece::BeginPlay()
@@ -68,11 +68,12 @@ TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessBoard* Board) const
     return ValidMoves;
 }
 
-void AKingPiece::NotifyMoveCompleted()
+void AKingPiece::NotifyMoveCompleted_Implementation()
 {
-    if (!bHasMoved)
+    if (!bHasMoved) // Устанавливаем флаг только если он еще не был установлен
     {
         bHasMoved = true;
         UE_LOG(LogTemp, Log, TEXT("AKingPiece: King at (%d, %d) has completed its first move."), GetBoardPosition().X, GetBoardPosition().Y);
     }
+    Super::NotifyMoveCompleted_Implementation(); // Вызываем базовую реализацию
 }

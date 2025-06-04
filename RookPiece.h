@@ -26,10 +26,8 @@ public:
     // Ладья движется по горизонтали или вертикали на любое количество свободных клеток.
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 
-    // Флаг, указывающий, совершила ли ладья свой первый ход (важно для рокировки)
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Rook Logic")
-    bool bHasMoved;
+    // bHasMoved теперь наследуется от AChessPiece
     
     // Вызывается после того, как ладья совершила ход, чтобы обновить bHasMoved
-    void NotifyMoveCompleted();
+    virtual void NotifyMoveCompleted_Implementation() override;
 };

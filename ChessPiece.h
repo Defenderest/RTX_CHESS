@@ -53,6 +53,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     FIntPoint BoardPosition;
 
+    // Флаг, указывающий, совершила ли фигура свой первый ход (важно для пешек, ладей, короля)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
+    bool bHasMoved;
+
 public:
     virtual void Tick(float DeltaTime) override;
 
@@ -95,4 +99,9 @@ public:
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Chess Piece")
     void OnCaptured();
     virtual void OnCaptured_Implementation();
+
+    // Вызывается после того, как фигура совершила ход, чтобы обновить bHasMoved и другие состояния
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Chess Piece")
+    void NotifyMoveCompleted();
+    virtual void NotifyMoveCompleted_Implementation();
 };

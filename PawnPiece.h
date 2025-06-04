@@ -28,5 +28,5 @@ public:
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
 
     // bHasMoved теперь наследуется от AChessPiece
-    // NotifyMoveCompleted() теперь наследуется от AChessPiece
+    virtual void NotifyMoveCompleted_Implementation() override;
 };

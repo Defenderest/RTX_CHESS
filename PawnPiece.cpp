@@ -6,7 +6,7 @@ APawnPiece::APawnPiece()
 {
     // Устанавливаем тип фигуры в конструкторе
     TypeOfPiece = EPieceType::Pawn;
-    bHasMoved = false; // Изначально пешка не делала ход
+    // bHasMoved теперь инициализируется в AChessPiece::InitializePiece
 }
 
 void APawnPiece::BeginPlay()
@@ -70,8 +70,12 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
     return ValidMoves;
 }
 
-void APawnPiece::NotifyMoveCompleted()
+void APawnPiece::NotifyMoveCompleted_Implementation()
 {
-    bHasMoved = true;
-    UE_LOG(LogTemp, Log, TEXT("APawnPiece: Pawn at (%d, %d) has completed its first move."), GetBoardPosition().X, GetBoardPosition().Y);
+    if (!bHasMoved) // Устанавливаем флаг только если он еще не был установлен
+    {
+        bHasMoved = true;
+        UE_LOG(LogTemp, Log, TEXT("APawnPiece: Pawn at (%d, %d) has completed its first move."), GetBoardPosition().X, GetBoardPosition().Y);
+    }
+    Super::NotifyMoveCompleted_Implementation(); // Вызываем базовую реализацию, если она что-то делает
 }

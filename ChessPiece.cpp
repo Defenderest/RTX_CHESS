@@ -7,6 +7,7 @@ AChessPiece::AChessPiece()
     PieceColor = EPieceColor::None;
     TypeOfPiece = EPieceType::None;
     BoardPosition = FIntPoint(-1, -1); // Невалидная начальная позиция
+    bHasMoved = false; // Инициализация по умолчанию
 }
 
 void AChessPiece::BeginPlay()
@@ -24,6 +25,7 @@ void AChessPiece::InitializePiece(EPieceColor InColor, EPieceType InType, FIntPo
     PieceColor = InColor;
     TypeOfPiece = InType;
     BoardPosition = InBoardPosition;
+    bHasMoved = false; // Сбрасываем флаг при инициализации/рестарте
     UE_LOG(LogTemp, Log, TEXT("AChessPiece: Initialized %s %s at (%d, %d)"),
            (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
            *UEnum::GetValueAsString(TypeOfPiece),
@@ -92,4 +94,14 @@ void AChessPiece::OnCaptured_Implementation()
            *UEnum::GetValueAsString(TypeOfPiece),
            BoardPosition.X, BoardPosition.Y);
     // Здесь можно добавить логику для скрытия фигуры, воспроизведения анимации и т.д.
+}
+
+void AChessPiece::NotifyMoveCompleted_Implementation()
+{
+    // Реализация по умолчанию. Может быть переопределена в дочерних классах.
+    // Основная логика установки bHasMoved будет в переопределенных методах.
+    // UE_LOG(LogTemp, Log, TEXT("AChessPiece: %s %s at (%d, %d) notified of move completion (base)."),
+    //        (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
+    //        *UEnum::GetValueAsString(TypeOfPiece),
+    //        BoardPosition.X, BoardPosition.Y);
 }

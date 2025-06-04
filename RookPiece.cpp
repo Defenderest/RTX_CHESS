@@ -5,7 +5,7 @@
 ARookPiece::ARookPiece()
 {
     TypeOfPiece = EPieceType::Rook;
-    bHasMoved = false; // Изначально ладья не делала ход
+    // bHasMoved теперь инициализируется в AChessPiece::InitializePiece
 }
 
 void ARookPiece::BeginPlay()
@@ -62,8 +62,12 @@ TArray<FIntPoint> ARookPiece::GetValidMoves(const AChessBoard* Board) const
     return ValidMoves;
 }
 
-void ARookPiece::NotifyMoveCompleted()
+void ARookPiece::NotifyMoveCompleted_Implementation()
 {
-    bHasMoved = true;
-    UE_LOG(LogTemp, Log, TEXT("ARookPiece: Rook at (%d, %d) has completed its first move."), GetBoardPosition().X, GetBoardPosition().Y);
+    if (!bHasMoved) // Устанавливаем флаг только если он еще не был установлен
+    {
+        bHasMoved = true;
+        UE_LOG(LogTemp, Log, TEXT("ARookPiece: Rook at (%d, %d) has completed its first move."), GetBoardPosition().X, GetBoardPosition().Y);
+    }
+    Super::NotifyMoveCompleted_Implementation(); // Вызываем базовую реализацию
 }
