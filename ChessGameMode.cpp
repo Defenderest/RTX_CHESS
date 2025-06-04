@@ -426,26 +426,38 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         // Устанавливаем меш для фигуры
         UStaticMesh* MeshToSet = nullptr;
-        if (Color == EPieceColor::White)
-        {
-            const TObjectPtr<UStaticMesh>* FoundMesh = WhitePieceMeshes.Find(Type);
-            if (FoundMesh && *FoundMesh) MeshToSet = (*FoundMesh).Get();
-        }
-        else if (Color == EPieceColor::Black)
-        {
-            const TObjectPtr<UStaticMesh>* FoundMesh = BlackPieceMeshes.Find(Type);
-            if (FoundMesh && *FoundMesh) MeshToSet = (*FoundMesh).Get();
-        }
+        const TMap<EPieceType, TObjectPtr<UStaticMesh>>& MeshesMap = (Color == EPieceColor::White) ? WhitePieceMeshes : BlackPieceMeshes;
+        const FString ColorName = (Color == EPieceColor::White ? TEXT("White") : TEXT("Black"));
+        // Получаем имя типа фигуры, например, "Pawn", "Rook" и т.д. для лога
+        // UEnum::GetValueAsString(Type) вернет что-то вроде "EPieceType::Pawn", что тоже информативно
+        const FString TypeName = StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Type));
 
-        if (MeshToSet)
+
+        const TObjectPtr<UStaticMesh>* FoundMeshEntry = MeshesMap.Find(Type);
+
+        if (FoundMeshEntry)
         {
-            NewPiece->SetPieceMesh(MeshToSet);
+            // Тип фигуры (например, Pawn, Rook) существует как ключ в TMap
+            const TObjectPtr<UStaticMesh>& MeshAssetPtr = *FoundMeshEntry;
+            if (MeshAssetPtr.IsValid()) // Проверяем, действительно ли TObjectPtr указывает на ассет меша
+            {
+                MeshToSet = MeshAssetPtr.Get();
+                NewPiece->SetPieceMesh(MeshToSet);
+            }
+            else
+            {
+                // Ключ существует в TMap, но ему не назначен ассет меша в Blueprint
+                UE_LOG(LogTemp, Warning, 
+                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is configured in GameMode Blueprint's TMap, but the entry is NULL (no asset assigned). Please assign a StaticMesh asset for type '%s'."), 
+                    *ColorName, *TypeName, *TypeName);
+            }
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh not found for %s %s. Ensure it's set in GameMode Blueprint."),
-                (Color == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-                *UEnum::GetValueAsString(Type));
+            // Тип фигуры даже не является ключом в TMap
+            UE_LOG(LogTemp, Warning, 
+                TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is NOT configured in GameMode Blueprint's TMap. Please add an entry for piece type '%s' and assign a StaticMesh asset."), 
+                *ColorName, *TypeName, *TypeName);
         }
         
         AChessGameState* CurrentGS = GetCurrentGameState();
