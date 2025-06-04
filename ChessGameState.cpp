@@ -134,7 +134,7 @@ bool AChessGameState::IsPlayerInCheck(EPieceColor PlayerColor, const AChessBoard
     return false; // Король не под шахом
 }
 
-bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board) const
+bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board) // Removed const
 {
     if (!IsPlayerInCheck(PlayerColor, Board))
     {
@@ -188,7 +188,7 @@ bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessB
     return true; // Нет ходов, чтобы выйти из шаха, значит это мат
 }
 
-bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board) const
+bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board) // Removed const
 {
     if (IsPlayerInCheck(PlayerColor, Board))
     {

@@ -84,14 +84,14 @@ public:
     // Проверяет, поставлен ли указанному игроку мат
     // Board необходим для анализа возможных ходов и состояния игры
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
-    bool IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board) const;
+    bool IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board); // Removed const
 
     // Проверяет, находится ли игра в состоянии пата для указанного игрока
     // Board необходим для анализа возможных ходов
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
-    bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board) const;
+    bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board); // Removed const
 
-protected:
+public: // Changed from protected
     // Внутренний метод для изменения цвета текущего хода, вызывается Server_SwitchTurn
     void SetCurrentTurnColor(EPieceColor NewTurnColor);
 };

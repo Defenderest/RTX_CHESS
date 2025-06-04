@@ -52,8 +52,8 @@ void AChessGameMode::FindGameBoard()
 
 void AChessGameMode::StartNewGame()
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!GameBoard || !GameState)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!GameBoard || !CurrentGS)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::StartNewGame: GameBoard or GameState is null. Cannot start new game."));
         return;
@@ -69,19 +69,19 @@ void AChessGameMode::StartNewGame()
     SpawnInitialPieces();
 
     // Устанавливаем начальное состояние игры
-    GameState->SetCurrentTurnColor(EPieceColor::White); // Белые всегда начинают
-    GameState->SetGamePhase(EGamePhase::InProgress);
+    CurrentGS->SetCurrentTurnColor(EPieceColor::White); // Белые всегда начинают
+    CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: New game started. White's turn."));
 }
 
 void AChessGameMode::EndTurn()
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (GameState)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (CurrentGS)
     {
-        GameState->Server_SwitchTurn();
-        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (GameState->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
+        CurrentGS->Server_SwitchTurn();
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (CurrentGS->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         CheckGameEndConditions();
     }
     else
@@ -92,15 +92,15 @@ void AChessGameMode::EndTurn()
 
 void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerController* ByController)
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!ClickedPiece || !GameBoard || !GameState)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!ClickedPiece || !GameBoard || !CurrentGS)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::HandlePieceClicked: Invalid input (ClickedPiece, GameBoard, or GameState is null)."));
         return;
     }
 
     // Если это не ход текущего игрока, или кликнутая фигура не принадлежит текущему игроку, игнорируем.
-    if (ClickedPiece->GetPieceColor() != GameState->GetCurrentTurnColor())
+    if (ClickedPiece->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
     {
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::HandlePieceClicked: Clicked piece does not belong to the current player."));
         return;
@@ -146,8 +146,8 @@ void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerC
 
 void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPlayerController* ByController)
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!GameBoard || !GameState)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!GameBoard || !CurrentGS)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::HandleSquareClicked: GameBoard or GameState is null."));
         return;
@@ -180,15 +180,15 @@ void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPl
 
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!PieceToMove || !GameBoard || !GameState || !RequestingController)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!PieceToMove || !GameBoard || !CurrentGS || !RequestingController)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::AttemptMove: Invalid input (PieceToMove, GameBoard, GameState, or RequestingController is null)."));
         return false;
     }
 
     // 1. Проверяем, принадлежит ли фигура текущему игроку
-    if (PieceToMove->GetPieceColor() != GameState->GetCurrentTurnColor())
+    if (PieceToMove->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
     {
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Piece does not belong to the current player's turn."));
         return false;
@@ -209,26 +209,26 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     // --- Симулируем ход для проверки на самошах ---
     FIntPoint OriginalPosition = PieceToMove->GetBoardPosition();
-    AChessPiece* CapturedPiece = GameState->GetPieceAtGridPosition(TargetGridPosition);
+    AChessPiece* CapturedPiece = CurrentGS->GetPieceAtGridPosition(TargetGridPosition);
 
     // Временно перемещаем фигуру
-    GameState->RemovePieceFromState(PieceToMove); // Удаляем со старой позиции
+    CurrentGS->RemovePieceFromState(PieceToMove); // Удаляем со старой позиции
     if (CapturedPiece)
     {
-        GameState->RemovePieceFromState(CapturedPiece); // Временно удаляем захваченную фигуру
+        CurrentGS->RemovePieceFromState(CapturedPiece); // Временно удаляем захваченную фигуру
     }
     PieceToMove->SetBoardPosition(TargetGridPosition); // Обновляем внутреннюю позицию фигуры
-    GameState->AddPieceToState(PieceToMove); // Добавляем на новую позицию
+    CurrentGS->AddPieceToState(PieceToMove); // Добавляем на новую позицию
 
-    bool bIsInCheckAfterMove = GameState->IsPlayerInCheck(GameState->GetCurrentTurnColor(), GameBoard);
+    bool bIsInCheckAfterMove = CurrentGS->IsPlayerInCheck(CurrentGS->GetCurrentTurnColor(), GameBoard);
 
     // --- Отменяем симулированный ход ---
-    GameState->RemovePieceFromState(PieceToMove); // Удаляем с временной новой позиции
+    CurrentGS->RemovePieceFromState(PieceToMove); // Удаляем с временной новой позиции
     PieceToMove->SetBoardPosition(OriginalPosition); // Возвращаем внутреннюю позицию фигуры
-    GameState->AddPieceToState(PieceToMove); // Добавляем обратно на исходную позицию
+    CurrentGS->AddPieceToState(PieceToMove); // Добавляем обратно на исходную позицию
     if (CapturedPiece)
     {
-        GameState->AddPieceToState(CapturedPiece); // Добавляем захваченную фигуру обратно
+        CurrentGS->AddPieceToState(CapturedPiece); // Добавляем захваченную фигуру обратно
     }
 
     if (bIsInCheckAfterMove)
@@ -248,7 +248,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d)."),
                *UEnum::GetValueAsString(CapturedPiece->GetPieceType()),
                TargetGridPosition.X, TargetGridPosition.Y);
-        GameState->RemovePieceFromState(CapturedPiece);
+        CurrentGS->RemovePieceFromState(CapturedPiece);
         CapturedPiece->OnCaptured(); // Уведомляем захваченную фигуру
         CapturedPiece->Destroy(); // Уничтожаем актора захваченной фигуры
     }
@@ -283,8 +283,8 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
 void AChessGameMode::SpawnInitialPieces()
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!GameState)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!CurrentGS)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::SpawnInitialPieces: GameState is null. Cannot spawn pieces."));
         return;
@@ -362,10 +362,10 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
     {
         NewPiece->InitializePiece(Color, Type, GridPosition);
         NewPiece->SetBoardPosition(GridPosition); // Это также обновляет его мировое положение
-        AChessGameState* GameState = GetCurrentGameState();
-        if (GameState)
+        AChessGameState* CurrentGS = GetCurrentGameState();
+        if (CurrentGS)
         {
-            GameState->AddPieceToState(NewPiece);
+            CurrentGS->AddPieceToState(NewPiece);
         }
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Spawned %s %s at (%d, %d)"),
                (Color == EPieceColor::White ? TEXT("White") : TEXT("Black")),
@@ -381,41 +381,41 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
 void AChessGameMode::CheckGameEndConditions()
 {
-    AChessGameState* GameState = GetCurrentGameState();
-    if (!GameState || !GameBoard)
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!CurrentGS || !GameBoard)
     {
         UE_LOG(LogTemp, Error, TEXT("AChessGameMode::CheckGameEndConditions: GameState or GameBoard is null."));
         return;
     }
 
-    EPieceColor CurrentTurnColor = GameState->GetCurrentTurnColor();
+    EPieceColor CurrentTurnColor = CurrentGS->GetCurrentTurnColor();
     EPieceColor OpponentColor = (CurrentTurnColor == EPieceColor::White) ? EPieceColor::Black : EPieceColor::White;
 
     // Проверяем на шах
-    if (GameState->IsPlayerInCheck(CurrentTurnColor, GameBoard))
+    if (CurrentGS->IsPlayerInCheck(CurrentTurnColor, GameBoard))
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: %s is in check."), (CurrentTurnColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
-        GameState->SetGamePhase(EGamePhase::Check);
+        CurrentGS->SetGamePhase(EGamePhase::Check);
 
         // Проверяем на мат (если текущий игрок в шахе и у него нет допустимых ходов)
-        if (GameState->IsPlayerInCheckmate(CurrentTurnColor, GameBoard))
+        if (CurrentGS->IsPlayerInCheckmate(CurrentTurnColor, GameBoard))
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Checkmate! %s wins!"), (OpponentColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
-            GameState->SetGamePhase((OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins);
+            CurrentGS->SetGamePhase((OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins);
         }
     }
     else
     {
         // Если не в шахе, проверяем на пат
-        if (GameState->IsStalemate(CurrentTurnColor, GameBoard))
+        if (CurrentGS->IsStalemate(CurrentTurnColor, GameBoard))
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Stalemate! Game is a draw."));
-            GameState->SetGamePhase(EGamePhase::Stalemate);
+            CurrentGS->SetGamePhase(EGamePhase::Stalemate);
         }
         else
         {
             // Если не в шахе и не пат, игра продолжается
-            GameState->SetGamePhase(EGamePhase::InProgress);
+            CurrentGS->SetGamePhase(EGamePhase::InProgress);
         }
     }
 }

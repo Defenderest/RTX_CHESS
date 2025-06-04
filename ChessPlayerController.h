@@ -5,8 +5,9 @@
 #include "ChessPlayerController.generated.h"
 
 // Forward declarations
-// class UInputMappingContext;
-// class UInputAction;
+class UInputMappingContext;
+class UInputAction;
+class AChessGameMode; // Forward declare AChessGameMode
 
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
@@ -20,21 +21,27 @@ protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
 
+    // Enhanced Input
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputMappingContext* ChessMappingContext;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* SelectAction;
+
+    // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    // UInputAction* MoveAction; // Assuming MoveAction might be used later
+
+    /** Handles the select action input. */
+    void HandleSelectAction();
+
 public:
     virtual void Tick(float DeltaTime) override;
+
+    /** Gets the current chess game mode. */
+    UFUNCTION(BlueprintPure, Category = "Chess Player Controller")
+    AChessGameMode* GetChessGameMode() const;
 
     // Заготовки для функций обработки ввода
     // void HandlePieceSelection();
     // void HandlePieceMove();
-
-// protected:
-    // Enhanced Input
-    // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    // UInputMappingContext* ChessMappingContext;
-
-    // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    // UInputAction* SelectAction;
-
-    // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    // UInputAction* MoveAction;
 };
