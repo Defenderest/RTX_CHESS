@@ -4,9 +4,11 @@
 #include "ChessPiece.h"               // Для AChessPiece
 #include "ChessBoard.h"               // Для AChessBoard
 #include "ChessGameMode.h"            // Для AChessGameMode
+#include "ChessPlayerCameraManager.h" // Добавляем наш новый класс менеджера камеры
 
 AChessPlayerController::AChessPlayerController()
 {
+    PlayerCameraManagerClass = AChessPlayerCameraManager::StaticClass(); // Устанавливаем наш класс по умолчанию
     bShowMouseCursor = true;
     bEnableClickEvents = true;
     bEnableMouseOverEvents = true;
