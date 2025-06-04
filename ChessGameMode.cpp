@@ -3,9 +3,9 @@
 #include "ChessGameState.h"
 #include "ChessBoard.h"
 #include "ChessPiece.h"
+#include "PawnPiece.h" // Добавлено для определения APawnPiece
 #include "EngineUtils.h" // Для TActorIterator
 #include "Engine/StaticMesh.h" // Для UStaticMesh
-// #include "PawnPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 // #include "RookPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 // #include "KingPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
 

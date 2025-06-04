@@ -1,6 +1,7 @@
 #include "ChessGameState.h"
 #include "Net/UnrealNetwork.h" // Для DOREPLIFETIME
 #include "ChessBoard.h"        // Для использования AChessBoard в логике проверки шаха/мата
+#include "PawnPiece.h"         // Добавлено для определения APawnPiece
 
 AChessGameState::AChessGameState()
 {
