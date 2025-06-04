@@ -9,6 +9,7 @@
 // Forward declarations
 class AChessBoard;
 class UStaticMeshComponent;
+class USphereComponent; // Добавляем forward declaration для USphereComponent
 class UStaticMesh;
 class UMaterialInterface; // Добавляем forward declaration для UMaterialInterface
 
@@ -57,6 +58,10 @@ protected:
     // Флаг, указывающий, совершила ли фигура свой первый ход (важно для пешек, ладей, короля)
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     bool bHasMoved;
+
+    // Компонент-сфера для основной коллизии (используется для FindTeleportSpot)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<USphereComponent> CollisionSphere;
 
     // Компонент для отображения 3D модели фигуры
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))

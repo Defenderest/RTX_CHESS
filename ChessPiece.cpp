@@ -1,6 +1,7 @@
 #include "ChessPiece.h"
 #include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
+#include "Components/SphereComponent.h" // Для USphereComponent
 #include "Engine/StaticMesh.h" // Для UStaticMesh
 #include "Materials/MaterialInterface.h" // Для UMaterialInterface
 
@@ -8,11 +9,27 @@ AChessPiece::AChessPiece()
 {
     PrimaryActorTick.bCanEverTick = false; // Фигуры обычно не тикают каждый кадр
 
+    // Создаем компонент-сферу и делаем его корневым
+    CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
+    RootComponent = CollisionSphere;
+    CollisionSphere->SetSphereRadius(40.f); // Установите подходящий радиус, например, половину размера клетки
+    CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly); // Достаточно для FindTeleportSpot
+    CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
+    // Блокировать все для корректной работы FindTeleportSpot, чтобы он мог найти свободное место
+    CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block); 
+    CollisionSphere->CanCharacterStepUpOn = ECB_No; // Персонажи не должны наступать на это
+
+    // Создаем компонент меша и прикрепляем его к сфере
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
-    RootComponent = PieceMeshComponent;
-    PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly); // Для кликов
-    PieceMeshComponent->SetCollisionObjectType(ECC_WorldDynamic);
-    PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+    PieceMeshComponent->SetupAttachment(RootComponent);
+    // Коллизия меша настраивается для кликов (трассировка видимости)
+    // и не должна мешать основной коллизии сферы для размещения.
+    PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    PieceMeshComponent->SetCollisionObjectType(ECC_Pawn); // Или другой тип, который вы используете для интерактивных объектов
+    PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+    PieceMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // Реагировать на трассировку видимости для кликов
+    PieceMeshComponent->CanCharacterStepUpOn = ECB_No;
+
 
     PieceColor = EPieceColor::White;
     TypeOfPiece = EPieceType::Pawn;
