@@ -129,20 +129,13 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Эта логика предполагает, что pivot (опорная точка) актора доски находится в ее геометрическом центре.
+    // Эта логика предполагает, что pivot (опорная точка) актора доски находится в ее углу (0,0),
+    // а сам актор размещен в мире так, чтобы доска была визуально центрирована.
     // Сначала вычисляем позицию в локальном пространстве доски.
 
-    // Общий размер доски в локальном пространстве (без учета масштаба актора)
-    const float TotalBoardWidth = BoardSize.X * TileSize;
-    const float TotalBoardHeight = BoardSize.Y * TileSize;
-
-    // Локальная позиция левого нижнего угла сетки (0,0)
-    const float StartX = -TotalBoardWidth / 2.0f;
-    const float StartY = -TotalBoardHeight / 2.0f;
-
     // Локальная позиция центра целевой клетки
-    const float LocalX = StartX + (GridPosition.X * TileSize) + (TileSize / 2.0f);
-    const float LocalY = StartY + (GridPosition.Y * TileSize) + (TileSize / 2.0f);
+    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f);
+    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f);
     const float LocalZ = PieceZOffsetOnBoard; // Смещение по Z также в локальном пространстве
 
     const FVector LocalPosition(LocalX, LocalY, LocalZ);
@@ -156,21 +149,9 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
     // Преобразуем мировую позицию в локальное пространство актора доски
     const FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Общий размер доски в локальном пространстве
-    const float TotalBoardWidth = BoardSize.X * TileSize;
-    const float TotalBoardHeight = BoardSize.Y * TileSize;
-
-    // Локальная позиция левого нижнего угла сетки
-    const float StartX = -TotalBoardWidth / 2.0f;
-    const float StartY = -TotalBoardHeight / 2.0f;
-
-    // Относительная позиция от левого нижнего угла
-    const float RelativeX = LocalPosition.X - StartX;
-    const float RelativeY = LocalPosition.Y - StartY;
-
     // Преобразуем в координаты сетки, используя оригинальный TileSize (т.к. мы в локальном пространстве)
-    int32 GridX = FMath::FloorToInt(RelativeX / TileSize);
-    int32 GridY = FMath::FloorToInt(RelativeY / TileSize);
+    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
+    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
 
     // Ограничиваем значения в пределах доски
     GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
