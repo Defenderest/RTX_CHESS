@@ -3,6 +3,7 @@
 #include "ChessGameState.h" // Потенциально необходимо для GetPieceAtGridPosition
 #include "Kismet/GameplayStatics.h" // Потенциально необходимо для GetGameState
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
+#include "DrawDebugHelpers.h" // Для отладочной отрисовки
 
 AChessBoard::AChessBoard()
 {
@@ -26,6 +27,13 @@ void AChessBoard::BeginPlay()
 void AChessBoard::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+#if WITH_EDITOR
+    if (bDrawDebugGrid)
+    {
+        DrawDebugGrid();
+    }
+#endif
 }
 
 void AChessBoard::InitializeBoard()
@@ -170,6 +178,24 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 
     return FIntPoint(GridX, GridY);
 }
+
+#if WITH_EDITOR
+void AChessBoard::DrawDebugGrid() const
+{
+    if (!GetWorld()) return;
+
+    for (int32 x = 0; x < BoardSize.X; ++x)
+    {
+        for (int32 y = 0; y < BoardSize.Y; ++y)
+        {
+            const FIntPoint GridPos(x, y);
+            const FVector WorldPos = GridToWorldPosition(GridPos);
+            // Рисуем небольшую красную сферу в центре каждой клетки
+            DrawDebugSphere(GetWorld(), WorldPos, TileSize / 8, 12, FColor::Red, false, -1.f, 0, 1.f);
+        }
+    }
+}
+#endif
 
 bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColor AttackingColor) const
 {
