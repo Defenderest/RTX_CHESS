@@ -508,7 +508,7 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
             }
             else
             {
-                // Стандартный меш из C++ также не найден или недействителен
+    
                  UE_LOG(LogTemp, Error, 
                     TEXT("AChessGameMode::SpawnPieceAtPosition: CRITICAL - StaticMesh for %s %s NOT found in Blueprint TMap AND C++ defaults are missing or invalid. Piece will have NO MESH. Check Blueprint configuration and C++ default asset paths for type '%s'."),
                     *ColorName, *TypeName, *TypeName);
