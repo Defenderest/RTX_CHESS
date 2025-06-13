@@ -121,49 +121,48 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Получаем локацию и размеры доски
-    FVector BoardLocation = GetActorLocation();
-    FVector BoardScale = GetActorScale3D();
+    // Эта логика предполагает, что pivot (опорная точка) актора доски находится в ее геометрическом центре.
+    // Сначала вычисляем позицию в локальном пространстве доски.
 
-    // Вычисляем размеры доски с учетом масштаба
-    float ScaledTileSize = TileSize * BoardScale.X;
-    float TotalBoardWidth = BoardSize.X * ScaledTileSize;
-    float TotalBoardHeight = BoardSize.Y * ScaledTileSize;
+    // Общий размер доски в локальном пространстве (без учета масштаба актора)
+    const float TotalBoardWidth = BoardSize.X * TileSize;
+    const float TotalBoardHeight = BoardSize.Y * TileSize;
 
-    // Вычисляем начальную позицию (левый нижний угол доски)
-    float StartX = BoardLocation.X - (TotalBoardWidth / 2.0f) + (ScaledTileSize / 2.0f);
-    float StartY = BoardLocation.Y - (TotalBoardHeight / 2.0f) + (ScaledTileSize / 2.0f);
+    // Локальная позиция левого нижнего угла сетки (0,0)
+    const float StartX = -TotalBoardWidth / 2.0f;
+    const float StartY = -TotalBoardHeight / 2.0f;
 
-    // Вычисляем мировую позицию центра клетки
-    float WorldX = StartX + (GridPosition.X * ScaledTileSize);
-    float WorldY = StartY + (GridPosition.Y * ScaledTileSize);
-    float WorldZ = BoardLocation.Z + PieceZOffsetOnBoard;
+    // Локальная позиция центра целевой клетки
+    const float LocalX = StartX + (GridPosition.X * TileSize) + (TileSize / 2.0f);
+    const float LocalY = StartY + (GridPosition.Y * TileSize) + (TileSize / 2.0f);
+    const float LocalZ = PieceZOffsetOnBoard; // Смещение по Z также в локальном пространстве
 
-    return FVector(WorldX, WorldY, WorldZ);
+    const FVector LocalPosition(LocalX, LocalY, LocalZ);
+
+    // Преобразуем локальную позицию в мировую, используя трансформацию актора (учитывает location, rotation, scale)
+    return GetActorTransform().TransformPosition(LocalPosition);
 }
 
 FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 {
-    // Получаем локацию и размеры доски
-    FVector BoardLocation = GetActorLocation();
-    FVector BoardScale = GetActorScale3D();
+    // Преобразуем мировую позицию в локальное пространство актора доски
+    const FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Вычисляем размеры доски с учетом масштаба
-    float ScaledTileSize = TileSize * BoardScale.X;
-    float TotalBoardWidth = BoardSize.X * ScaledTileSize;
-    float TotalBoardHeight = BoardSize.Y * ScaledTileSize;
+    // Общий размер доски в локальном пространстве
+    const float TotalBoardWidth = BoardSize.X * TileSize;
+    const float TotalBoardHeight = BoardSize.Y * TileSize;
 
-    // Вычисляем начальную позицию (левый нижний угол доски)
-    float StartX = BoardLocation.X - (TotalBoardWidth / 2.0f);
-    float StartY = BoardLocation.Y - (TotalBoardHeight / 2.0f);
+    // Локальная позиция левого нижнего угла сетки
+    const float StartX = -TotalBoardWidth / 2.0f;
+    const float StartY = -TotalBoardHeight / 2.0f;
 
-    // Вычисляем относительную позицию от начала доски
-    float RelativeX = WorldPosition.X - StartX;
-    float RelativeY = WorldPosition.Y - StartY;
+    // Относительная позиция от левого нижнего угла
+    const float RelativeX = LocalPosition.X - StartX;
+    const float RelativeY = LocalPosition.Y - StartY;
 
-    // Преобразуем в координаты сетки
-    int32 GridX = FMath::FloorToInt(RelativeX / ScaledTileSize);
-    int32 GridY = FMath::FloorToInt(RelativeY / ScaledTileSize);
+    // Преобразуем в координаты сетки, используя оригинальный TileSize (т.к. мы в локальном пространстве)
+    int32 GridX = FMath::FloorToInt(RelativeX / TileSize);
+    int32 GridY = FMath::FloorToInt(RelativeY / TileSize);
 
     // Ограничиваем значения в пределах доски
     GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
