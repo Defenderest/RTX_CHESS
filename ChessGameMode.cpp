@@ -469,7 +469,8 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
     if (NewPiece)
     {
         NewPiece->InitializePiece(Color, Type, GridPosition);
-        // NewPiece->SetBoardPosition(GridPosition); // Позиция уже установлена в InitializePiece и используется для WorldLocation при спавне
+        // После инициализации, которая могла повлиять на положение, принудительно устанавливаем правильную мировую позицию.
+        NewPiece->SetActorLocation(WorldLocation);
 
         // Устанавливаем меш для фигуры
         UStaticMesh* MeshToSet = nullptr;
