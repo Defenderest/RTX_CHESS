@@ -461,7 +461,9 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
     FVector WorldLocation = GameBoard->GridToWorldPosition(GridPosition);
-    FRotator Rotation = FRotator::ZeroRotator; // Поворот по умолчанию
+    // Белые фигуры должны быть повернуты на 180 градусов, чтобы смотреть на черных.
+    // Черные фигуры уже смотрят в правильном направлении (вперед по оси Y в локальных координатах доски).
+    const FRotator Rotation = (Color == EPieceColor::White) ? FRotator(0.f, 180.f, 0.f) : FRotator::ZeroRotator;
 
     AChessPiece* NewPiece = GetWorld()->SpawnActor<AChessPiece>(PieceClassToSpawn, WorldLocation, Rotation, SpawnParams);
     if (NewPiece)
