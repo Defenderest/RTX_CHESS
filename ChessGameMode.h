@@ -6,6 +6,14 @@
 #include "Math/IntPoint.h" // Для FIntPoint
 #include "ChessGameMode.generated.h"
 
+class UStockfishManager;
+
+UENUM(BlueprintType)
+enum class EGameModeType : uint8
+{
+    PlayerVsPlayer,
+    PlayerVsBot
+};;;;
 
 // Forward declarations
 class AChessPlayerController;
@@ -31,11 +39,14 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void StartNewGame();
 
+    UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
+    void StartBotGame();
+
     // Завершает текущий ход и передает управление следующему игроку
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void EndTurn();
 
-    // Обрабатывает клик игрока по фигуре
+    // Обрабатывает к��ик игрока по фигуре
     // ByController - контроллер игрока, который кликнул
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerController* ByController);
@@ -62,6 +73,13 @@ protected:
     // Ссылка на выбранную в данный момент фигуру
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<AChessPiece> SelectedPiece;
+
+    UPROPERTY()
+    UStockfishManager* StockfishManager;
+
+    EGameModeType CurrentGameMode;
+
+    void MakeBotMove();
 
     // Классы фигур для спавна. Устанавливаются в Blueprint или C++ конструкторе.
     UPROPERTY(EditDefaultsOnly, Category = "Chess Setup")
@@ -112,3 +130,4 @@ private:
     TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultWhitePieceMeshes;
     TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultBlackPieceMeshes;
 };
+

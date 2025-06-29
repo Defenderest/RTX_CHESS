@@ -12,17 +12,22 @@ AChessPiece::AChessPiece()
     // Создаем компонент-сферу и делаем его корневым
     CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
     RootComponent = CollisionSphere;
-    CollisionSphere->SetSphereRadius(40.f); // Установите подходящий радиус, например, половину размера клетки
-    CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly); // Достаточно для FindTeleportSpot
+    CollisionSphere->SetSphereRadius(40.f); 
+    CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
-    // Блокировать все для корректной работы FindTeleportSpot, чтобы он мог найти свободное место
     CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block); 
-    CollisionSphere->CanCharacterStepUpOn = ECB_No; // Персонажи не должны наступать на это
+    CollisionSphere->CanCharacterStepUpOn = ECB_No;
+    // Явно отключаем симуляцию физики, чтобы фигура не падала под действием гравитации.
+    CollisionSphere->SetSimulatePhysics(false);
 
     // Создаем компонент меша и прикрепляем его к сфере
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
     PieceMeshComponent->SetupAttachment(RootComponent);
-    // Коллизия меша настраивается для кликов (трассировка видимости)
+    // Устанавливаем относительное положение меша в (0,0,0), чтобы он был идеально центрирован
+    // относительно корневого компонента (CollisionSphere).
+    PieceMeshComponent->SetRelativeLocation(FVector::ZeroVector);
+    
+    // Коллизия меша настраивается для кликов (��рассировка видимости)
     // и не должна мешать основной коллизии сферы для размещения.
     PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     PieceMeshComponent->SetCollisionObjectType(ECC_Pawn); // Или другой тип, который вы используете для интерактивных объектов
@@ -40,6 +45,8 @@ AChessPiece::AChessPiece()
 void AChessPiece::BeginPlay()
 {
     Super::BeginPlay();
+    // Отладочный лог был перенесен в GameMode для большей точности,
+    // так как BeginPlay может вызываться до полной инициализации фигуры.
 }
 
 void AChessPiece::Tick(float DeltaTime)

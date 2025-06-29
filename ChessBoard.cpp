@@ -18,10 +18,42 @@ AChessBoard::AChessBoard()
     PieceZOffsetOnBoard = 5.0f;  // Небольшое смещение над доской, чтобы фигуры не проваливались
 }
 
+#include "Kismet/KismetSystemLibrary.h"
+
 void AChessBoard::BeginPlay()
 {
     Super::BeginPlay();
-    InitializeBoard(); // Инициализируем доску при начале игры
+
+    if (BoardMeshComponent)
+    {
+        // Используем GetComponentBounds для получения размеров в мировом пространстве, что учитывает масштаб актора.
+        FVector Origin;
+        FVector BoxExtent;
+        float SphereRadius;
+        UKismetSystemLibrary::GetComponentBounds(BoardMeshComponent, Origin, BoxExtent, SphereRadius);
+
+        // Полный размер компонента в мире
+        FVector ComponentSize = BoxExtent * 2.0f;
+
+        if (BoardSize.X > 0 && BoardSize.Y > 0)
+        {
+            // Предполагаем, что плоскость доски совпадает с осями X и Y компонента.
+            float CalculatedTileSizeX = ComponentSize.X / BoardSize.X;
+            float CalculatedTileSizeY = ComponentSize.Y / BoardSize.Y;
+
+            // Используем среднее значение, чтобы клетки были квадратными.
+            TileSize = (CalculatedTileSizeX + CalculatedTileSizeY) / 2.0f;
+
+            UE_LOG(LogTemp, Log, TEXT("AChessBoard: Auto-calculated TileSize = %f based on Component Bounds Size (%f, %f) and board size (%d, %d)"),
+                TileSize, ComponentSize.X, ComponentSize.Y, BoardSize.X, BoardSize.Y);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessBoard: Could not auto-calculate TileSize. BoardMeshComponent is missing. Using default value: %f"), TileSize);
+    }
+
+    InitializeBoard();
 }
 
 void AChessBoard::Tick(float DeltaTime)
@@ -38,21 +70,16 @@ void AChessBoard::Tick(float DeltaTime)
 
 void AChessBoard::InitializeBoard()
 {
-    // TODO: Реализуйте логику инициализации доски, если это необходимо
-    // Это может включать очистку существующих визуальных элементов,
-    // сброс внутреннего состояния и т.д.
-    // Пока это заглушка.
-    UE_LOG(LogTemp, Log, TEXT("AChessBoard::InitializeBoard called."));
+    UE_LOG(LogTemp, Log, TEXT("AChessBoard::InitializeBoard called. Board is ready for pieces to be spawned by GameMode."));
+    // Логика спавна фигур была перенесена в AChessGameMode::SpawnInitialPieces
+    // для централизации и гибкости.
+}
 
-    // Пример: Если бы вы использовали PieceGrid TMap:
-    // PieceGrid.Empty();
-    // for (int32 x = 0; x < BoardSize.X; ++x)
-    // {
-    //     for (int32 y = 0; y < BoardSize.Y; ++y)
-    //     {
-    //         PieceGrid.Add(FIntPoint(x,y), nullptr);
-    //     }
-    // }
+void AChessBoard::SpawnPieces()
+{
+    // Эта функция оставлена пустой и больше не используется.
+    // Логика была перенесена в AChessGameMode для централизации.
+    // Это предотвращает дублирование логики спавна.
 }
 
 FIntPoint AChessBoard::GetBoardSize() const
@@ -129,31 +156,35 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Эта логика предполагает, что pivot (опорная точка) актора доски находится в ее углу (0,0),
-    // а сам актор размещен в мире так, чтобы доска была визуально центрирована.
-    // Сначала вычисляем позицию в локальном пространстве доски.
+    // Вычисляем смещение от центра доски, предполагая, что pivot находится в центре.
+    const float HalfBoardSizeX = (BoardSize.X * TileSize) / 2.0f;
+    const float HalfBoardSizeY = (BoardSize.Y * TileSize) / 2.0f;
 
-    // Локальная позиция центра целевой клетки
-    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f);
-    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f);
-    const float LocalZ = PieceZOffsetOnBoard; // Смещение по Z также в локальном пространстве
+    // Вычисляем позицию в локальном пространстве доски.
+    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f) - HalfBoardSizeX;
+    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f) - HalfBoardSizeY;
+    const float LocalZ = PieceZOffsetOnBoard;
 
     const FVector LocalPosition(LocalX, LocalY, LocalZ);
 
-    // Преобразуем локальную позицию в мировую, используя трансформацию актора (учитывает location, rotation, scale)
+    // Преобразуем локальную позицию в мировую, используя трансформацию актора.
     return GetActorTransform().TransformPosition(LocalPosition);
 }
 
 FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
 {
-    // Преобразуем мировую позицию в локальное пространство актора доски
+    // Преобразуем мировую позицию в локальное пространство актора доски.
     const FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Преобразуем в координаты сетки, используя оригинальный TileSize (т.к. мы в локальном пространстве)
-    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
-    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
+    // Учитываем смещение pivot'а при обратном преобразовании.
+    const float HalfBoardSizeX = (BoardSize.X * TileSize) / 2.0f;
+    const float HalfBoardSizeY = (BoardSize.Y * TileSize) / 2.0f;
 
-    // Ограничиваем значения в пределах доски
+    // Преобразуем в координаты сетки.
+    int32 GridX = FMath::FloorToInt((LocalPosition.X + HalfBoardSizeX) / TileSize);
+    int32 GridY = FMath::FloorToInt((LocalPosition.Y + HalfBoardSizeY) / TileSize);
+
+    // Ограничиваем значения в пределах доски.
     GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
     GridY = FMath::Clamp(GridY, 0, BoardSize.Y - 1);
 

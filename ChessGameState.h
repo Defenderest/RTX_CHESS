@@ -119,4 +119,7 @@ public: // Changed from protected
     // Очищает данные о взятии на проходе (вызывается GameMode)
     // Должен вызываться на сервере
     void ClearEnPassantData();
+
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    FString GetFEN() const;
 };

@@ -170,7 +170,7 @@ bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessB
                 PlayerPiece->SetBoardPosition(TargetPosition);
                 AddPieceToState(PlayerPiece); // Добавляем на новую позицию
 
-                // Проверяем, останется ли игрок в шахе после этого хода
+                // Проверяем, останется ли игрок в шахе после этого ход��
                 bool bStillInCheck = IsPlayerInCheck(PlayerColor, Board);
 
                 // Отменяем симуляцию хода
@@ -236,7 +236,7 @@ bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Bo
 
                 if (!bIsInCheckAfterMove)
                 {
-                    return false; // Найден допустимый ход, который не приводит к шаху, значит это не пат
+                    return false; // Найден допустимый ход, кот��рый не приводит к шаху, значит это не пат
                 }
             }
         }
@@ -275,7 +275,7 @@ void AChessGameState::SetEnPassantData(const FIntPoint& TargetSquare, APawnPiece
     {
         EnPassantTargetSquare = TargetSquare;
         EnPassantPawnToCapture = PawnToCapture;
-        // Ручной вызов OnRep не нужен для TWeakObjectPtr или FIntPoint, если они реплицируются.
+        // Ручной вызов OnRep не ��ужен для TWeakObjectPtr или FIntPoint, если они реплицируются.
         // Однако, если клиенты должны немедленно отреагировать, можно рассмотреть OnRep функции.
         // Для FIntPoint OnRep может быть полезен, если есть визуализация EnPassantTargetSquare.
         // OnRep_EnPassantTargetSquare(); // Если бы такая функция была
@@ -296,4 +296,60 @@ void AChessGameState::ClearEnPassantData()
             // OnRep_EnPassantTargetSquare(); // Если бы такая функция была
         }
     }
+}
+
+FString AChessGameState::GetFEN() const
+{
+    FString FEN = "";
+    const int32 BoardSize = 8; // Assuming 8x8 board
+
+    for (int32 y = BoardSize - 1; y >= 0; --y)
+    {
+        int32 emptySquares = 0;
+        for (int32 x = 0; x < BoardSize; ++x)
+        {
+            AChessPiece* piece = GetPieceAtGridPosition(FIntPoint(x, y));
+            if (piece)
+            {
+                if (emptySquares > 0)
+                {
+                    FEN += FString::FromInt(emptySquares);
+                    emptySquares = 0;
+                }
+                char pieceChar = ' ';
+                switch (piece->GetPieceType())
+                {
+                case EPieceType::Pawn:   pieceChar = 'p'; break;
+                case EPieceType::Rook:   pieceChar = 'r'; break;
+                case EPieceType::Knight: pieceChar = 'n'; break;
+                case EPieceType::Bishop: pieceChar = 'b'; break;
+                case EPieceType::Queen:  pieceChar = 'q'; break;
+                case EPieceType::King:   pieceChar = 'k'; break;
+                }
+                if (piece->GetPieceColor() == EPieceColor::White)
+                {
+                    pieceChar = FChar::ToUpper(pieceChar);
+                }
+                FEN.AppendChar(pieceChar);
+            }
+            else
+            {
+                emptySquares++;
+            }
+        }
+        if (emptySquares > 0)
+        {
+            FEN += FString::FromInt(emptySquares);
+        }
+        if (y > 0)
+        {
+            FEN += "/";
+        }
+    }
+
+    FEN += " ";
+    FEN += (CurrentTurnColor == EPieceColor::White) ? "w" : "b";
+    FEN += " - - 0 1"; // Simplified FEN, no castling/en passant info
+
+    return FEN;
 }

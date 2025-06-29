@@ -3,24 +3,21 @@
 #include "ChessGameState.h"
 #include "ChessBoard.h"
 #include "ChessPiece.h"
-#include "PawnPiece.h" // Добавлено для определения APawnPiece
-#include "EngineUtils.h" // Для TActorIterator
-#include "Engine/StaticMesh.h" // Для UStaticMesh
-#include "UObject/ConstructorHelpers.h" // Для ConstructorHelpers::FObjectFinder
-// #include "RookPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
-// #include "KingPiece.h" // Больше не нужен для NotifyMoveCompleted здесь
+#include "PawnPiece.h"
+#include "EngineUtils.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
+#include "StockfishManager.h"
 
 AChessGameMode::AChessGameMode()
 {
-    PrimaryActorTick.bCanEverTick = false; // Обычно GameMode не тикает каждый кадр
+    PrimaryActorTick.bCanEverTick = false;
 
-    // Установка классов по умолчанию
-    // PlayerControllerClass = AChessPlayerController::StaticClass(); // Обычно устанавливается в Blueprints или DefaultGame.ini
-    GameStateClass = AChessGameState::StaticClass(); // Устанавливаем класс состояния игры
-    // DefaultPawnClass = nullptr; // Для шахмат игрок обычно не управляет пешкой напрямую
+    GameStateClass = AChessGameState::StaticClass();
 
-    // --- Загрузка стандартных мешей из C++ ---
-    // ВАЖНО: Замените эти пути на актуальные пути к вашим ассетам статических мешей!
+    StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
+    CurrentGameMode = EGameModeType::PlayerVsPlayer;
+
     TMap<EPieceType, FString> DefaultWhiteMeshAssetPaths;
     DefaultWhiteMeshAssetPaths.Add(EPieceType::Pawn,   TEXT("/Game/Defaults/Meshes/SM_Pawn_White.SM_Pawn_White"));
     DefaultWhiteMeshAssetPaths.Add(EPieceType::Rook,   TEXT("/Game/Defaults/Meshes/SM_Rook_White.SM_Rook_White"));
@@ -68,7 +65,6 @@ void AChessGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Дополнительное логирование для диагностики GameState
     if (GameStateClass)
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode::BeginPlay: Configured GameStateClass is: %s"), *GameStateClass->GetName());
@@ -88,8 +84,41 @@ void AChessGameMode::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::BeginPlay: GetGameState<AChessGameState>() returned NULL!"));
     }
 
-    FindGameBoard(); // Находим доску
-    StartNewGame();  // Запускаем новую игру
+    FindGameBoard();
+    // Do not start game automatically
+    // StartNewGame(); 
+}
+
+void AChessGameMode::StartBotGame()
+{
+    CurrentGameMode = EGameModeType::PlayerVsBot;
+    if (StockfishManager)
+    {
+        StockfishManager->StartEngine();
+    }
+    StartNewGame();
+}
+
+void AChessGameMode::MakeBotMove()
+{
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (CurrentGS && StockfishManager)
+    {
+        FString FEN = CurrentGS->GetFEN();
+        FString BestMove = StockfishManager->GetBestMove(FEN);
+
+        if (!BestMove.IsEmpty())
+        {
+            FIntPoint StartPos((BestMove[0] - 'a'), (BestMove[1] - '1'));
+            FIntPoint EndPos((BestMove[2] - 'a'), (BestMove[3] - '1'));
+
+            AChessPiece* PieceToMove = GameBoard->GetPieceAtGridPosition(StartPos);
+            if (PieceToMove)
+            {
+                AttemptMove(PieceToMove, EndPos, nullptr);
+            }
+        }
+    }
 }
 
 AChessGameState* AChessGameMode::GetCurrentGameState() const
@@ -99,7 +128,6 @@ AChessGameState* AChessGameMode::GetCurrentGameState() const
 
 void AChessGameMode::FindGameBoard()
 {
-    // Итерируемся по всем акторам типа AChessBoard и находим первый
     for (TActorIterator<AChessBoard> It(GetWorld()); It; ++It)
     {
         GameBoard = *It;
@@ -118,6 +146,7 @@ void AChessGameMode::FindGameBoard()
 
 void AChessGameMode::StartNewGame()
 {
+    CurrentGameMode = EGameModeType::PlayerVsPlayer;
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (!GameBoard || !CurrentGS)
     {
@@ -125,17 +154,13 @@ void AChessGameMode::StartNewGame()
         return;
     }
 
-    // Очищаем все существующие подсветки
     GameBoard->ClearAllHighlights();
 
-    // Инициализируем доску (например, очищаем все клетки)
     GameBoard->InitializeBoard();
 
-    // Спавним начальные фигуры
     SpawnInitialPieces();
 
-    // Устанавливаем начальное состояние игры
-    CurrentGS->SetCurrentTurnColor(EPieceColor::White); // Белые всегда начинают
+    CurrentGS->SetCurrentTurnColor(EPieceColor::White);
     CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: New game started. White's turn."));
@@ -149,6 +174,11 @@ void AChessGameMode::EndTurn()
         CurrentGS->Server_SwitchTurn();
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (CurrentGS->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         CheckGameEndConditions();
+
+        if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
+        {
+            MakeBotMove();
+        }
     }
     else
     {
@@ -165,17 +195,19 @@ void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerC
         return;
     }
 
-    // Если это не ход текущего игрока, или кликнутая фигура не принадлежит текущему игроку, игнорируем.
+    // Отладочный лог для проверки цвета фигуры и текущего хода
+    const FString PieceColorStr = StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(ClickedPiece->GetPieceColor()));
+    const FString TurnColorStr = StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(CurrentGS->GetCurrentTurnColor()));
+    UE_LOG(LogTemp, Log, TEXT("HandlePieceClicked: Clicked on a %s piece. Current turn is %s."), *PieceColorStr, *TurnColorStr);
+
     if (ClickedPiece->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
     {
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::HandlePieceClicked: Clicked piece does not belong to the current player."));
         return;
     }
 
-    // Если фигура уже выбрана
     if (SelectedPiece)
     {
-        // Если кликнута та же фигура, снимаем выделение
         if (SelectedPiece == ClickedPiece)
         {
             SelectedPiece->OnDeselected();
@@ -184,15 +216,14 @@ void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerC
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Deselected piece at (%d, %d)."), ClickedPiece->GetBoardPosition().X, ClickedPiece->GetBoardPosition().Y);
             return;
         }
-        else // Выбрана другая фигура, снимаем выделение со старой
+        else
         {
             SelectedPiece->OnDeselected();
             GameBoard->ClearAllHighlights();
-            SelectedPiece = nullptr; // Очищаем выбранную фигуру перед выбором новой
+            SelectedPiece = nullptr;
         }
     }
 
-    // Выбираем новую фигуру
     SelectedPiece = ClickedPiece;
     SelectedPiece->OnSelected();
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Selected %s %s at (%d, %d)."),
@@ -200,13 +231,11 @@ void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerC
            *UEnum::GetValueAsString(SelectedPiece->GetPieceType()),
            SelectedPiece->GetBoardPosition().X, SelectedPiece->GetBoardPosition().Y);
 
-    // Подсвечиваем допустимые ходы
     TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(GameBoard);
     for (const FIntPoint& Move : ValidMoves)
     {
-        GameBoard->HighlightSquare(Move, FLinearColor::Green); // Подсвечиваем допустимые ходы зеленым
+        GameBoard->HighlightSquare(Move, FLinearColor::Green);
     }
-    // Также подсвечиваем клетку выбранной фигуры
     GameBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
 }
 
@@ -219,17 +248,14 @@ void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPl
         return;
     }
 
-    // Если фигура выбрана, пытаемся ее переместить
     if (SelectedPiece)
     {
         if (AttemptMove(SelectedPiece, GridPosition, ByController))
         {
-            // Ход успешен, SelectedPiece уже очищен в AttemptMove
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Move successful to (%d, %d)."), GridPosition.X, GridPosition.Y);
         }
         else
         {
-            // Ход не удался, снимаем выделение с фигуры и очищаем подсветку
             UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: Move failed to (%d, %d). Deselecting piece."), GridPosition.X, GridPosition.Y);
             SelectedPiece->OnDeselected();
             GameBoard->ClearAllHighlights();
@@ -238,7 +264,6 @@ void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPl
     }
     else
     {
-        // Фигура не выбрана, просто очищаем подсветку, если есть
         GameBoard->ClearAllHighlights();
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Square clicked at (%d, %d) with no piece selected. Clearing highlights."), GridPosition.X, GridPosition.Y);
     }
@@ -247,23 +272,20 @@ void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPl
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
     AChessGameState* CurrentGS = GetCurrentGameState();
-    if (!PieceToMove || !GameBoard || !CurrentGS || !RequestingController)
+    if (!PieceToMove || !GameBoard || !CurrentGS)
     {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::AttemptMove: Invalid input (PieceToMove, GameBoard, GameState, or RequestingController is null)."));
+        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::AttemptMove: Invalid input (PieceToMove, GameBoard, or GameState is null)."));
         return false;
     }
 
-    // 1. Проверяем, принадлежит ли фигура текущему игроку
     if (PieceToMove->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
     {
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Piece does not belong to the current player's turn."));
         return false;
     }
 
-    // 2. Получаем допустимые ходы для фигуры
     TArray<FIntPoint> ValidMoves = PieceToMove->GetValidMoves(GameBoard);
 
-    // 3. Проверяем, является ли целевая позиция допустимым ходом
     if (!ValidMoves.Contains(TargetGridPosition))
     {
         UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Target position (%d, %d) is not a valid move for %s at (%d, %d)."),
@@ -273,28 +295,25 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         return false;
     }
 
-    // --- Симулируем ход для проверки на самошах ---
     FIntPoint OriginalPosition = PieceToMove->GetBoardPosition();
     AChessPiece* CapturedPiece = CurrentGS->GetPieceAtGridPosition(TargetGridPosition);
 
-    // Временно перемещаем фигуру
-    CurrentGS->RemovePieceFromState(PieceToMove); // Удаляем со старой позиции
+    CurrentGS->RemovePieceFromState(PieceToMove);
     if (CapturedPiece)
     {
-        CurrentGS->RemovePieceFromState(CapturedPiece); // Временно удаляем захваченную фигуру
+        CurrentGS->RemovePieceFromState(CapturedPiece);
     }
-    PieceToMove->SetBoardPosition(TargetGridPosition); // Обновляем внутреннюю позицию фигуры
-    CurrentGS->AddPieceToState(PieceToMove); // Добавляем на новую позицию
+    PieceToMove->SetBoardPosition(TargetGridPosition);
+    CurrentGS->AddPieceToState(PieceToMove);
 
     bool bIsInCheckAfterMove = CurrentGS->IsPlayerInCheck(CurrentGS->GetCurrentTurnColor(), GameBoard);
 
-    // --- Отменяем симулированный ход ---
-    CurrentGS->RemovePieceFromState(PieceToMove); // Удаляем с временной новой позиции
-    PieceToMove->SetBoardPosition(OriginalPosition); // Возвращаем внутреннюю позицию фигуры
-    CurrentGS->AddPieceToState(PieceToMove); // Добавляем обратно на исходную позицию
+    CurrentGS->RemovePieceFromState(PieceToMove);
+    PieceToMove->SetBoardPosition(OriginalPosition);
+    CurrentGS->AddPieceToState(PieceToMove);
     if (CapturedPiece)
     {
-        CurrentGS->AddPieceToState(CapturedPiece); // Добавляем захваченную фигуру обратно
+        CurrentGS->AddPieceToState(CapturedPiece);
     }
 
     if (bIsInCheckAfterMove)
@@ -303,10 +322,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         return false;
     }
 
-    // --- Выполняем фактический ход ---
-
-    // Перед выполнением хода, очистим предыдущие данные о взятии на проходе,
-    // если только этот ход сам не создает новую возможность для взятия на проходе.
     bool bIsPawnTwoStep = false;
     if (PieceToMove->GetPieceType() == EPieceType::Pawn && FMath::Abs(TargetGridPosition.Y - OriginalPosition.Y) == 2)
     {
@@ -323,20 +338,19 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
            OriginalPosition.X, OriginalPosition.Y,
            TargetGridPosition.X, TargetGridPosition.Y);
 
-    // Обработка взятия (обычного или на проходе)
-    if (CapturedPiece) // Обычное взятие
+    if (CapturedPiece)
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d)."),
                *UEnum::GetValueAsString(CapturedPiece->GetPieceType()),
                TargetGridPosition.X, TargetGridPosition.Y);
         CurrentGS->RemovePieceFromState(CapturedPiece);
-        GameBoard->ClearSquare(CapturedPiece->GetBoardPosition()); // Очищаем клетку захваченной фигуры на доске
-        CapturedPiece->OnCaptured(); // Уведомляем захваченную фигуру
-        CapturedPiece->Destroy(); // Уничтожаем актора захваченной фигуры
+        GameBoard->ClearSquare(CapturedPiece->GetBoardPosition());
+        CapturedPiece->OnCaptured();
+        CapturedPiece->Destroy();
     }
     else if (PieceToMove->GetPieceType() == EPieceType::Pawn &&
              TargetGridPosition == CurrentGS->GetEnPassantTargetSquare() &&
-             CurrentGS->GetEnPassantPawnToCapture() != nullptr) // Взятие на проходе
+             CurrentGS->GetEnPassantPawnToCapture() != nullptr)
     {
         APawnPiece* EnPassantCapturedPawn = CurrentGS->GetEnPassantPawnToCapture();
         if (EnPassantCapturedPawn)
@@ -345,26 +359,22 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
                    *UEnum::GetValueAsString(EnPassantCapturedPawn->GetPieceType()),
                    EnPassantCapturedPawn->GetBoardPosition().X, EnPassantCapturedPawn->GetBoardPosition().Y);
             CurrentGS->RemovePieceFromState(EnPassantCapturedPawn);
-            GameBoard->ClearSquare(EnPassantCapturedPawn->GetBoardPosition()); // Очищаем клетку захваченной пешки
+            GameBoard->ClearSquare(EnPassantCapturedPawn->GetBoardPosition());
             EnPassantCapturedPawn->OnCaptured();
             EnPassantCapturedPawn->Destroy();
         }
     }
 
-    // Обновляем позицию фигуры на доске и в состоянии игры
-    GameBoard->ClearSquare(OriginalPosition); // Очищаем старую клетку на доске
+    GameBoard->ClearSquare(OriginalPosition);
     PieceToMove->SetBoardPosition(TargetGridPosition); 
     
-    // Обновляем мировое положение актора фигуры
     FVector NewWorldLocation = GameBoard->GridToWorldPosition(TargetGridPosition);
     PieceToMove->SetActorLocation(NewWorldLocation);
     
-    GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition); // Обновляем ссылку на доске
+    GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition);
 
-    // Уведомляем фигуру о завершении хода (для флагов первого хода пешки/ладьи/короля)
     PieceToMove->NotifyMoveCompleted();
 
-    // Если это был двойной ход пешки, устанавливаем данные для взятия на проходе
     if (bIsPawnTwoStep)
     {
         APawnPiece* MovedPawn = Cast<APawnPiece>(PieceToMove);
@@ -378,11 +388,10 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         }
     }
 
-    // Очищаем подсветку после успешного хода
     GameBoard->ClearAllHighlights();
-    SelectedPiece = nullptr; // Снимаем выделение с фигуры
+    SelectedPiece = nullptr;
 
-    EndTurn(); // Переключаем ход и проверяем условия окончания игры
+    EndTurn();
 
     return true;
 }
@@ -390,41 +399,64 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 void AChessGameMode::SpawnInitialPieces()
 {
     AChessGameState* CurrentGS = GetCurrentGameState();
-    if (!CurrentGS)
+    if (!CurrentGS || !GameBoard)
     {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::SpawnInitialPieces: GameState is null. Cannot spawn pieces."));
+        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::SpawnInitialPieces: GameState or GameBoard is null. Cannot spawn pieces."));
         return;
     }
 
-    // Белые фигуры
-    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::White, FIntPoint(0, 0));
-    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::White, FIntPoint(1, 0));
-    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::White, FIntPoint(2, 0));
-    SpawnPieceAtPosition(EPieceType::Queen, EPieceColor::White, FIntPoint(3, 0));
-    SpawnPieceAtPosition(EPieceType::King, EPieceColor::White, FIntPoint(4, 0));
-    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::White, FIntPoint(5, 0));
-    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::White, FIntPoint(6, 0));
-    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::White, FIntPoint(7, 0));
-    for (int32 i = 0; i < 8; ++i)
+    // Очищаем все существующие фигуры перед спавном новых
+    for (AChessPiece* Piece : CurrentGS->ActivePieces)
+    {
+        if (Piece)
+        {
+            Piece->Destroy();
+        }
+    }
+    CurrentGS->ActivePieces.Empty();
+
+    const FIntPoint BoardSize = GameBoard->GetBoardSize();
+    const int32 LastRow = BoardSize.Y - 1;
+    const int32 SecondToLastRow = BoardSize.Y - 2;
+
+    // Расставляем пешки
+    for (int32 i = 0; i < BoardSize.X; ++i)
     {
         SpawnPieceAtPosition(EPieceType::Pawn, EPieceColor::White, FIntPoint(i, 1));
+        SpawnPieceAtPosition(EPieceType::Pawn, EPieceColor::Black, FIntPoint(i, SecondToLastRow));
     }
 
-    // Черные фигуры
-    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::Black, FIntPoint(0, 7));
-    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::Black, FIntPoint(1, 7));
-    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::Black, FIntPoint(2, 7));
-    SpawnPieceAtPosition(EPieceType::Queen, EPieceColor::Black, FIntPoint(3, 7));
-    SpawnPieceAtPosition(EPieceType::King, EPieceColor::Black, FIntPoint(4, 7));
-    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::Black, FIntPoint(5, 7));
-    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::Black, FIntPoint(6, 7));
-    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::Black, FIntPoint(7, 7));
-    for (int32 i = 0; i < 8; ++i)
-    {
-        SpawnPieceAtPosition(EPieceType::Pawn, EPieceColor::Black, FIntPoint(i, 6));
-    }
+    // Расставляем основные фигуры симметрично
+    // Ладьи
+    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::White, FIntPoint(0, 0));
+    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::White, FIntPoint(BoardSize.X - 1, 0));
+    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::Black, FIntPoint(0, LastRow));
+    SpawnPieceAtPosition(EPieceType::Rook, EPieceColor::Black, FIntPoint(BoardSize.X - 1, LastRow));
 
-    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Initial pieces spawned."));
+    // Кони
+    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::White, FIntPoint(1, 0));
+    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::White, FIntPoint(BoardSize.X - 2, 0));
+    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::Black, FIntPoint(1, LastRow));
+    SpawnPieceAtPosition(EPieceType::Knight, EPieceColor::Black, FIntPoint(BoardSize.X - 2, LastRow));
+
+    // Слоны
+    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::White, FIntPoint(2, 0));
+    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::White, FIntPoint(BoardSize.X - 3, 0));
+    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::Black, FIntPoint(2, LastRow));
+    SpawnPieceAtPosition(EPieceType::Bishop, EPieceColor::Black, FIntPoint(BoardSize.X - 3, LastRow));
+
+    // Ферзь и Король
+    // Для стандартной доски 8x8, король на E, ферзь на D.
+    // Для досок другого размера, размещаем их по центру.
+    const int32 KingPositionX = FMath::FloorToInt(BoardSize.X / 2.0f);
+    const int32 QueenPositionX = KingPositionX - 1;
+
+    SpawnPieceAtPosition(EPieceType::Queen, EPieceColor::White, FIntPoint(QueenPositionX, 0));
+    SpawnPieceAtPosition(EPieceType::King, EPieceColor::White, FIntPoint(KingPositionX, 0));
+    SpawnPieceAtPosition(EPieceType::Queen, EPieceColor::Black, FIntPoint(QueenPositionX, LastRow));
+    SpawnPieceAtPosition(EPieceType::King, EPieceColor::Black, FIntPoint(KingPositionX, LastRow));
+
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Initial pieces spawned dynamically for a %dx%d board."), BoardSize.X, BoardSize.Y);
 }
 
 AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor Color, const FIntPoint& GridPosition)
@@ -461,18 +493,32 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
     FVector WorldLocation = GameBoard->GridToWorldPosition(GridPosition);
-    // Белые фигуры должны быть повернуты на 180 градусов, чтобы смотреть на черных.
-    // Черные фигуры уже смотрят в правильном направлении (вперед по оси Y в локальных координатах доски).
     const FRotator Rotation = (Color == EPieceColor::White) ? FRotator(0.f, 180.f, 0.f) : FRotator::ZeroRotator;
 
-    AChessPiece* NewPiece = GetWorld()->SpawnActor<AChessPiece>(PieceClassToSpawn, WorldLocation, Rotation, SpawnParams);
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Attempting to spawn %s %s at Grid (%d, %d) -> World (X=%.2f, Y=%.2f, Z=%.2f)"),
+        *StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(Color)),
+        *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Type)),
+        GridPosition.X, GridPosition.Y,
+        WorldLocation.X, WorldLocation.Y, WorldLocation.Z);
+
+    // Спавним актора в (0,0,0), чтобы избежать смещений из-за коллизии при спавне,
+    // а затем принудительно перемещаем его в нужную точку.
+    AChessPiece* NewPiece = GetWorld()->SpawnActor<AChessPiece>(PieceClassToSpawn, FVector::ZeroVector, Rotation, SpawnParams);
     if (NewPiece)
     {
         NewPiece->InitializePiece(Color, Type, GridPosition);
-        // После инициализации, которая могла повлиять на положение, принудительно устанавливаем правильную мировую позицию.
-        NewPiece->SetActorLocation(WorldLocation);
+        
+        // Принудительно устанавливаем позицию ПОСЛЕ инициализации.
+        NewPiece->SetActorLocation(WorldLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
-        // Устанавливаем меш для фигуры
+        // Финальный отладочный лог для проверки фактического положения после всех манипуляций.
+        const FVector FinalActorLocation = NewPiece->GetActorLocation();
+        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: %s %s spawned and placed at Grid (%d, %d). Final World Location: (X=%.2f, Y=%.2f, Z=%.2f)"),
+            *StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(Color)),
+            *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Type)),
+            GridPosition.X, GridPosition.Y,
+            FinalActorLocation.X, FinalActorLocation.Y, FinalActorLocation.Z);
+
         UStaticMesh* MeshToSet = nullptr;
         const TMap<EPieceType, TObjectPtr<UStaticMesh>>* BlueprintMeshesMap = (Color == EPieceColor::White) ? &WhitePieceMeshes : &BlackPieceMeshes;
         const TMap<EPieceType, TObjectPtr<UStaticMesh>>* InternalDefaultMeshesMap = (Color == EPieceColor::White) ? &CppDefaultWhitePieceMeshes : &CppDefaultBlackPieceMeshes;
@@ -482,27 +528,25 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         const TObjectPtr<UStaticMesh>* FoundBlueprintMeshEntry = BlueprintMeshesMap->Find(Type);
 
-        if (FoundBlueprintMeshEntry && *FoundBlueprintMeshEntry) // Найден в Blueprint и указывает на валидный меш
+        if (FoundBlueprintMeshEntry && *FoundBlueprintMeshEntry)
         {
             MeshToSet = FoundBlueprintMeshEntry->Get();
-            // UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using Blueprint-configured StaticMesh for %s %s."), *ColorName, *TypeName);
         }
-        else // Не найден в Blueprint, или найден, но указатель на меш нулевой
+        else
         {
-            if (FoundBlueprintMeshEntry) // Ключ был в карте Blueprint, но TObjectPtr был null
+            if (FoundBlueprintMeshEntry)
             {
                  UE_LOG(LogTemp, Warning,
                     TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is configured in GameMode Blueprint's TMap, but the entry is NULL. Attempting to use C++ default."),
                     *ColorName, *TypeName);
             }
-            else // Ключ не был найден в карте Blueprint
+            else
             {
                 UE_LOG(LogTemp, Log, 
                     TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is NOT configured in GameMode Blueprint's TMap. Attempting to use C++ default."),
                     *ColorName, *TypeName);
             }
 
-            // Пытаемся использовать стандартные меши из C++
             const TObjectPtr<UStaticMesh>* FoundInternalMeshEntry = InternalDefaultMeshesMap->Find(Type);
             if (FoundInternalMeshEntry && *FoundInternalMeshEntry)
             {
@@ -522,7 +566,6 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
         {
             NewPiece->SetPieceMesh(MeshToSet);
         }
-        // else: Ошибка об отсутствии меша уже залогирована выше.
         
         AChessGameState* CurrentGS = GetCurrentGameState();
         if (CurrentGS)
@@ -553,13 +596,11 @@ void AChessGameMode::CheckGameEndConditions()
     EPieceColor CurrentTurnColor = CurrentGS->GetCurrentTurnColor();
     EPieceColor OpponentColor = (CurrentTurnColor == EPieceColor::White) ? EPieceColor::Black : EPieceColor::White;
 
-    // Проверяем на шах
     if (CurrentGS->IsPlayerInCheck(CurrentTurnColor, GameBoard))
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: %s is in check."), (CurrentTurnColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         CurrentGS->SetGamePhase(EGamePhase::Check);
 
-        // Проверяем на мат (если текущий игрок в шахе и у него нет допустимых ходов)
         if (CurrentGS->IsPlayerInCheckmate(CurrentTurnColor, GameBoard))
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Checkmate! %s wins!"), (OpponentColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
@@ -568,7 +609,6 @@ void AChessGameMode::CheckGameEndConditions()
     }
     else
     {
-        // Если не в шахе, проверяем на пат
         if (CurrentGS->IsStalemate(CurrentTurnColor, GameBoard))
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Stalemate! Game is a draw."));
@@ -576,7 +616,6 @@ void AChessGameMode::CheckGameEndConditions()
         }
         else
         {
-            // Если не в шахе и не пат, игра продолжается
             CurrentGS->SetGamePhase(EGamePhase::InProgress);
         }
     }

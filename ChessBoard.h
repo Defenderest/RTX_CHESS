@@ -33,6 +33,8 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Board Setup")
     float PieceZOffsetOnBoard;
 
+    // так как спавн теперь полностью контролируется GameMode.
+
 public:
     virtual void Tick(float DeltaTime) override;
 
@@ -42,9 +44,16 @@ public:
     bool bDrawDebugGrid = true;
 #endif
 
-    // Инициализирует доску, создает визуальное представление клеток (если необходимо)
+    // Инициализирует доску. Теперь эта функция в основном готовит доску
+    // и ждет, пока GameMode расставит фигуры.
     UFUNCTION(BlueprintCallable, Category = "Chess Board")
     virtual void InitializeBoard();
+
+    // Спавнит начальные фигуры на доске.
+    // Эта функция теперь пуста и оставлена для обратной совместимости, если где-то вызывается.
+    // Основная логика перенесена в AChessGameMode.
+    UFUNCTION(BlueprintCallable, Category = "Chess Board", meta=(DeprecatedFunction, DeprecationMessage="Use GameMode's SpawnInitialPieces instead"))
+    virtual void SpawnPieces();
 
     // Возвращает размеры доски (количество клеток по X и Y)
     UFUNCTION(BlueprintPure, Category = "Chess Board")
@@ -55,14 +64,10 @@ public:
     bool IsValidGridPosition(const FIntPoint& GridPosition) const;
 
     // Возвращает фигуру, находящуюся в указанной клетке доски.
-    // Может потребоваться взаимодействие с GameState или хранение ссылок на фигуры.
-    // Для упрощения, эта функция может быть реализована в GameState, а Board будет ее вызывать.
-    // Либо Board может хранить свою сетку ссылок на фигуры.
     UFUNCTION(BlueprintPure, Category = "Chess Board")
     AChessPiece* GetPieceAtGridPosition(const FIntPoint& GridPosition) const;
 
     // Устанавливает фигуру на указанную клетку доски.
-    // Может включать обновление внутреннего представления доски.
     UFUNCTION(BlueprintCallable, Category = "Chess Board")
     void SetPieceAtGridPosition(AChessPiece* Piece, const FIntPoint& GridPosition);
 
@@ -94,17 +99,12 @@ public:
     bool IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColor AttackingColor) const;
 
 protected:
-    // Может хранить ссылки на фигуры на доске для быстрого доступа, если не используется GameState для этого.
-    // TMap<FIntPoint, TWeakObjectPtr<AChessPiece>> PieceGrid; 
-    // TWeakObjectPtr используется для избежания циклических ссылок, если фигуры также хранят ссылку на доску.
-
-#if WITH_EDITOR
-    // Рисует отладочную сетку в редакторе или во время игры
-    void DrawDebugGrid() const;
-#endif
-
-protected:
     // Компонент для отображения 3D модели доски
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> BoardMeshComponent;
+
+#if WITH_EDITOR
+    // Отладочная функция для отрисовки сетки
+    void DrawDebugGrid() const;
+#endif
 };
