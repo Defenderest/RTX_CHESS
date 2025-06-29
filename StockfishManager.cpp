@@ -59,15 +59,19 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
 {
     if (!ProcessHandle.IsValid())
     {
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Cannot get best move, process is not valid."));
         return TEXT("");
     }
 
     FString Command = FString::Printf(TEXT("position fen %s\ngo movetime 1000\n"), *FEN);
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending command to Stockfish: %s"), *Command.Replace(TEXT("\n"), TEXT(" ")));
+
     FPlatformProcess::WritePipe(WritePipe, (uint8*)TCHAR_TO_ANSI(*Command), Command.Len());
 
     FPlatformProcess::Sleep(1.1f); // Wait for stockfish to think
 
     FString Output = FPlatformProcess::ReadPipe(ReadPipe);
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received output:\n%s"), *Output);
     
     TArray<FString> Lines;
     Output.ParseIntoArray(Lines, TEXT("\n"), true);
@@ -80,10 +84,12 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
             Line.ParseIntoArray(Parts, TEXT(" "), true);
             if (Parts.Num() > 1)
             {
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Parsed best move: %s"), *Parts[1]);
                 return Parts[1];
             }
         }
     }
 
+    UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Could not find 'bestmove' in Stockfish output."));
     return TEXT("");
 }

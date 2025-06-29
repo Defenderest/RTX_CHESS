@@ -13,7 +13,7 @@ enum class EGameModeType : uint8
 {
     PlayerVsPlayer,
     PlayerVsBot
-};;;;
+};
 
 // Forward declarations
 class AChessPlayerController;
@@ -95,11 +95,12 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Chess Setup")
     TSubclassOf<AChessPiece> KingClass;
 
-    // Меши для фигур
-    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes")
+    // Меши для фигур, настраиваемые в Blueprint.
+    // Если здесь не указан меш для какого-либо типа фигуры, будет использован стандартный меш из C++.
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes", meta=(DisplayName="White Piece Meshes (Blueprint)"))
     TMap<EPieceType, TObjectPtr<UStaticMesh>> WhitePieceMeshes;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes")
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Meshes", meta=(DisplayName="Black Piece Meshes (Blueprint)"))
     TMap<EPieceType, TObjectPtr<UStaticMesh>> BlackPieceMeshes;
 
     // Расставляет фигуры на доске в начальные позиции
@@ -124,10 +125,5 @@ protected:
 private:
     // Вспомогательная функция для получения ChessGameState с проверкой типа
     AChessGameState* GetCurrentGameState() const;
-
-    // Внутренние карты для стандартных мешей, загружаемых из C++
-    // Используются как fallback, если меши не настроены в Blueprint
-    TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultWhitePieceMeshes;
-    TMap<EPieceType, TObjectPtr<UStaticMesh>> CppDefaultBlackPieceMeshes;
 };
 

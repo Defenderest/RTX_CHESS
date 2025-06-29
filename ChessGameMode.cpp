@@ -8,6 +8,8 @@
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 #include "StockfishManager.h"
+#include "ChessPlayerCameraManager.h"
+#include "Kismet/GameplayStatics.h"
 
 AChessGameMode::AChessGameMode()
 {
@@ -17,48 +19,6 @@ AChessGameMode::AChessGameMode()
 
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
-
-    TMap<EPieceType, FString> DefaultWhiteMeshAssetPaths;
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::Pawn,   TEXT("/Game/Defaults/Meshes/SM_Pawn_White.SM_Pawn_White"));
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::Rook,   TEXT("/Game/Defaults/Meshes/SM_Rook_White.SM_Rook_White"));
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::Knight, TEXT("/Game/Defaults/Meshes/SM_Knight_White.SM_Knight_White"));
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::Bishop, TEXT("/Game/Defaults/Meshes/SM_Bishop_White.SM_Bishop_White"));
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::Queen,  TEXT("/Game/Defaults/Meshes/SM_Queen_White.SM_Queen_White"));
-    DefaultWhiteMeshAssetPaths.Add(EPieceType::King,   TEXT("/Game/Defaults/Meshes/SM_King_White.SM_King_White"));
-
-    for (const auto& Pair : DefaultWhiteMeshAssetPaths)
-    {
-        ConstructorHelpers::FObjectFinder<UStaticMesh> MeshFinder(*Pair.Value);
-        if (MeshFinder.Succeeded())
-        {
-            CppDefaultWhitePieceMeshes.Add(Pair.Key, MeshFinder.Object);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode Constructor: Failed to find C++ default WHITE %s static mesh at path: %s. Ensure this asset exists."), *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Pair.Key)), *Pair.Value);
-        }
-    }
-
-    TMap<EPieceType, FString> DefaultBlackMeshAssetPaths;
-    DefaultBlackMeshAssetPaths.Add(EPieceType::Pawn,   TEXT("/Game/Defaults/Meshes/SM_Pawn_Black.SM_Pawn_Black"));
-    DefaultBlackMeshAssetPaths.Add(EPieceType::Rook,   TEXT("/Game/Defaults/Meshes/SM_Rook_Black.SM_Rook_Black"));
-    DefaultBlackMeshAssetPaths.Add(EPieceType::Knight, TEXT("/Game/Defaults/Meshes/SM_Knight_Black.SM_Knight_Black"));
-    DefaultBlackMeshAssetPaths.Add(EPieceType::Bishop, TEXT("/Game/Defaults/Meshes/SM_Bishop_Black.SM_Bishop_Black"));
-    DefaultBlackMeshAssetPaths.Add(EPieceType::Queen,  TEXT("/Game/Defaults/Meshes/SM_Queen_Black.SM_Queen_Black"));
-    DefaultBlackMeshAssetPaths.Add(EPieceType::King,   TEXT("/Game/Defaults/Meshes/SM_King_Black.SM_King_Black"));
-
-    for (const auto& Pair : DefaultBlackMeshAssetPaths)
-    {
-        ConstructorHelpers::FObjectFinder<UStaticMesh> MeshFinder(*Pair.Value);
-        if (MeshFinder.Succeeded())
-        {
-            CppDefaultBlackPieceMeshes.Add(Pair.Key, MeshFinder.Object);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode Constructor: Failed to find C++ default BLACK %s static mesh at path: %s. Ensure this asset exists."), *StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Pair.Key)), *Pair.Value);
-        }
-    }
 }
 
 void AChessGameMode::BeginPlay()
@@ -104,11 +64,13 @@ void AChessGameMode::MakeBotMove()
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (CurrentGS && StockfishManager)
     {
+        UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Requesting bot move."));
         FString FEN = CurrentGS->GetFEN();
         FString BestMove = StockfishManager->GetBestMove(FEN);
 
         if (!BestMove.IsEmpty())
         {
+            UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Bot suggests move: %s"), *BestMove);
             FIntPoint StartPos((BestMove[0] - 'a'), (BestMove[1] - '1'));
             FIntPoint EndPos((BestMove[2] - 'a'), (BestMove[3] - '1'));
 
@@ -117,6 +79,14 @@ void AChessGameMode::MakeBotMove()
             {
                 AttemptMove(PieceToMove, EndPos, nullptr);
             }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move involves a non-existent piece at %s."), *StartPos.ToString());
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("ChessGameMode: Bot did not return a valid move."));
         }
     }
 }
@@ -166,6 +136,9 @@ void AChessGameMode::StartNewGame()
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: New game started. White's turn."));
 }
 
+#include "ChessPlayerCameraManager.h"
+#include "Kismet/GameplayStatics.h"
+
 void AChessGameMode::EndTurn()
 {
     AChessGameState* CurrentGS = GetCurrentGameState();
@@ -173,6 +146,16 @@ void AChessGameMode::EndTurn()
     {
         CurrentGS->Server_SwitchTurn();
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (CurrentGS->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
+        
+        // Переключаем камеру на перспективу текущего игрока
+        if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+        {
+            if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PC->PlayerCameraManager))
+            {
+                CamManager->SwitchToPlayerPerspective(CurrentGS->GetCurrentTurnColor());
+            }
+        }
+
         CheckGameEndConditions();
 
         if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
@@ -521,7 +504,6 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         UStaticMesh* MeshToSet = nullptr;
         const TMap<EPieceType, TObjectPtr<UStaticMesh>>* BlueprintMeshesMap = (Color == EPieceColor::White) ? &WhitePieceMeshes : &BlackPieceMeshes;
-        const TMap<EPieceType, TObjectPtr<UStaticMesh>>* InternalDefaultMeshesMap = (Color == EPieceColor::White) ? &CppDefaultWhitePieceMeshes : &CppDefaultBlackPieceMeshes;
 
         const FString ColorName = (Color == EPieceColor::White ? TEXT("White") : TEXT("Black"));
         const FString TypeName = StaticEnum<EPieceType>()->GetNameStringByValue(static_cast<int64>(Type));
@@ -530,36 +512,13 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
 
         if (FoundBlueprintMeshEntry && *FoundBlueprintMeshEntry)
         {
-            MeshToSet = FoundBlueprintMeshEntry->Get();
+            MeshToSet = (*FoundBlueprintMeshEntry).Get();
         }
         else
         {
-            if (FoundBlueprintMeshEntry)
-            {
-                 UE_LOG(LogTemp, Warning,
-                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is configured in GameMode Blueprint's TMap, but the entry is NULL. Attempting to use C++ default."),
-                    *ColorName, *TypeName);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Log, 
-                    TEXT("AChessGameMode::SpawnPieceAtPosition: StaticMesh for %s %s is NOT configured in GameMode Blueprint's TMap. Attempting to use C++ default."),
-                    *ColorName, *TypeName);
-            }
-
-            const TObjectPtr<UStaticMesh>* FoundInternalMeshEntry = InternalDefaultMeshesMap->Find(Type);
-            if (FoundInternalMeshEntry && *FoundInternalMeshEntry)
-            {
-                MeshToSet = FoundInternalMeshEntry->Get();
-                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::SpawnPieceAtPosition: Using C++ default StaticMesh for %s %s."), *ColorName, *TypeName);
-            }
-            else
-            {
-    
-                 UE_LOG(LogTemp, Error, 
-                    TEXT("AChessGameMode::SpawnPieceAtPosition: CRITICAL - StaticMesh for %s %s NOT found in Blueprint TMap AND C++ defaults are missing or invalid. Piece will have NO MESH. Check Blueprint configuration and C++ default asset paths for type '%s'."),
-                    *ColorName, *TypeName, *TypeName);
-            }
+            UE_LOG(LogTemp, Error, 
+                TEXT("AChessGameMode::SpawnPieceAtPosition: CRITICAL - StaticMesh for %s %s is NOT configured in the GameMode Blueprint. Piece will have NO MESH. Please configure it in the 'Chess Setup|Meshes' section."),
+                *ColorName, *TypeName);
         }
 
         if (MeshToSet)

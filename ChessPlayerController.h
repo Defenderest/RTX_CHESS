@@ -7,7 +7,8 @@
 // Forward declarations
 class UInputMappingContext;
 class UInputAction;
-class AChessGameMode; // Forward declare AChessGameMode
+class AChessGameMode;
+class UStartMenuWidget; // Forward declare StartMenuWidget
 
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
@@ -17,9 +18,14 @@ class RTX_CHESS_API AChessPlayerController : public APlayerController
 public:
     AChessPlayerController();
 
+    void ShowStartMenu();
+
 protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UStartMenuWidget> StartMenuWidgetClass;
 
     // Enhanced Input
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
@@ -29,22 +35,17 @@ protected:
     UInputAction* SelectAction;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
-    UInputAction* LookUpAction; // Для вращения камеры вверх/вниз
-
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
-    UInputAction* LookRightAction; // Для вращения камеры влево/вправо
-
-    // UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
-    // UInputAction* MoveAction; // Assuming MoveAction might be used later
+    UInputAction* LookAction; // Для вращения камеры
 
     /** Handles the select action input. */
     void HandleSelectAction();
 
-    /** Handles looking up/down. */
-    void HandleLookUp(const struct FInputActionValue& Value);
+    /** Handles camera look. */
+    void HandleLook(const struct FInputActionValue& Value);
 
-    /** Handles looking left/right. */
-    void HandleLookRight(const struct FInputActionValue& Value);
+private:
+    UPROPERTY()
+    UStartMenuWidget* StartMenuWidgetInstance;
 
 public:
     virtual void Tick(float DeltaTime) override;
@@ -57,3 +58,4 @@ public:
     // void HandlePieceSelection();
     // void HandlePieceMove();
 };
+

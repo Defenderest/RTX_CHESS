@@ -9,10 +9,10 @@
 // Forward declarations
 class AChessBoard;
 class UStaticMeshComponent;
-class USphereComponent; // Добавляем forward declaration для USphereComponent
+class USphereComponent;
 class UStaticMesh;
-class UMaterialInterface; // Добавляем forward declaration для UMaterialInterface
-
+class UMaterialInterface;
+class UDecalComponent; // Добавляем forward declaration для UDecalComponent
 
 UENUM(BlueprintType)
 enum class EPieceColor : uint8
@@ -66,6 +66,10 @@ protected:
     // Компонент для отображения 3D модели фигуры
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
+
+    // Компонент для отображения декали выделения под фигурой
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UDecalComponent> SelectionDecalComponent;
 
     // Материал для белых фигур
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Chess Piece|Materials", meta = (AllowPrivateAccess = "true"))

@@ -1,7 +1,44 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessPiece.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessBoard.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessBoard.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\RookPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:RookPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\QueenPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:QueenPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\PawnPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:PawnPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameMode.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessGameMode.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessGameState.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessPiece.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:ChessGameState.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -9,7 +46,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": -1,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -18,6 +55,127 @@
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ChessPiece.h",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.h",
+              "RelativeDocumentMoniker": "ChessPiece.h",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.h",
+              "RelativeToolTip": "ChessPiece.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-06-04T13:46:33.34Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ChessBoard.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessBoard.cpp",
+              "RelativeDocumentMoniker": "ChessBoard.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessBoard.cpp",
+              "RelativeToolTip": "ChessBoard.cpp",
+              "ViewState": "AgIAAMMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:43:25.566Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "RookPiece.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\RookPiece.cpp",
+              "RelativeDocumentMoniker": "RookPiece.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\RookPiece.cpp",
+              "RelativeToolTip": "RookPiece.cpp",
+              "ViewState": "AgIAAEkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:43:22.636Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "QueenPiece.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\QueenPiece.cpp",
+              "RelativeDocumentMoniker": "QueenPiece.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\QueenPiece.cpp",
+              "RelativeToolTip": "QueenPiece.cpp",
+              "ViewState": "AgIAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:43:18.851Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "PawnPiece.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\PawnPiece.cpp",
+              "RelativeDocumentMoniker": "PawnPiece.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\PawnPiece.cpp",
+              "RelativeToolTip": "PawnPiece.cpp",
+              "ViewState": "AgIAAE4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:43:16.238Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "ChessGameMode.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameMode.cpp",
+              "RelativeDocumentMoniker": "ChessGameMode.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameMode.cpp",
+              "RelativeToolTip": "ChessGameMode.cpp",
+              "ViewState": "AgIAAHMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:42:03.166Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "ChessGameState.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.cpp",
+              "RelativeDocumentMoniker": "ChessGameState.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.cpp",
+              "RelativeToolTip": "ChessGameState.cpp",
+              "ViewState": "AgIAAP0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:41:58.53Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "ChessPiece.cpp",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.cpp",
+              "RelativeDocumentMoniker": "ChessPiece.cpp",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessPiece.cpp",
+              "RelativeToolTip": "ChessPiece.cpp",
+              "ViewState": "AgIAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-04T13:41:51.87Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "ChessGameState.h",
+              "DocumentMoniker": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.h",
+              "RelativeDocumentMoniker": "ChessGameState.h",
+              "ToolTip": "E:\\projectsgames\\RTX_CHESS\\Source\\RTX_CHESS\\ChessGameState.h",
+              "RelativeToolTip": "ChessGameState.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-06-04T13:41:51.021Z",
+              "EditorCaption": ""
             }
           ]
         }

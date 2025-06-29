@@ -6,6 +6,8 @@
 #include "ChessBoard.h"               // Для AChessBoard
 #include "ChessGameMode.h"            // Для AChessGameMode
 #include "ChessPlayerCameraManager.h" // Добавляем наш новый класс менеджера камеры
+#include "StartMenuWidget.h"          // Включаем заголовок нашего виджета
+#include "Blueprint/UserWidget.h"     // Для CreateWidget
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -32,23 +34,44 @@ void AChessPlayerController::BeginPlay()
             UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: ChessMappingContext is not set!"));
         }
     }
+
+    ShowStartMenu();
 }
 
-void AChessPlayerController::HandleLookUp(const FInputActionValue& Value)
+void AChessPlayerController::ShowStartMenu()
 {
-    const float LookAxisValue = Value.Get<float>();
-    if (LookAxisValue != 0.f)
+    if (StartMenuWidgetClass)
     {
-        AddPitchInput(LookAxisValue);
+        if (!StartMenuWidgetInstance)
+        {
+            StartMenuWidgetInstance = CreateWidget<UStartMenuWidget>(this, StartMenuWidgetClass);
+        }
+
+        if (StartMenuWidgetInstance)
+        {
+            StartMenuWidgetInstance->AddToViewport();
+            bShowMouseCursor = true;
+            SetInputMode(FInputModeUIOnly());
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("StartMenuWidgetClass is not set in the PlayerController Blueprint."));
     }
 }
 
-void AChessPlayerController::HandleLookRight(const FInputActionValue& Value)
+void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
-    const float LookAxisValue = Value.Get<float>();
-    if (LookAxisValue != 0.f)
+    const FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+    if (LookAxisVector.Y != 0.f)
     {
-        AddYawInput(LookAxisValue);
+        AddPitchInput(LookAxisVector.Y);
+    }
+
+    if (LookAxisVector.X != 0.f)
+    {
+        AddYawInput(LookAxisVector.X);
     }
 }
 
@@ -69,24 +92,14 @@ void AChessPlayerController::SetupInputComponent()
             UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: SelectAction is not set!"));
         }
 
-        if (LookUpAction)
+        if (LookAction)
         {
-            EnhancedInput->BindAction(LookUpAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLookUp);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookUpAction bound."));
+            EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLook);
+            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookAction bound."));
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookUpAction is not set!"));
-        }
-
-        if (LookRightAction)
-        {
-            EnhancedInput->BindAction(LookRightAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLookRight);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookRightAction bound."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookRightAction is not set!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookAction is not set!"));
         }
     }
     else
