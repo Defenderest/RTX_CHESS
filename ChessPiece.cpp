@@ -15,7 +15,8 @@ AChessPiece::AChessPiece()
     CollisionSphere->SetSphereRadius(40.f); 
     CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
-    CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block); 
+    // Сфера не должна блокировать клики. Трассировка должна проходить сквозь нее до меша.
+    CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
     CollisionSphere->CanCharacterStepUpOn = ECB_No;
     // Явно отключаем симуляцию физики, чтобы фигура не падала под действием гравитации.
     CollisionSphere->SetSimulatePhysics(false);
