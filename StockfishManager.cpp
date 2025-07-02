@@ -249,9 +249,10 @@ uint32 FStockfishTask::Run()
         return 1;
     }
 
-    // DEBUG: Temporarily disabling pipe handle closing to test a theory that it causes the child process to exit.
-    // FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
-    // FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
+    // The parent process must close the handles to the pipes that are now used by the child process.
+    // This is crucial for correct process communication and to prevent resource leaks.
+    FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
+    FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
     auto SendCommandToPipe = [&](const FString& Cmd) {
         if (!WritePipe) return false;
