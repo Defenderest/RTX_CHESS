@@ -10,6 +10,7 @@
 #include "StartMenuWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "ChessGameState.h"
+#include "Engine/Engine.h"
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -78,6 +79,31 @@ void AChessPlayerController::SetupInputComponent()
 void AChessPlayerController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    // --- Отладочная информация на экране ---
+    if (GEngine)
+    {
+        AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+        if (GameState)
+        {
+            FString GamePhaseStr = UEnum::GetValueAsString(GameState->GetGamePhase());
+            FString CurrentTurnStr = (GameState->GetCurrentTurnColor() == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+            
+            GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Yellow, FString::Printf(TEXT("Game Phase: %s"), *GamePhaseStr));
+            GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Current Turn: %s"), *CurrentTurnStr));
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Red, TEXT("Game State is NULL"));
+        }
+
+        FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+        GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Cyan, FString::Printf(TEXT("My Player Color: %s"), *MyColorStr));
+
+        FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
+        GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
+    }
+    // --- Конец отладочной информации ---
 
     if (SelectedPiece)
     {
