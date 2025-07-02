@@ -56,6 +56,22 @@ void AChessGameMode::BeginPlay()
         {
             // Запускаем игру против бота
             StartBotGame();
+
+            // Устанавливаем уровень сложности бота из параметров запуска
+            if (StockfishManager)
+            {
+                FString SkillLevelValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("SkillLevel"));
+                if (!SkillLevelValue.IsEmpty())
+                {
+                    const int32 SkillLevel = FCString::Atoi(*SkillLevelValue);
+                    StockfishManager->SetSkillLevel(SkillLevel);
+                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), SkillLevel);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: SkillLevel option not found for bot game. Using default skill level."));
+                }
+            }
         }
         else
         {

@@ -3,6 +3,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "ChessGameMode.h"
 #include "ChessPlayerController.h"
+#include "Components/WidgetSwitcher.h"
+#include "Components/Slider.h"
 
 void UStartMenuWidget::NativeConstruct()
 {
@@ -13,28 +15,59 @@ void UStartMenuWidget::NativeConstruct()
 
 void UStartMenuWidget::OnStartPlayerVsPlayerClicked()
 {
-    OnStartGame(false);
+    if (GameLevelName.IsNone())
+    {
+        UE_LOG(LogTemp, Error, TEXT("GameLevelName is not set!"));
+        return;
+    }
+    // Для PvP игры параметры могут быть пустыми или явно указывать режим.
+    FString Options = TEXT("?bIsBotGame=false");
+    UE_LOG(LogTemp, Log, TEXT("Attempting to open level for PvP: %s"), *GameLevelName.ToString());
+    UGameplayStatics::OpenLevel(GetWorld(), GameLevelName, true, Options);
 }
 
 void UStartMenuWidget::OnStartPlayerVsBotClicked()
 {
-    UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget::OnStartPlayerVsBotClicked() - Button press detected!"));
-    OnStartGame(true);
+    UE_LOG(LogTemp, Log, TEXT("UStartMenuWidget: Switching to bot settings menu."));
+    if (MainMenuSwitcher && BotSettingsPanel)
+    {
+        MainMenuSwitcher->SetActiveWidget(BotSettingsPanel);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("MainMenuSwitcher or BotSettingsPanel is not bound in StartMenuWidget Blueprint!"));
+    }
 }
 
-void UStartMenuWidget::OnStartGame(bool bIsBotGame)
+void UStartMenuWidget::OnConfirmBotSettingsAndStartClicked()
 {
-    UE_LOG(LogTemp, Log, TEXT("OnStartGame called. bIsBotGame: %s"), bIsBotGame ? TEXT("true") : TEXT("false"));
     if (GameLevelName.IsNone())
     {
         UE_LOG(LogTemp, Error, TEXT("GameLevelName is not set!"));
         return;
     }
 
-    UE_LOG(LogTemp, Log, TEXT("Attempting to open level: %s"), *GameLevelName.ToString());
-    FString Options = bIsBotGame ? "?bIsBotGame=true" : "";
+    int32 SkillLevel = 20; // Значение по умолчанию, если слайдер не привязан
+    if (SkillLevelSlider)
+    {
+        SkillLevel = FMath::RoundToInt(SkillLevelSlider->GetValue());
+    }
+
+    FString Options = FString::Printf(TEXT("?bIsBotGame=true?SkillLevel=%d"), SkillLevel);
+    UE_LOG(LogTemp, Log, TEXT("Attempting to open level for PvE: %s with options: %s"), *GameLevelName.ToString(), *Options);
     UGameplayStatics::OpenLevel(GetWorld(), GameLevelName, true, Options);
-    // HideMenu() убран, так как загрузка уровня сама уничтожит виджет.
+}
+
+void UStartMenuWidget::OnBackToMainMenuClicked()
+{
+    if (MainMenuSwitcher && MainMenuPanel)
+    {
+        MainMenuSwitcher->SetActiveWidget(MainMenuPanel);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("MainMenuSwitcher or MainMenuPanel is not bound in StartMenuWidget Blueprint!"));
+    }
 }
 
 void UStartMenuWidget::OnStartOnlineGameClicked()
