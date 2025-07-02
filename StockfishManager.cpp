@@ -137,6 +137,46 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
     return TEXT("");
 }
 
+FString UStockfishManager::GetBestMoveForNewGame(const TArray<FString>& Moves)
+{
+    if (!IsEngineRunning() || !StockfishTask)
+    {
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager::GetBestMoveForNewGame: Engine is not running."));
+        return TEXT("");
+    }
+
+    FString MovesString = FString::Join(Moves, TEXT(" "));
+    FString Command;
+    if (Moves.Num() > 0)
+    {
+        Command = FString::Printf(TEXT("position startpos moves %s\ngo movetime %d"), *MovesString, GetSearchTimeMsec());
+    }
+    else
+    {
+        Command = FString::Printf(TEXT("position startpos\ngo movetime %d"), GetSearchTimeMsec());
+    }
+    StockfishTask->EnqueueCommand(Command);
+
+    // Blocking wait for the result
+    FString Result;
+    FDateTime StartTime = FDateTime::UtcNow();
+    const FTimespan Timeout = FTimespan::FromMilliseconds(GetSearchTimeMsec() + 2000); // Search time + buffer
+
+    while (FDateTime::UtcNow() - StartTime < Timeout)
+    {
+        if (StockfishTask->DequeueResult(Result))
+        {
+            FScopeLock Lock(&DataMutex);
+            LastBestMovePrivate = Result;
+            return Result;
+        }
+        FPlatformProcess::Sleep(0.02f);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("StockfishManager::GetBestMoveForNewGame: Timed out waiting for a response from the engine."));
+    return TEXT("");
+}
+
 bool UStockfishManager::IsEngineRunning() const
 {
     FScopeLock Lock(&DataMutex);

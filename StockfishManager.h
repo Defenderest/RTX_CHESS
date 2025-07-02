@@ -20,6 +20,9 @@ public:
     void StopEngine();
     FString GetBestMove(const FString& FEN);
 
+    UFUNCTION(BlueprintCallable, Category = "Stockfish")
+    FString GetBestMoveForNewGame(const TArray<FString>& Moves);
+
     UFUNCTION(BlueprintPure, Category = "Stockfish")
     bool IsEngineRunning() const;
 
