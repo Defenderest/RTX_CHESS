@@ -135,14 +135,14 @@ void AChessGameMode::MakeBotMove()
             FIntPoint StartPos((BestMove[0] - 'a'), (BestMove[1] - '1'));
             FIntPoint EndPos((BestMove[2] - 'a'), (BestMove[3] - '1'));
 
-            AChessPiece* PieceToMove = GameBoard->GetPieceAtGridPosition(StartPos);
+            AChessPiece* PieceToMove = CurrentGS->GetPieceAtGridPosition(StartPos);
             if (PieceToMove)
             {
                 AttemptMove(PieceToMove, EndPos, nullptr);
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move involves a non-existent piece at %s."), *StartPos.ToString());
+                UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move involves a non-existent piece at %s. FEN was: %s"), *StartPos.ToString(), *FEN);
             }
         }
         else
