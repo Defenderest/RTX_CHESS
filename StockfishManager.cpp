@@ -1,6 +1,7 @@
 #include "StockfishManager.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformProcess.h"
+#include "Containers/StringConv.h"
 
 UStockfishManager::UStockfishManager()
 {
@@ -40,14 +41,10 @@ void UStockfishManager::StopEngine()
         FPlatformProcess::CloseProc(ProcessHandle);
     }
 
-    if (ReadPipe)
+    if (ReadPipe || WritePipe)
     {
-        FPlatformProcess::ClosePipe(0, ReadPipe);
+        FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
         ReadPipe = nullptr;
-    }
-    if (WritePipe)
-    {
-        FPlatformProcess::ClosePipe(0, WritePipe);
         WritePipe = nullptr;
     }
 }
@@ -63,7 +60,8 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
     FString Command = FString::Printf(TEXT("position fen %s\ngo movetime 1000\n"), *FEN);
     UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending command to Stockfish: %s"), *Command.Replace(TEXT("\n"), TEXT(" ")));
 
-    FPlatformProcess::WritePipe(WritePipe, (uint8*)TCHAR_TO_ANSI(*Command), Command.Len());
+    FTCHARToUTF8 Converter(*Command);
+    FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length());
 
     FPlatformProcess::Sleep(1.1f); // Wait for stockfish to think
 
