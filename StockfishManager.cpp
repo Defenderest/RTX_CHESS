@@ -46,8 +46,12 @@ void UStockfishManager::StartEngine()
     ReadPipe = ChildStdoutRead;  // Родитель читает из stdout дочернего процесса
     WritePipe = ChildStdinWrite; // Родитель пишет в stdin дочернего процесса
 
+    // Устанавливаем рабочий каталог в папку, где находится stockfish.exe.
+    // Это может быть необходимо, если движок ищет какие-либо файлы относительно своего местоположения.
+    FString StockfishDir = FPaths::GetPath(StockfishPath);
+
     // Концы каналов дочернего процесса передаются в CreateProc
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, nullptr, ChildStdoutWrite, ChildStdinRead);
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead);
 
     if (!ProcessHandle.IsValid())
     {
@@ -72,6 +76,14 @@ void UStockfishManager::StartEngine()
         FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
         // --- Стандартный UCI-хендшейк ---
+        // Проверяем, не завершился ли процесс сразу после запуска, перед отправкой команд.
+        if (!FPlatformProcess::IsProcRunning(ProcessHandle))
+        {
+            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Process terminated unexpectedly before UCI handshake. Check working directory or executable permissions."));
+            StopEngine();
+            return;
+        }
+
         // 1. Отправляем "uci" и ждем "uciok"
         FString UciCommand = TEXT("uci\n");
         FTCHARToUTF8 UciConverter(*UciCommand);
