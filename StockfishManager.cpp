@@ -47,15 +47,12 @@ void UStockfishManager::StartEngine()
     WritePipe = ChildStdinWrite; // Родитель пишет в stdin дочернего процесса
 
     // Концы каналов дочернего процесса передаются в CreateProc
-    // STDOUT дочернего процесса - это пишущий конец канала stdout (ChildStdoutWrite)
-    // STDIN дочернего процесса - это читающий конец канала stdin (ChildStdinRead)
     ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, nullptr, ChildStdoutWrite, ChildStdinRead);
 
     if (!ProcessHandle.IsValid())
     {
         UE_LOG(LogTemp, Error, TEXT("Failed to start Stockfish process."));
         bIsEngineRunningPrivate = false;
-        // Закрываем все дескрипторы каналов
         FPlatformProcess::ClosePipe(ChildStdoutRead, ChildStdoutWrite);
         FPlatformProcess::ClosePipe(ChildStdinRead, ChildStdinWrite);
         ReadPipe = nullptr;
@@ -64,17 +61,78 @@ void UStockfishManager::StartEngine()
     else
     {
         bIsEngineRunningPrivate = true;
-        UE_LOG(LogTemp, Log, TEXT("Stockfish process started successfully."));
+        UE_LOG(LogTemp, Log, TEXT("Stockfish process started successfully. Now performing UCI handshake."));
         
-        // Добавляем небольшую задержку, чтобы дать процессу время на полную инициализацию
-        // перед тем, как мы закроем его дескрипторы в родительском процессе.
-        // Это может помочь избежать состояний гонки при запуске.
-        FPlatformProcess::Sleep(0.05f);
+        // Родительский процесс может закрыть свои дескрипторы на концы каналов дочернего процесса.
+        FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
+        FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
-        // В родительском процессе мы можем закрыть концы каналов дочернего процесса,
-        // так как они больше не используются родителем.
-        FPlatformProcess::ClosePipe(0, ChildStdoutWrite);
-        FPlatformProcess::ClosePipe(ChildStdinRead, 0);
+        // --- Стандартный UCI-хендшейк ---
+        FPlatformProcess::Sleep(0.1f); // Даем процессу время на инициализацию
+
+        // 1. Отправляем "uci" и ждем "uciok"
+        FString UciCommand = TEXT("uci\n");
+        FTCHARToUTF8 UciConverter(*UciCommand);
+        if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)UciConverter.Get(), UciConverter.Length()))
+        {
+            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Failed to send 'uci' command."));
+            StopEngine();
+            return;
+        }
+
+        FString UciOutput;
+        FDateTime UciStartTime = FDateTime::UtcNow();
+        bool bUciOk = false;
+        while (FDateTime::UtcNow() - UciStartTime < FTimespan::FromSeconds(5))
+        {
+            UciOutput += FPlatformProcess::ReadPipe(ReadPipe);
+            if (UciOutput.Contains(TEXT("uciok")))
+            {
+                bUciOk = true;
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'uciok'."));
+                break;
+            }
+            FPlatformProcess::Sleep(0.05f);
+        }
+
+        if (!bUciOk)
+        {
+            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Did not receive 'uciok'. Engine might be unresponsive. Output:\n%s"), *UciOutput);
+            StopEngine();
+            return;
+        }
+
+        // 2. Отправляем "isready" и ждем "readyok"
+        FString IsReadyCommand = TEXT("isready\n");
+        FTCHARToUTF8 IsReadyConverter(*IsReadyCommand);
+        if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)IsReadyConverter.Get(), IsReadyConverter.Length()))
+        {
+            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Failed to send 'isready' command."));
+            StopEngine();
+            return;
+        }
+
+        FString ReadyOutput;
+        FDateTime ReadyStartTime = FDateTime::UtcNow();
+        bool bReadyOk = false;
+        while (FDateTime::UtcNow() - ReadyStartTime < FTimespan::FromSeconds(5))
+        {
+            ReadyOutput += FPlatformProcess::ReadPipe(ReadPipe);
+            if (ReadyOutput.Contains(TEXT("readyok")))
+            {
+                bReadyOk = true;
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'readyok'. Engine is fully initialized."));
+                break;
+            }
+            FPlatformProcess::Sleep(0.05f);
+        }
+
+        if (!bReadyOk)
+        {
+            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Did not receive 'readyok'. Engine might be unresponsive. Output:\n%s"), *ReadyOutput);
+            StopEngine();
+            return;
+        }
     }
 }
 
