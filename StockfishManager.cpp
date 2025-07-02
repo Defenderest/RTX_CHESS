@@ -202,10 +202,19 @@ uint32 FStockfishTask::Run()
     FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
     FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
+    // Give stockfish a moment to start and print its banner, then clear the pipe.
+    FPlatformProcess::Sleep(0.2f);
+    FString Tmp = FPlatformProcess::ReadPipe(ReadPipe);
+    if (!Tmp.IsEmpty())
+    {
+        UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Initial Stockfish output (discarded):\n%s"), *Tmp);
+    }
+
     auto SendCommandToPipe = [&](const FString& Cmd) {
         if (!WritePipe) return false;
         FString FullCmd = Cmd + TEXT("\n");
-        return FPlatformProcess::WritePipe(WritePipe, (uint8*)TCHAR_TO_UTF8(*FullCmd), FullCmd.Len());
+        FTCHARToUTF8 Converter(*FullCmd);
+        return FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length());
     };
 
     auto ReadPipeWithTimeout = [&](const FString& ExpectedResponse, float TimeoutSeconds) -> bool {
