@@ -57,6 +57,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     bool AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController);
 
+    UFUNCTION(BlueprintPure, Category = "Chess Game Mode")
+    UStockfishManager* GetStockfishManager() const;
+
+    UFUNCTION(BlueprintPure, Category = "Chess Game Mode")
+    EGameModeType GetCurrentGameModeType() const;
+
 protected:
     // Ссылка на объект шахматной доски на уровне. Должна быть установлена в BeginPlay.
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))

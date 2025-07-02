@@ -150,6 +150,16 @@ AChessGameState* AChessGameMode::GetCurrentGameState() const
     return GetGameState<AChessGameState>();
 }
 
+UStockfishManager* AChessGameMode::GetStockfishManager() const
+{
+    return StockfishManager;
+}
+
+EGameModeType AChessGameMode::GetCurrentGameModeType() const
+{
+    return CurrentGameMode;
+}
+
 void AChessGameMode::FindGameBoard()
 {
     for (TActorIterator<AChessBoard> It(GetWorld()); It; ++It)

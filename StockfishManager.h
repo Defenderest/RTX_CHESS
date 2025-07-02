@@ -21,8 +21,21 @@ public:
     void StopEngine();
     FString GetBestMove(const FString& FEN);
 
+    UFUNCTION(BlueprintPure, Category = "Stockfish")
+    bool IsEngineRunning() const;
+
+    UFUNCTION(BlueprintPure, Category = "Stockfish")
+    FString GetLastBestMove() const;
+
+    UFUNCTION(BlueprintPure, Category = "Stockfish")
+    int32 GetSearchTimeMsec() const;
+
 private:
     void* ReadPipe;
     void* WritePipe;
     FProcHandle ProcessHandle;
+
+    bool bIsEngineRunningPrivate;
+    FString LastBestMovePrivate;
+    int32 SearchTimeMsecPrivate;
 };

@@ -108,6 +108,31 @@ void AChessPlayerController::Tick(float DeltaTime)
 
         FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
         GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
+
+        // --- Stockfish Debug Info ---
+        AChessGameMode* GameMode = GetChessGameMode();
+        if (GameMode && GameMode->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
+        {
+            UStockfishManager* SFManager = GameMode->GetStockfishManager();
+            if (SFManager)
+            {
+                FString SFStatus = SFManager->IsEngineRunning() ? TEXT("Running") : TEXT("Stopped");
+                FString SFBestMove = SFManager->GetLastBestMove();
+                int32 SFSearchTime = SFManager->GetSearchTimeMsec();
+
+                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Status: %s"), *SFStatus));
+                GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Last Best Move: %s"), *SFBestMove));
+                GEngine->AddOnScreenDebugMessage(6, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Search Time (ms): %d"), SFSearchTime));
+            }
+            else
+            {
+                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Red, TEXT("Stockfish Manager is NULL"));
+            }
+        }
+        else if (GameMode)
+        {
+             GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::White, TEXT("Game Mode: Player vs Player"));
+        }
     }
     // --- Конец отладочной информации ---
 }

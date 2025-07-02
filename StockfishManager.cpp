@@ -7,6 +7,9 @@ UStockfishManager::UStockfishManager()
 {
     ReadPipe = nullptr;
     WritePipe = nullptr;
+    bIsEngineRunningPrivate = false;
+    LastBestMovePrivate = TEXT("N/A");
+    SearchTimeMsecPrivate = 1000; // Default search time
 }
 
 UStockfishManager::~UStockfishManager()
@@ -30,6 +33,11 @@ void UStockfishManager::StartEngine()
     if (!ProcessHandle.IsValid())
     {
         UE_LOG(LogTemp, Error, TEXT("Failed to start Stockfish process."));
+        bIsEngineRunningPrivate = false;
+    }
+    else
+    {
+        bIsEngineRunningPrivate = true;
     }
 }
 
@@ -40,6 +48,7 @@ void UStockfishManager::StopEngine()
         FPlatformProcess::TerminateProc(ProcessHandle);
         FPlatformProcess::CloseProc(ProcessHandle);
     }
+    bIsEngineRunningPrivate = false;
 
     if (ReadPipe || WritePipe)
     {
@@ -57,7 +66,8 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
         return TEXT("");
     }
 
-    FString Command = FString::Printf(TEXT("position fen %s\ngo movetime 1000\n"), *FEN);
+    SearchTimeMsecPrivate = 1000;
+    FString Command = FString::Printf(TEXT("position fen %s\ngo movetime %d\n"), *FEN, SearchTimeMsecPrivate);
     UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending command to Stockfish: %s"), *Command.Replace(TEXT("\n"), TEXT(" ")));
 
     FTCHARToUTF8 Converter(*Command);
@@ -79,12 +89,29 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
             Line.ParseIntoArray(Parts, TEXT(" "), true);
             if (Parts.Num() > 1)
             {
-                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Parsed best move: %s"), *Parts[1]);
-                return Parts[1];
+                LastBestMovePrivate = Parts[1];
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Parsed best move: %s"), *LastBestMovePrivate);
+                return LastBestMovePrivate;
             }
         }
     }
 
     UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Could not find 'bestmove' in Stockfish output."));
+    LastBestMovePrivate = TEXT("Not Found");
     return TEXT("");
+}
+
+bool UStockfishManager::IsEngineRunning() const
+{
+    return bIsEngineRunningPrivate;
+}
+
+FString UStockfishManager::GetLastBestMove() const
+{
+    return LastBestMovePrivate;
+}
+
+int32 UStockfishManager::GetSearchTimeMsec() const
+{
+    return SearchTimeMsecPrivate;
 }
