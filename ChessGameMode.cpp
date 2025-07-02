@@ -19,6 +19,7 @@ AChessGameMode::AChessGameMode()
 
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
+    NumberOfPlayers = 0;
 }
 
 void AChessGameMode::BeginPlay()
@@ -75,6 +76,41 @@ void AChessGameMode::StartBotGame()
     }
     // Вызываем StartNewGame, который теперь корректно настроит игрока
     StartNewGame();
+}
+
+void AChessGameMode::PostLogin(APlayerController* NewPlayer)
+{
+    Super::PostLogin(NewPlayer);
+
+    AChessPlayerController* ChessController = Cast<AChessPlayerController>(NewPlayer);
+    if (ChessController)
+    {
+        NumberOfPlayers++;
+        if (CurrentGameMode == EGameModeType::PlayerVsBot)
+        {
+            // В игре с ботом человек всегда играет за белых
+            ChessController->SetPlayerColor(EPieceColor::White);
+            UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player %d joined a BOT game. Assigned color: White."), NumberOfPlayers);
+        }
+        else // PlayerVsPlayer
+        {
+            if (NumberOfPlayers == 1)
+            {
+                ChessController->SetPlayerColor(EPieceColor::White);
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player 1 joined. Assigned color: White."));
+            }
+            else if (NumberOfPlayers == 2)
+            {
+                ChessController->SetPlayerColor(EPieceColor::Black);
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player 2 joined. Assigned color: Black."));
+            }
+            else
+            {
+                // Логика для наблюдателей
+                UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::PostLogin: More than 2 players joined. Player %d is a spectator."), NumberOfPlayers);
+            }
+        }
+    }
 }
 
 void AChessGameMode::MakeBotMove()

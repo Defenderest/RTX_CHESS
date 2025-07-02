@@ -113,7 +113,13 @@ protected:
     // Вызывается в BeginPlay
     virtual void FindGameBoard();
 
+    // Вызывается, когда игрок успешно входит в игру
+    virtual void PostLogin(APlayerController* NewPlayer) override;
+
 private:
+    // Счетчик подключенных игроков
+    int32 NumberOfPlayers;
+
     // Вспомогательная функция для получения ChessGameState с проверкой типа
     AChessGameState* GetCurrentGameState() const;
 };
