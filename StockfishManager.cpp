@@ -249,8 +249,9 @@ uint32 FStockfishTask::Run()
         return 1;
     }
 
-    FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
-    FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
+    // DEBUG: Temporarily disabling pipe handle closing to test a theory that it causes the child process to exit.
+    // FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
+    // FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
     auto SendCommandToPipe = [&](const FString& Cmd) {
         if (!WritePipe) return false;
