@@ -229,7 +229,7 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, ChildStdoutWrite);
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, ChildStdoutWrite);
 
     if (!ProcessHandle.IsValid())
     {
