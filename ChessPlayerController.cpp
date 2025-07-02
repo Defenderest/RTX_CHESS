@@ -226,7 +226,9 @@ void AChessPlayerController::OnClickStarted()
 
     // --- 2. Трассировка курсора и определение клетки на доске ---
     FHitResult HitResult;
-    GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
+    // Используем простую коллизию (false), так как она быстрее и надежнее.
+    // Убедитесь, что у меша доски и фигур есть простая геометрия коллизии.
+    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
     // Если клик не попал ни во что, или попал не в доску и не в фигуру, отменяем выделение
     if (!HitResult.bBlockingHit || (Cast<AChessBoard>(HitResult.GetActor()) == nullptr && Cast<AChessPiece>(HitResult.GetActor()) == nullptr))
