@@ -151,11 +151,23 @@ void AChessPlayerController::OnClickStarted()
     if (HitResult.bBlockingHit)
     {
         AChessPiece* HitPiece = Cast<AChessPiece>(HitResult.GetActor());
-        if (HitPiece && HitPiece->GetPieceColor() == PlayerColor)
+        AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
+
+        if (HitPiece && ChessBoard && HitPiece->GetPieceColor() == PlayerColor)
         {
             SelectedPiece = HitPiece;
             OriginalPieceLocation = SelectedPiece->GetActorLocation();
-            SelectedPiece->OnSelected();
+            SelectedPiece->OnSelected(); // Подсветка самой фигуры
+
+            // Подсветка допустимых ходов
+            TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
+            for (const FIntPoint& Move : ValidMoves)
+            {
+                ChessBoard->HighlightSquare(Move, FLinearColor::Green);
+            }
+            // Подсветка текущей клетки
+            ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
+
             SetInputMode(FInputModeGameAndUI());
         }
     }
@@ -163,6 +175,13 @@ void AChessPlayerController::OnClickStarted()
 
 void AChessPlayerController::OnClickCompleted()
 {
+    AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
+    if (ChessBoard)
+    {
+        // Убираем всю подсветку с доски в любом случае
+        ChessBoard->ClearAllHighlights();
+    }
+
     if (SelectedPiece)
     {
         SelectedPiece->OnDeselected();
@@ -170,7 +189,6 @@ void AChessPlayerController::OnClickCompleted()
         FHitResult HitResult;
         GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
-        AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
         AChessGameMode* GameMode = GetChessGameMode();
 
         if (ChessBoard && GameMode && HitResult.bBlockingHit)
@@ -179,11 +197,13 @@ void AChessPlayerController::OnClickCompleted()
 
             if (!GameMode->AttemptMove(SelectedPiece, TargetSquare, this))
             {
+                // Если ход не удался, возвращаем фигуру на место
                 SelectedPiece->SetActorLocation(OriginalPieceLocation);
             }
         }
         else
         {
+            // Если клик был не на доске, возвращаем фигуру на место
             SelectedPiece->SetActorLocation(OriginalPieceLocation);
         }
 

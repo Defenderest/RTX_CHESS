@@ -70,9 +70,8 @@ protected:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<AChessBoard> GameBoard;
 
-    // Ссылка на выбранную в данный момент фигуру
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
-    TObjectPtr<AChessPiece> SelectedPiece;
+    // Ссылка на выбранную фигуру удалена из GameMode.
+    // Теперь AChessPlayerController отслеживает выбранную фигуру для операции drag-and-drop.
 
     UPROPERTY()
     UStockfishManager* StockfishManager;

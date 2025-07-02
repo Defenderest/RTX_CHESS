@@ -177,88 +177,8 @@ void AChessGameMode::EndTurn()
     }
 }
 
-void AChessGameMode::HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerController* ByController)
-{
-    AChessGameState* CurrentGS = GetCurrentGameState();
-    if (!ClickedPiece || !GameBoard || !CurrentGS)
-    {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::HandlePieceClicked: Invalid input (ClickedPiece, GameBoard, or GameState is null)."));
-        return;
-    }
-
-    // Отладочный лог для проверки цвета фигуры и текущего хода
-    const FString PieceColorStr = StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(ClickedPiece->GetPieceColor()));
-    const FString TurnColorStr = StaticEnum<EPieceColor>()->GetNameStringByValue(static_cast<int64>(CurrentGS->GetCurrentTurnColor()));
-    UE_LOG(LogTemp, Log, TEXT("HandlePieceClicked: Clicked on a %s piece. Current turn is %s."), *PieceColorStr, *TurnColorStr);
-
-    if (ClickedPiece->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::HandlePieceClicked: Clicked piece does not belong to the current player."));
-        return;
-    }
-
-    if (SelectedPiece)
-    {
-        if (SelectedPiece == ClickedPiece)
-        {
-            SelectedPiece->OnDeselected();
-            GameBoard->ClearAllHighlights();
-            SelectedPiece = nullptr;
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Deselected piece at (%d, %d)."), ClickedPiece->GetBoardPosition().X, ClickedPiece->GetBoardPosition().Y);
-            return;
-        }
-        else
-        {
-            SelectedPiece->OnDeselected();
-            GameBoard->ClearAllHighlights();
-            SelectedPiece = nullptr;
-        }
-    }
-
-    SelectedPiece = ClickedPiece;
-    SelectedPiece->OnSelected();
-    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Selected %s %s at (%d, %d)."),
-           (SelectedPiece->GetPieceColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-           *UEnum::GetValueAsString(SelectedPiece->GetPieceType()),
-           SelectedPiece->GetBoardPosition().X, SelectedPiece->GetBoardPosition().Y);
-
-    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(GameBoard);
-    for (const FIntPoint& Move : ValidMoves)
-    {
-        GameBoard->HighlightSquare(Move, FLinearColor::Green);
-    }
-    GameBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
-}
-
-void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPlayerController* ByController)
-{
-    AChessGameState* CurrentGS = GetCurrentGameState();
-    if (!GameBoard || !CurrentGS)
-    {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::HandleSquareClicked: GameBoard or GameState is null."));
-        return;
-    }
-
-    if (SelectedPiece)
-    {
-        if (AttemptMove(SelectedPiece, GridPosition, ByController))
-        {
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Move successful to (%d, %d)."), GridPosition.X, GridPosition.Y);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: Move failed to (%d, %d). Deselecting piece."), GridPosition.X, GridPosition.Y);
-            SelectedPiece->OnDeselected();
-            GameBoard->ClearAllHighlights();
-            SelectedPiece = nullptr;
-        }
-    }
-    else
-    {
-        GameBoard->ClearAllHighlights();
-        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Square clicked at (%d, %d) with no piece selected. Clearing highlights."), GridPosition.X, GridPosition.Y);
-    }
-}
+// Функции HandlePieceClicked и HandleSquareClicked удалены, так как логика выбора и перемещения
+// теперь полностью обрабатывается в AChessPlayerController.
 
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
@@ -385,7 +305,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     }
 
     GameBoard->ClearAllHighlights();
-    SelectedPiece = nullptr;
 
     EndTurn();
 

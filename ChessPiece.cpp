@@ -61,24 +61,29 @@ void AChessPiece::InitializePiece(EPieceColor InColor, EPieceType InType, FIntPo
     BoardPosition = InBoardPosition;
     bHasMoved = false; // Сбрасываем флаг при инициализации/рестарте
 
-    // Устанавливаем материал в зависимости от цвета
+    // Устанавливаем материал в зависимости от цвета и создаем динамический инстанс для подсветки
     if (PieceMeshComponent)
     {
+        UMaterialInterface* BaseMaterial = nullptr;
         if (PieceColor == EPieceColor::White && WhiteMaterial)
         {
-            PieceMeshComponent->SetMaterial(0, WhiteMaterial);
+            BaseMaterial = WhiteMaterial;
         }
         else if (PieceColor == EPieceColor::Black && BlackMaterial)
         {
-            PieceMeshComponent->SetMaterial(0, BlackMaterial);
+            BaseMaterial = BlackMaterial;
+        }
+
+        if (BaseMaterial)
+        {
+            DynamicMaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+            PieceMeshComponent->SetMaterial(0, DynamicMaterialInstance);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPiece::InitializePiece: Material not set for %s %s. WhiteMaterial: %s, BlackMaterial: %s"),
+            UE_LOG(LogTemp, Warning, TEXT("AChessPiece::InitializePiece: Base material not set for %s %s. Cannot create dynamic material instance."),
                 (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-                *UEnum::GetValueAsString(TypeOfPiece),
-                WhiteMaterial ? *WhiteMaterial->GetName() : TEXT("null"),
-                BlackMaterial ? *BlackMaterial->GetName() : TEXT("null"));
+                *UEnum::GetValueAsString(TypeOfPiece));
         }
     }
 
