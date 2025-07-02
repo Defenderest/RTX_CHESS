@@ -224,21 +224,28 @@ void AChessPlayerController::OnClickStarted()
         return;
     }
 
-    // --- 2. Трассировка курсора и определение клетки на доске ---
-    FHitResult HitResult;
-    // Используем простую коллизию (false), так как она быстрее и надежнее.
-    // Убедитесь, что у меша доски и фигур есть простая геометрия коллизии.
-    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-
-    // Если клик не попал ни во что, или попал не в доску и не в фигуру, отменяем выделение
-    if (!HitResult.bBlockingHit || (Cast<AChessBoard>(HitResult.GetActor()) == nullptr && Cast<AChessPiece>(HitResult.GetActor()) == nullptr))
+    // --- 2. НОВЫЙ МЕТОД: Математическое определение клетки на доске ---
+    // Этот метод не зависит от коллизии доски или фигур, что делает его более надежным.
+    FVector WorldLocation, WorldDirection;
+    if (!DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked off-board or on an irrelevant actor. Clearing selection."));
+        UE_LOG(LogTemp, Warning, TEXT("OnClickStarted: Failed to deproject mouse position."));
         ClearSelectionAndHighlights();
         return;
     }
 
-    const FIntPoint HitGridPosition = ChessBoard->WorldToGridPosition(HitResult.Location);
+    // Определяем плоскость доски. Нормаль - это "верх" актора доски.
+    const FPlane BoardPlane(ChessBoard->GetActorLocation(), ChessBoard->GetActorUpVector());
+
+    // Находим точку пересечения луча от камеры с плоскостью доски
+    const FVector IntersectionPoint = FMath::LinePlaneIntersection(
+        WorldLocation,
+        WorldLocation + WorldDirection * 10000.f, // Луч достаточной длины
+        BoardPlane
+    );
+
+    // --- 3. Основная логика выбора и хода, основанная на состоянии ---
+    const FIntPoint HitGridPosition = ChessBoard->WorldToGridPosition(IntersectionPoint);
     if (!ChessBoard->IsValidGridPosition(HitGridPosition))
     {
         UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked outside of valid board grid. Clearing selection."));
@@ -246,7 +253,6 @@ void AChessPlayerController::OnClickStarted()
         return;
     }
 
-    // --- 3. Основная логика выбора и хода, основанная на состоянии ---
     AChessPiece* PieceOnSquare = ChessBoard->GetPieceAtGridPosition(HitGridPosition);
     UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on grid (%d, %d). Piece on square: %s"), HitGridPosition.X, HitGridPosition.Y, *GetNameSafe(PieceOnSquare));
 
