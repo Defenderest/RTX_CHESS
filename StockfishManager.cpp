@@ -251,8 +251,9 @@ uint32 FStockfishTask::Run()
 
             // 3. Launch Stockfish process with file redirection
             // We must use cmd.exe to handle the '<' and '>' redirection operators.
+            // We also redirect stderr to stdout (2>&1) to capture any error messages from Stockfish.
             const FString ExePath = FString::Printf(TEXT("\"%s\""), *StockfishPath);
-            const FString Params = FString::Printf(TEXT("< \"%s\" > \"%s\""), *InputFilePath, *OutputFilePath);
+            const FString Params = FString::Printf(TEXT("< \"%s\" > \"%s\" 2>&1"), *InputFilePath, *OutputFilePath);
             const FString FullCommand = FString::Printf(TEXT("/c %s %s"), *ExePath, *Params);
             
             FProcHandle ProcessHandle = FPlatformProcess::CreateProc(TEXT("cmd.exe"), *FullCommand, false, true, true, nullptr, 0, nullptr, nullptr, nullptr);
@@ -269,10 +270,17 @@ uint32 FStockfishTask::Run()
             FPlatformProcess::CloseProc(ProcessHandle);
 
             // 5. Read the output file
+            if (!IFileManager::Get().FileExists(*OutputFilePath))
+            {
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process did not create the output file: %s"), *OutputFilePath);
+                ResultQueue.Enqueue(TEXT(""));
+                continue;
+            }
+
             FString OutputData;
             if (!FFileHelper::LoadFileToString(OutputData, *OutputFilePath))
             {
-                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to read from output file: %s"), *OutputFilePath);
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to read from output file, although it exists: %s"), *OutputFilePath);
                 ResultQueue.Enqueue(TEXT(""));
                 continue;
             }
