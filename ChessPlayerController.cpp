@@ -38,7 +38,13 @@ void AChessPlayerController::BeginPlay()
     // Показываем меню только если игра еще не началась.
     // GameMode отвечает за запуск игры (и смену состояния) при перезагрузке уровня с опциями.
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (GameState && GameState->GetGamePhase() == EGamePhase::WaitingToStart)
+    if (!GameState)
+    {
+        UE_LOG(LogTemp, Fatal, TEXT("AChessPlayerController::BeginPlay: AChessGameState is NULL! Check GameMode Override in World Settings. It must be set to AChessGameMode or a Blueprint based on it."));
+        return;
+    }
+
+    if (GameState->GetGamePhase() == EGamePhase::WaitingToStart)
     {
         ShowStartMenu();
     }
