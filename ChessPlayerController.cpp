@@ -198,9 +198,22 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 void AChessPlayerController::OnClickStarted()
 {
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-    if (!GameState || (GameState->GetGamePhase() == EGamePhase::InProgress && GameState->GetCurrentTurnColor() != PlayerColor))
+    if (!GameState)
     {
-        return; // Не наш ход или игра неактивна
+        return;
+    }
+
+    // Проверяем, ход текущего игрока
+    if (GameState->GetCurrentTurnColor() != PlayerColor)
+    {
+        return; // Не наш ход
+    }
+
+    // Ходить можно только в фазах InProgress и Check
+    const EGamePhase CurrentPhase = GameState->GetGamePhase();
+    if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
+    {
+        return; // Игра неактивна (ожидание, завершена и т.д.)
     }
 
     if (!ChessBoard)

@@ -519,6 +519,10 @@ AChessPiece* AChessGameMode::SpawnPieceAtPosition(EPieceType Type, EPieceColor C
         {
             CurrentGS->AddPieceToState(NewPiece);
         }
+
+        // Также регистрируем фигуру на самой доске, чтобы ее можно было выбрать кликом
+        GameBoard->SetPieceAtGridPosition(NewPiece, GridPosition);
+        
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Spawned %s %s at (%d, %d)"),
                (Color == EPieceColor::White ? TEXT("White") : TEXT("Black")),
                *UEnum::GetValueAsString(Type),
