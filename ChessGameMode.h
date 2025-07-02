@@ -46,16 +46,8 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void EndTurn();
 
-    // Обрабатывает к��ик игрока по фигуре
-    // ByController - контроллер игрока, который кликнул
-    UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
-    void HandlePieceClicked(AChessPiece* ClickedPiece, AChessPlayerController* ByController);
-
-    // Обрабатыates клик игрока по клетке доски (для перемещения выбранной фигуры или выбора клетки)
-    // GridPosition - координаты клетки, по которой кликнули
-    // ByController - контроллер игрока, который кликнул
-    UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
-    void HandleSquareClicked(const FIntPoint& GridPosition, AChessPlayerController* ByController);
+    // Функции HandlePieceClicked и HandleSquareClicked удалены, так как логика выбора и перемещения
+    // теперь полностью обрабатывается в AChessPlayerController с помощью drag-and-drop.
 
     // Пытается выполнить ход указанной фигурой на целевую клетку
     // PieceToMove - фигура, которую пытаются переместить
