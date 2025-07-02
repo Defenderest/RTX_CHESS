@@ -54,9 +54,6 @@ protected:
     /** Handles the start of a click/drag. */
     void OnClickStarted();
 
-    /** Handles the end of a click/drag. */
-    void OnClickCompleted();
-
     /** Handles camera look. */
     void HandleLook(const struct FInputActionValue& Value);
 
@@ -71,8 +68,17 @@ private:
     UPROPERTY()
     AChessPiece* SelectedPiece;
 
-    // Сохраняем исходное местоположение фигуры для возврата, если ход недействителен
-    FVector OriginalPieceLocation;
+    UPROPERTY()
+    AChessBoard* ChessBoard;
+
+    /** Вызывается при выборе своей фигуры. */
+    void HandlePieceSelection(AChessPiece* PieceToSelect);
+
+    /** Вызывается при клике на доску, когда фигура уже выбрана. */
+    void HandleBoardClick(const FIntPoint& GridPosition);
+
+    /** Снимает выделение с фигуры и убирает подсветку ходов. */
+    void ClearSelectionAndHighlights();
 
 public:
     /** Gets the current chess game mode. */

@@ -20,6 +20,7 @@ AChessPlayerController::AChessPlayerController()
     bEnableMouseOverEvents = true;
     PlayerColor = EPieceColor::White;
     SelectedPiece = nullptr;
+    ChessBoard = nullptr;
 }
 
 void AChessPlayerController::BeginPlay()
@@ -35,6 +36,12 @@ void AChessPlayerController::BeginPlay()
     }
 
     SetCamera();
+
+    ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass()));
+    if (!ChessBoard)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::BeginPlay: ChessBoard actor not found!"));
+    }
     
     // Показываем меню только если игра еще не началась.
     // GameMode отвечает за запуск игры (и смену состояния) при перезагрузке уровня с опциями.
@@ -66,7 +73,6 @@ void AChessPlayerController::SetupInputComponent()
         if (ClickAction)
         {
             EnhancedInput->BindAction(ClickAction, ETriggerEvent::Started, this, &AChessPlayerController::OnClickStarted);
-            EnhancedInput->BindAction(ClickAction, ETriggerEvent::Completed, this, &AChessPlayerController::OnClickCompleted);
         }
 
         if (LookAction)
@@ -104,24 +110,6 @@ void AChessPlayerController::Tick(float DeltaTime)
         GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
     }
     // --- Конец отладочной информации ---
-
-    if (SelectedPiece)
-    {
-        FVector MouseLocation, MouseDirection;
-        if (DeprojectMousePositionToWorld(MouseLocation, MouseDirection))
-        {
-            FHitResult HitResult;
-            FCollisionQueryParams QueryParams;
-            QueryParams.AddIgnoredActor(SelectedPiece);
-
-            if (GetWorld()->LineTraceSingleByChannel(HitResult, MouseLocation, MouseLocation + MouseDirection * 10000.f, ECC_WorldStatic))
-            {
-                FVector TargetLocation = HitResult.Location;
-                TargetLocation.Z = OriginalPieceLocation.Z + 50.0f;
-                SelectedPiece->SetActorLocation(TargetLocation);
-            }
-        }
-    }
 }
 
 void AChessPlayerController::SetCamera()
@@ -184,75 +172,46 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 void AChessPlayerController::OnClickStarted()
 {
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-    if (!GameState || GameState->GetCurrentTurnColor() != PlayerColor)
+    if (!GameState || (GameState->GetGamePhase() == EGamePhase::InPlay && GameState->GetCurrentTurnColor() != PlayerColor))
     {
+        return; // Не наш ход или игра неактивна
+    }
+
+    if (!ChessBoard)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::OnClickStarted: ChessBoard is not valid."));
         return;
     }
 
     FHitResult HitResult;
-    // Используем комплексную трассировку (true), так как у мешей фигур может не быть простой коллизии.
-    // Это гарантирует, что клик будет зарегистрирован по видимой геометрии меша.
     GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
 
-    if (HitResult.bBlockingHit)
+    if (!HitResult.bBlockingHit)
     {
-        AChessPiece* HitPiece = Cast<AChessPiece>(HitResult.GetActor());
-        AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
+        ClearSelectionAndHighlights(); // Клик в пустоту
+        return;
+    }
 
-        if (HitPiece && ChessBoard && HitPiece->GetPieceColor() == PlayerColor)
-        {
-            SelectedPiece = HitPiece;
-            OriginalPieceLocation = SelectedPiece->GetActorLocation();
-            SelectedPiece->OnSelected(); // Подсветка самой фигуры
+    FIntPoint HitGridPosition = ChessBoard->WorldToGridPosition(HitResult.Location);
+    AChessPiece* HitPiece = ChessBoard->GetPieceAtGridPosition(HitGridPosition); // Получаем фигуру по логической позиции
 
-            // Подсветка допустимых ходов
-            TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
-            for (const FIntPoint& Move : ValidMoves)
-            {
-                ChessBoard->HighlightSquare(Move, FLinearColor::Green);
-            }
-            // Подсветка текущей клетки
-            ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
-        }
+    if (HitPiece && HitPiece->GetPieceColor() == PlayerColor)
+    {
+        // Кликнули на свою фигуру (выбрать/перевыбрать)
+        HandlePieceSelection(HitPiece);
+    }
+    else if (SelectedPiece)
+    {
+        // Фигура выбрана, и кликнули либо на пустую клетку, либо на врага
+        HandleBoardClick(HitGridPosition);
+    }
+    else
+    {
+        // Фигура не выбрана, и кликнули не на свою фигуру
+        ClearSelectionAndHighlights();
     }
 }
 
-void AChessPlayerController::OnClickCompleted()
-{
-    AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
-    if (ChessBoard)
-    {
-        // Убираем всю подсветку с доски в любом случае
-        ChessBoard->ClearAllHighlights();
-    }
-
-    if (SelectedPiece)
-    {
-        SelectedPiece->OnDeselected();
-
-        FHitResult HitResult;
-        // Используем комплексную трассировку (true) для согласованности с OnClickStarted.
-        GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
-
-        // Проверяем, был ли клик на доске или на другой фигуре
-        if (ChessBoard && HitResult.bBlockingHit && (HitResult.GetActor() == ChessBoard || HitResult.GetActor()->IsA<AChessPiece>()))
-        {
-            FIntPoint TargetSquare = ChessBoard->WorldToGridPosition(HitResult.Location);
-            
-            // Вместо прямого вызова GameMode, отправляем RPC на сервер
-            Server_AttemptMove(SelectedPiece, TargetSquare);
-            // Клиент не должен сам возвращать фигуру. Сервер решит ее судьбу,
-            // и правильная позиция придет через репликацию.
-        }
-        else
-        {
-            // Если клик был не на доске, возвращаем фигуру на место локально для мгновенной обратной связи.
-            SelectedPiece->SetActorLocation(OriginalPieceLocation);
-        }
-
-        SelectedPiece = nullptr;
-    }
-}
 
 bool AChessPlayerController::Server_AttemptMove_Validate(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition)
 {
@@ -269,5 +228,68 @@ void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* Piec
         // Если ход невалиден, он просто вернет false, и положение фигуры на сервере не изменится.
         // Репликация положения актора позаботится о том, чтобы на клиенте фигура вернулась на место.
         GameMode->AttemptMove(PieceToMove, TargetGridPosition, this);
+    }
+}
+
+void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
+{
+    if (!PieceToSelect || !ChessBoard)
+    {
+        return;
+    }
+
+    // Если мы кликаем на уже выделенную фигуру, снимаем выделение
+    if (SelectedPiece == PieceToSelect)
+    {
+        ClearSelectionAndHighlights();
+        return;
+    }
+
+    // Если была выбрана другая фигура, сначала очищаем старое выделение
+    if (SelectedPiece)
+    {
+        ClearSelectionAndHighlights();
+    }
+
+    SelectedPiece = PieceToSelect;
+    SelectedPiece->OnSelected();
+
+    // Подсветка допустимых ходов
+    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
+    for (const FIntPoint& Move : ValidMoves)
+    {
+        ChessBoard->HighlightSquare(Move, FLinearColor::Green);
+    }
+    // Подсветка текущей клетки
+    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
+}
+
+void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
+{
+    if (!SelectedPiece || !ChessBoard)
+    {
+        return;
+    }
+
+    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
+    if (ValidMoves.Contains(GridPosition))
+    {
+        Server_AttemptMove(SelectedPiece, GridPosition);
+    }
+    
+    // В любом случае (даже если ход невалиден) снимаем выделение после попытки хода
+    ClearSelectionAndHighlights();
+}
+
+void AChessPlayerController::ClearSelectionAndHighlights()
+{
+    if (ChessBoard)
+    {
+        ChessBoard->ClearAllHighlights();
+    }
+    if (SelectedPiece)
+    {
+        SelectedPiece->OnDeselected();
+        SelectedPiece = nullptr;
     }
 }
