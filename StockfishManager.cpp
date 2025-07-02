@@ -65,6 +65,12 @@ void UStockfishManager::StartEngine()
     {
         bIsEngineRunningPrivate = true;
         UE_LOG(LogTemp, Log, TEXT("Stockfish process started successfully."));
+        
+        // Добавляем небольшую задержку, чтобы дать процессу время на полную инициализацию
+        // перед тем, как мы закроем его дескрипторы в родительском процессе.
+        // Это может помочь избежать состояний гонки при запуске.
+        FPlatformProcess::Sleep(0.05f);
+
         // В родительском процессе мы можем закрыть концы каналов дочернего процесса,
         // так как они больше не используются родителем.
         FPlatformProcess::ClosePipe(0, ChildStdoutWrite);
@@ -100,6 +106,15 @@ FString UStockfishManager::GetBestMove(const FString& FEN)
     if (!bIsEngineRunningPrivate || !ProcessHandle.IsValid() || !WritePipe || !ReadPipe)
     {
         UE_LOG(LogTemp, Error, TEXT("StockfishManager: Cannot get best move, process or pipes are not valid."));
+        return TEXT("");
+    }
+
+    // Дополнительная проверка, что процесс все еще запущен, перед попыткой записи.
+    if (!FPlatformProcess::IsProcRunning(ProcessHandle))
+    {
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Cannot get best move, process is no longer running. It might have crashed."));
+        bIsEngineRunningPrivate = false; // Обновляем состояние
+        StopEngine(); // Попытка очистки
         return TEXT("");
     }
 
