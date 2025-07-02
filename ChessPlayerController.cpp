@@ -61,8 +61,7 @@ void AChessPlayerController::BeginPlay()
     else
     {
         // Если игра уже идет, убеждаемся, что ввод настроен для игры.
-        SetInputMode(FInputModeGameOnly());
-        bShowMouseCursor = true;
+        SetInputModeForGame();
     }
 }
 
@@ -87,34 +86,6 @@ void AChessPlayerController::SetupInputComponent()
 void AChessPlayerController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
-    // --- Проверка и исправление режима ввода ---
-    // Это "защита", которая гарантирует, что мы находимся в правильном режиме ввода,
-    // даже если виджет стартового меню не смог его правильно установить после закрытия.
-    AChessGameState* GameStateForInputCheck = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (GameStateForInputCheck)
-    {
-        const EGamePhase CurrentPhase = GameStateForInputCheck->GetGamePhase();
-        if (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check)
-        {
-            // Если игра активна, мы должны быть в режиме "Game and UI", чтобы обрабатывать клики по миру.
-            // Мы проверяем наш собственный флаг, чтобы избежать вызова SetInputMode каждый кадр.
-            if (!bIsInputModeSetForGame)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::Tick: Input mode not set for active game. Forcing FInputModeGameAndUI."));
-                FInputModeGameAndUI InputMode;
-                SetInputMode(InputMode);
-                bShowMouseCursor = true;
-                bIsInputModeSetForGame = true;
-            }
-        }
-        else
-        {
-            // Сбрасываем флаг, когда игра неактивна (например, в меню или на экране результатов),
-            // чтобы режим ввода был снова установлен при начале следующей игры.
-            bIsInputModeSetForGame = false;
-        }
-    }
 
     // --- Отладочная информация на экране ---
     if (GEngine)
@@ -188,8 +159,7 @@ void AChessPlayerController::ShowStartMenu()
         if (StartMenuWidgetInstance)
         {
             StartMenuWidgetInstance->AddToViewport();
-            bShowMouseCursor = true;
-            SetInputMode(FInputModeUIOnly());
+            SetInputModeForUI();
         }
     }
 }
@@ -212,6 +182,24 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 AChessGameMode* AChessPlayerController::GetChessGameMode() const
 {
     return Cast<AChessGameMode>(GetWorld()->GetAuthGameMode());
+}
+
+void AChessPlayerController::SetInputModeForGame()
+{
+    FInputModeGameAndUI InputMode;
+    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    InputMode.SetHideCursorDuringCapture(false);
+    SetInputMode(InputMode);
+    bShowMouseCursor = true;
+    bIsInputModeSetForGame = true;
+}
+
+void AChessPlayerController::SetInputModeForUI()
+{
+    FInputModeUIOnly InputMode;
+    SetInputMode(InputMode);
+    bShowMouseCursor = true;
+    bIsInputModeSetForGame = false;
 }
 
 void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)

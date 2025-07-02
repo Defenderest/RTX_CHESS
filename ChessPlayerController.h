@@ -28,6 +28,18 @@ public:
     UFUNCTION(BlueprintPure, Category = "Chess Player Controller")
     EPieceColor GetPlayerColor() const;
 
+    /** Gets the current chess game mode. */
+    UFUNCTION(BlueprintPure, Category = "Chess Player Controller")
+    AChessGameMode* GetChessGameMode() const;
+
+    /** Sets the input mode to GameAndUI, suitable for gameplay. */
+    UFUNCTION(BlueprintCallable, Category = "Input")
+    void SetInputModeForGame();
+
+    /** Sets the input mode to UIOnly, suitable for menus. */
+    UFUNCTION(BlueprintCallable, Category = "Input")
+    void SetInputModeForUI();
+
 protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
@@ -80,12 +92,7 @@ private:
     /** Снимает выделение с фигуры и убирает подсветку ходов. */
     void ClearSelectionAndHighlights();
 
-    /** Флаг, чтобы убедиться, что мы устанавливаем режим ввода для игры только один раз. */
+    /** Флаг, чтобы отслеживать, установлен ли игровой режим ввода. */
     bool bIsInputModeSetForGame;
-
-public:
-    /** Gets the current chess game mode. */
-    UFUNCTION(BlueprintPure, Category = "Chess Player Controller")
-    AChessGameMode* GetChessGameMode() const;
 };
 
