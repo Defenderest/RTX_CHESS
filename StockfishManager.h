@@ -32,6 +32,9 @@ public:
     UFUNCTION(BlueprintPure, Category = "Stockfish")
     int32 GetSearchTimeMsec() const;
 
+    void SetSkillLevel(int32 NewSkillLevel);
+    int32 GetSkillLevel() const;
+
 private:
     // The background thread that will run Stockfish
     FRunnableThread* StockfishThread;
@@ -44,6 +47,7 @@ private:
     FString LastBestMovePrivate;
     bool bIsEngineRunningPrivate;
     int32 SearchTimeMsecPrivate;
+    int32 SkillLevelPrivate;
 
     friend class FStockfishTask;
 };

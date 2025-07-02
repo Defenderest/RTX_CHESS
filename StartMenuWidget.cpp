@@ -74,7 +74,6 @@ void UStartMenuWidget::OnStartOnlineGameClicked()
 {
     // TODO: Implement online game logic
     UE_LOG(LogTemp, Warning, TEXT("Online game functionality is not implemented yet."));
-    OnStartGame(false);
 }
 
 void UStartMenuWidget::OnExitClicked()

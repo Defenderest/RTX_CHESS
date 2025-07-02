@@ -45,6 +45,7 @@ UStockfishManager::UStockfishManager()
     bIsEngineRunningPrivate = false;
     LastBestMovePrivate = TEXT("N/A");
     SearchTimeMsecPrivate = 1000;
+    SkillLevelPrivate = 20; // Уровень сложности по умолчанию (0-20)
 }
 
 void UStockfishManager::BeginDestroy()
@@ -196,6 +197,20 @@ int32 UStockfishManager::GetSearchTimeMsec() const
     return SearchTimeMsecPrivate;
 }
 
+void UStockfishManager::SetSkillLevel(int32 NewSkillLevel)
+{
+    FScopeLock Lock(&DataMutex);
+    // Ограничиваем значение допустимым диапазоном для Stockfish (0-20)
+    SkillLevelPrivate = FMath::Clamp(NewSkillLevel, 0, 20);
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Skill level set to %d"), SkillLevelPrivate);
+}
+
+int32 UStockfishManager::GetSkillLevel() const
+{
+    FScopeLock Lock(&DataMutex);
+    return SkillLevelPrivate;
+}
+
 // --- FStockfishTask Implementation ---
 FStockfishTask::FStockfishTask(UStockfishManager* InManager)
     : Manager(InManager), bStopTask(false)
@@ -237,7 +252,8 @@ uint32 FStockfishTask::Run()
 
             // 2. Create input file with commands for Stockfish
             const FString CommandList = FString::Printf(
-                TEXT("position %s\ngo movetime %d\n"),
+                TEXT("setoption name Skill Level value %d\nposition %s\ngo movetime %d\n"),
+                Manager->GetSkillLevel(),
                 *PositionCommand,
                 Manager->GetSearchTimeMsec()
             );
