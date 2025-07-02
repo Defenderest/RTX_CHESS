@@ -229,7 +229,7 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, true, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, ChildStdoutWrite);
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, ChildStdoutWrite);
 
     if (!ProcessHandle.IsValid())
     {
@@ -256,16 +256,26 @@ uint32 FStockfishTask::Run()
         if (!WritePipe) return false;
         FString FullCmd = Cmd + TEXT("\n");
         FTCHARToUTF8 Converter(*FullCmd);
-        return FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length());
+        bool bSuccess = FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length());
+        UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Sent command '%s'. Success: %s"), *Cmd, bSuccess ? TEXT("true") : TEXT("false"));
+        return bSuccess;
     };
 
     auto ReadPipeWithTimeout = [&](const FString& ExpectedResponse, float TimeoutSeconds) -> bool {
         FDateTime StartTime = FDateTime::UtcNow();
         FString Buffer;
+        UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Waiting for '%s' with %.1f sec timeout."), *ExpectedResponse, TimeoutSeconds);
         while (FDateTime::UtcNow() - StartTime < FTimespan::FromSeconds(TimeoutSeconds))
         {
             if (bStopTask) return false;
-            Buffer += FPlatformProcess::ReadPipe(ReadPipe);
+
+            FString PipeData = FPlatformProcess::ReadPipe(ReadPipe);
+            if (!PipeData.IsEmpty())
+            {
+                UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Read from pipe: %s"), *PipeData);
+                Buffer += PipeData;
+            }
+            
             if (Buffer.Contains(ExpectedResponse))
             {
                 UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Received expected response '%s'"), *ExpectedResponse);
