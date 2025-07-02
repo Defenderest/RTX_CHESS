@@ -1,7 +1,6 @@
 #include "ChessPiece.h"
 #include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
-#include "Components/SphereComponent.h" // Для USphereComponent
 #include "Engine/StaticMesh.h" // Для UStaticMesh
 #include "Materials/MaterialInterface.h" // Для UMaterialInterface
 
@@ -9,32 +8,18 @@ AChessPiece::AChessPiece()
 {
     PrimaryActorTick.bCanEverTick = false; // Фигуры обычно не тикают каждый кадр
 
-    // Создаем компонент-сферу и делаем его корневым
-    CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
-    RootComponent = CollisionSphere;
-    CollisionSphere->SetSphereRadius(40.f); 
-    CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
-    // Сфера не должна блокировать клики. Трассировка должна проходить сквозь нее до меша.
-    CollisionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-    CollisionSphere->CanCharacterStepUpOn = ECB_No;
-    // Явно отключаем симуляцию физики, чтобы фигура не падала под действием гравитации.
-    CollisionSphere->SetSimulatePhysics(false);
-
-    // Создаем компонент меша и прикрепляем его к сфере
+    // Создаем компонент меша и делаем его корневым компонентом.
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
-    PieceMeshComponent->SetupAttachment(RootComponent);
-    // Устанавливаем относительное положение меша в (0,0,0), чтобы он был идеально центрирован
-    // относительно корневого компонента (CollisionSphere).
-    PieceMeshComponent->SetRelativeLocation(FVector::ZeroVector);
+    RootComponent = PieceMeshComponent;
     
-    // Коллизия меша настраивается для кликов (��рассировка видимости)
-    // и не должна мешать основной коллизии сферы для размещения.
+    // Настраиваем коллизию меша так, чтобы он был интерактивным.
+    // Он должен быть видимым для трассировки курсора (ECC_Visibility).
     PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    PieceMeshComponent->SetCollisionObjectType(ECC_Pawn); // Или другой тип, который вы используете для интерактивных объектов
+    PieceMeshComponent->SetCollisionObjectType(ECC_Pawn); // Используем тип Pawn для интерактивных объектов
     PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-    PieceMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // Реагировать на трассировку видимости для кликов
+    PieceMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // Блокируем канал Visibility для обнаружения кликов
     PieceMeshComponent->CanCharacterStepUpOn = ECB_No;
+    PieceMeshComponent->SetSimulatePhysics(false); // Физика не нужна
 
 
     PieceColor = EPieceColor::White;

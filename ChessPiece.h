@@ -9,7 +9,6 @@
 // Forward declarations
 class AChessBoard;
 class UStaticMeshComponent;
-class USphereComponent;
 class UStaticMesh;
 class UMaterialInterface;
 class UDecalComponent;
@@ -56,9 +55,6 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     bool bHasMoved;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-    TObjectPtr<USphereComponent> CollisionSphere;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
