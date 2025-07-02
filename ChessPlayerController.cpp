@@ -87,6 +87,27 @@ void AChessPlayerController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
+    // --- Проверка и исправление режима ввода ---
+    // Это "защита", которая гарантирует, что мы находимся в правильном режиме ввода,
+    // даже если виджет стартового меню не смог его правильно установить после закрытия.
+    AChessGameState* GameStateForInputCheck = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (GameStateForInputCheck)
+    {
+        const EGamePhase CurrentPhase = GameStateForInputCheck->GetGamePhase();
+        if (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check)
+        {
+            // Если игра активна, мы должны быть в режиме "Game and UI", чтобы обрабатывать клики по миру.
+            // FInputModeGameAndUI является хорошим выбором, так как он позволяет видеть курсор и взаимодействовать с игрой.
+            if (CurrentInputMode != EInputMode::GameAndUI)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::Tick: Incorrect input mode detected during active game phase. Forcing FInputModeGameAndUI."));
+                FInputModeGameAndUI InputMode;
+                SetInputMode(InputMode);
+                bShowMouseCursor = true;
+            }
+        }
+    }
+
     // --- Отладочная информация на экране ---
     if (GEngine)
     {
