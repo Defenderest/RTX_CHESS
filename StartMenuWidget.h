@@ -25,6 +25,10 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnExitClicked();
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    FName GameLevelName;
+
 private:
     void HideMenu();
+    void OnStartGame(bool bIsBotGame);
 };

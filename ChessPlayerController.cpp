@@ -1,41 +1,90 @@
 #include "ChessPlayerController.h"
-#include "EnhancedInputSubsystems.h" // Для Enhanced Input
-#include "EnhancedInputComponent.h"   // Для Enhanced Input
-#include "InputActionValue.h"         // Для FInputActionValue
-#include "ChessPiece.h"               // Для AChessPiece
-#include "ChessBoard.h"               // Для AChessBoard
-#include "ChessGameMode.h"            // Для AChessGameMode
-#include "ChessPlayerCameraManager.h" // Добавляем наш новый класс менеджера камеры
-#include "StartMenuWidget.h"          // Включаем заголовок нашего виджета
-#include "Blueprint/UserWidget.h"     // Для CreateWidget
+#include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
+#include "ChessPiece.h"
+#include "ChessBoard.h"
+#include "ChessGameMode.h"
+#include "GameCameraActor.h"
+#include "Kismet/GameplayStatics.h"
+#include "StartMenuWidget.h"
+#include "Blueprint/UserWidget.h"
 
 AChessPlayerController::AChessPlayerController()
 {
-    PlayerCameraManagerClass = AChessPlayerCameraManager::StaticClass(); // Устанавливаем наш класс по умолчанию
+    bAutoManageActiveCameraTarget = false;
     bShowMouseCursor = true;
     bEnableClickEvents = true;
     bEnableMouseOverEvents = true;
+    PlayerColor = EPieceColor::White;
+    SelectedPiece = nullptr;
 }
 
 void AChessPlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Настройка Enhanced Input
     if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
     {
         if (ChessMappingContext)
         {
             Subsystem->AddMappingContext(ChessMappingContext, 0);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: ChessMappingContext added."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: ChessMappingContext is not set!"));
         }
     }
 
+    SetCamera();
     ShowStartMenu();
+}
+
+void AChessPlayerController::SetupInputComponent()
+{
+    Super::SetupInputComponent();
+
+    if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
+    {
+        if (ClickAction)
+        {
+            EnhancedInput->BindAction(ClickAction, ETriggerEvent::Started, this, &AChessPlayerController::OnClickStarted);
+            EnhancedInput->BindAction(ClickAction, ETriggerEvent::Completed, this, &AChessPlayerController::OnClickCompleted);
+        }
+
+        if (LookAction)
+        {
+            EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLook);
+        }
+    }
+}
+
+void AChessPlayerController::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    if (SelectedPiece)
+    {
+        FVector MouseLocation, MouseDirection;
+        if (DeprojectMousePositionToWorld(MouseLocation, MouseDirection))
+        {
+            FHitResult HitResult;
+            FCollisionQueryParams QueryParams;
+            QueryParams.AddIgnoredActor(SelectedPiece);
+
+            if (GetWorld()->LineTraceSingleByChannel(HitResult, MouseLocation, MouseLocation + MouseDirection * 10000.f, ECC_WorldStatic))
+            {
+                FVector TargetLocation = HitResult.Location;
+                TargetLocation.Z = OriginalPieceLocation.Z + 50.0f;
+                SelectedPiece->SetActorLocation(TargetLocation);
+            }
+        }
+    }
+}
+
+void AChessPlayerController::SetCamera()
+{
+    AGameCameraActor* GameCamera = Cast<AGameCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AGameCameraActor::StaticClass()));
+    if (GameCamera)
+    {
+        SetViewTargetWithBlend(GameCamera, 0.5f);
+    }
 }
 
 void AChessPlayerController::ShowStartMenu()
@@ -54,10 +103,6 @@ void AChessPlayerController::ShowStartMenu()
             SetInputMode(FInputModeUIOnly());
         }
     }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("StartMenuWidgetClass is not set in the PlayerController Blueprint."));
-    }
 }
 
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
@@ -75,98 +120,78 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
     }
 }
 
-void AChessPlayerController::SetupInputComponent()
-{
-    Super::SetupInputComponent();
-
-    // Привязка действий Enhanced Input
-    if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
-    {
-        if (SelectAction)
-        {
-            EnhancedInput->BindAction(SelectAction, ETriggerEvent::Started, this, &AChessPlayerController::HandleSelectAction);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: SelectAction bound."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: SelectAction is not set!"));
-        }
-
-        if (LookAction)
-        {
-            EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLook);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: LookAction bound."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LookAction is not set!"));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: EnhancedInputComponent not found!"));
-    }
-}
-
-void AChessPlayerController::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-}
-
 AChessGameMode* AChessPlayerController::GetChessGameMode() const
 {
     return Cast<AChessGameMode>(GetWorld()->GetAuthGameMode());
 }
 
-void AChessPlayerController::HandleSelectAction()
+void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)
 {
-    FHitResult HitResult;
-    if (GetHitResultUnderCursor(ECC_Visibility, true, HitResult))
-    {
-        AChessGameMode* GameMode = GetChessGameMode();
-        if (!GameMode)
-        {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::HandleSelectAction: GameMode is null."));
-            return;
-        }
+    PlayerColor = NewColor;
+}
 
-        AActor* ClickedActor = HitResult.GetActor();
-        if (ClickedActor)
+EPieceColor AChessPlayerController::GetPlayerColor() const
+{
+    return PlayerColor;
+}
+
+#include "ChessGameState.h"
+
+void AChessPlayerController::OnClickStarted()
+{
+    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    if (!GameState || GameState->GetCurrentTurnColor() != PlayerColor)
+    {
+        return;
+    }
+
+    FHitResult HitResult;
+    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+    if (HitResult.bBlockingHit)
+    {
+        AChessPiece* HitPiece = Cast<AChessPiece>(HitResult.GetActor());
+        if (HitPiece && HitPiece->GetPieceColor() == PlayerColor)
         {
-            AChessPiece* ClickedPiece = Cast<AChessPiece>(ClickedActor);
-            if (ClickedPiece)
-            {
-                // Кликнули по фигуре
-                UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: Clicked on piece: %s at (%d, %d)"),
-                       *ClickedPiece->GetName(), ClickedPiece->GetBoardPosition().X, ClickedPiece->GetBoardPosition().Y);
-                GameMode->HandlePieceClicked(ClickedPiece, this);
-            }
-            else
-            {
-                AChessBoard* ClickedBoard = Cast<AChessBoard>(ClickedActor);
-                if (ClickedBoard)
-                {
-                    // Кликнули по доске, определяем клетку
-                    FIntPoint GridPosition = ClickedBoard->WorldToGridPosition(HitResult.Location);
-                    UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: Clicked on board at grid position: (%d, %d)"), GridPosition.X, GridPosition.Y);
-                    GameMode->HandleSquareClicked(GridPosition, this);
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController: Clicked on unknown actor: %s"), *ClickedActor->GetName());
-                }
-            }
+            SelectedPiece = HitPiece;
+            OriginalPieceLocation = SelectedPiece->GetActorLocation();
+            SelectedPiece->OnSelected();
+            SetInputMode(FInputModeGameAndUI());
         }
     }
-    else
+}
+
+void AChessPlayerController::OnClickCompleted()
+{
+    if (SelectedPiece)
     {
-        // Кликнули в пустое место, снимаем выделение, если есть
+        SelectedPiece->OnDeselected();
+
+        FHitResult HitResult;
+        GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+        AChessBoard* ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(this, AChessBoard::StaticClass()));
         AChessGameMode* GameMode = GetChessGameMode();
-        if (GameMode)
+
+        if (ChessBoard && GameMode && HitResult.bBlockingHit)
         {
-            // Передаем невалидную позицию, чтобы GameMode снял выделение
-            GameMode->HandleSquareClicked(FIntPoint(-1, -1), this);
-            UE_LOG(LogTemp, Log, TEXT("AChessPlayerController: Clicked on empty space."));
+            FIntPoint TargetSquare = ChessBoard->WorldToGridPosition(HitResult.Location);
+
+            if (!GameMode->AttemptMove(SelectedPiece, TargetSquare, this))
+            {
+                SelectedPiece->SetActorLocation(OriginalPieceLocation);
+            }
+        }
+        else
+        {
+            SelectedPiece->SetActorLocation(OriginalPieceLocation);
+        }
+
+        SelectedPiece = nullptr;
+
+        if (StartMenuWidgetInstance && !StartMenuWidgetInstance->IsVisible())
+        {
+            SetInputMode(FInputModeGameOnly());
         }
     }
 }

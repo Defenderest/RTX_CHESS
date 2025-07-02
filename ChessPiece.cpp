@@ -138,20 +138,18 @@ TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessBoard* Board) const
 
 void AChessPiece::OnSelected_Implementation()
 {
-    // Логика по умолчанию для выбора фигуры (может быть переопределена в Blueprint)
-    UE_LOG(LogTemp, Log, TEXT("AChessPiece: %s %s at (%d, %d) selected."),
-           (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-           *UEnum::GetValueAsString(TypeOfPiece),
-           BoardPosition.X, BoardPosition.Y);
+    if (DynamicMaterialInstance)
+    {
+        DynamicMaterialInstance->SetScalarParameterValue(FName("Highlight"), 1.0f);
+    }
 }
 
 void AChessPiece::OnDeselected_Implementation()
 {
-    // Логика по умолчанию для снятия выбора с фигуры (может быть переопределена в Blueprint)
-    UE_LOG(LogTemp, Log, TEXT("AChessPiece: %s %s at (%d, %d) deselected."),
-           (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-           *UEnum::GetValueAsString(TypeOfPiece),
-           BoardPosition.X, BoardPosition.Y);
+    if (DynamicMaterialInstance)
+    {
+        DynamicMaterialInstance->SetScalarParameterValue(FName("Highlight"), 0.0f);
+    }
 }
 
 void AChessPiece::OnCaptured_Implementation()

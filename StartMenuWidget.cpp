@@ -8,38 +8,40 @@ void UStartMenuWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // Здесь можно будет привязать функции к кнопкам, если они созданы в C++
-    // Но мы будем делать это в Blueprint
+    GameLevelName = "Cigar_room";
 }
 
 void UStartMenuWidget::OnStartPlayerVsPlayerClicked()
 {
-    if (AChessGameMode* GameMode = Cast<AChessGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
-    {
-        GameMode->StartNewGame();
-        HideMenu();
-    }
+    OnStartGame(false);
 }
 
 void UStartMenuWidget::OnStartPlayerVsBotClicked()
 {
-    if (AChessGameMode* GameMode = Cast<AChessGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+    UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget::OnStartPlayerVsBotClicked() - Button press detected!"));
+    OnStartGame(true);
+}
+
+void UStartMenuWidget::OnStartGame(bool bIsBotGame)
+{
+    UE_LOG(LogTemp, Log, TEXT("OnStartGame called. bIsBotGame: %s"), bIsBotGame ? TEXT("true") : TEXT("false"));
+    if (GameLevelName.IsNone())
     {
-        GameMode->StartBotGame();
-        HideMenu();
+        UE_LOG(LogTemp, Error, TEXT("GameLevelName is not set!"));
+        return;
     }
+
+    UE_LOG(LogTemp, Log, TEXT("Attempting to open level: %s"), *GameLevelName.ToString());
+    FString Options = bIsBotGame ? "?bIsBotGame=true" : "";
+    UGameplayStatics::OpenLevel(GetWorld(), GameLevelName, true, Options);
+    // HideMenu() убран, так как загрузка уровня сама уничтожит виджет.
 }
 
 void UStartMenuWidget::OnStartOnlineGameClicked()
 {
     // TODO: Implement online game logic
     UE_LOG(LogTemp, Warning, TEXT("Online game functionality is not implemented yet."));
-    // Пока что можно просто скрыть меню и начать обычную игру
-    if (AChessGameMode* GameMode = Cast<AChessGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
-    {
-        GameMode->StartNewGame();
-        HideMenu();
-    }
+    OnStartGame(false);
 }
 
 void UStartMenuWidget::OnExitClicked()

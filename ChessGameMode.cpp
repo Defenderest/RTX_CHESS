@@ -45,8 +45,15 @@ void AChessGameMode::BeginPlay()
     }
 
     FindGameBoard();
-    // Do not start game automatically
-    // StartNewGame(); 
+
+    if (UGameplayStatics::HasOption(this->OptionsString, "bIsBotGame"))
+    {
+        StartBotGame();
+    }
+    else
+    {
+        StartNewGame();
+    }
 }
 
 void AChessGameMode::StartBotGame()
@@ -56,6 +63,7 @@ void AChessGameMode::StartBotGame()
     {
         StockfishManager->StartEngine();
     }
+    // Вызываем StartNewGame, который теперь корректно настроит игрока
     StartNewGame();
 }
 
@@ -254,33 +262,39 @@ void AChessGameMode::HandleSquareClicked(const FIntPoint& GridPosition, AChessPl
 
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
+    UE_LOG(LogTemp, Log, TEXT("--- AttemptMove START ---"));
+
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (!PieceToMove || !GameBoard || !CurrentGS)
     {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::AttemptMove: Invalid input (PieceToMove, GameBoard, or GameState is null)."));
+        UE_LOG(LogTemp, Error, TEXT("AttemptMove FAIL: Invalid input (PieceToMove, GameBoard, or GameState is null)."));
         return false;
     }
 
+    // Проверка 1: Ход текущего цвета?
     if (PieceToMove->GetPieceColor() != CurrentGS->GetCurrentTurnColor())
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Piece does not belong to the current player's turn."));
+        UE_LOG(LogTemp, Warning, TEXT("AttemptMove FAIL: It's not %s's turn."), 
+            (PieceToMove->GetPieceColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         return false;
     }
+    UE_LOG(LogTemp, Log, TEXT("AttemptMove PASS: Turn check passed."));
 
+    // Проверка 2: Является ли ход допустимым для этой фигуры?
     TArray<FIntPoint> ValidMoves = PieceToMove->GetValidMoves(GameBoard);
-
     if (!ValidMoves.Contains(TargetGridPosition))
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Target position (%d, %d) is not a valid move for %s at (%d, %d)."),
-               TargetGridPosition.X, TargetGridPosition.Y,
-               *UEnum::GetValueAsString(PieceToMove->GetPieceType()),
-               PieceToMove->GetBoardPosition().X, PieceToMove->GetBoardPosition().Y);
+        UE_LOG(LogTemp, Warning, TEXT("AttemptMove FAIL: Target position (%d, %d) is not a valid move for this piece."),
+               TargetGridPosition.X, TargetGridPosition.Y);
         return false;
     }
+    UE_LOG(LogTemp, Log, TEXT("AttemptMove PASS: Valid move check passed."));
 
+    // Проверка 3: Не ставит ли этот ход своего короля под шах?
     FIntPoint OriginalPosition = PieceToMove->GetBoardPosition();
     AChessPiece* CapturedPiece = CurrentGS->GetPieceAtGridPosition(TargetGridPosition);
 
+    // Временно "делаем" ход, чтобы проверить состояние доски после него
     CurrentGS->RemovePieceFromState(PieceToMove);
     if (CapturedPiece)
     {
@@ -291,6 +305,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     bool bIsInCheckAfterMove = CurrentGS->IsPlayerInCheck(CurrentGS->GetCurrentTurnColor(), GameBoard);
 
+    // Отменяем временный ход
     CurrentGS->RemovePieceFromState(PieceToMove);
     PieceToMove->SetBoardPosition(OriginalPosition);
     CurrentGS->AddPieceToState(PieceToMove);
@@ -301,9 +316,13 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     if (bIsInCheckAfterMove)
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::AttemptMove: Move would put King in check. Invalid move."));
+        UE_LOG(LogTemp, Warning, TEXT("AttemptMove FAIL: Move would put King in check."));
         return false;
     }
+    UE_LOG(LogTemp, Log, TEXT("AttemptMove PASS: King safety check passed."));
+
+    // --- Все проверки пройдены, выполняем ход ---
+    UE_LOG(LogTemp, Log, TEXT("--- ALL CHECKS PASSED: EXECUTING MOVE ---"));
 
     bool bIsPawnTwoStep = false;
     if (PieceToMove->GetPieceType() == EPieceType::Pawn && FMath::Abs(TargetGridPosition.Y - OriginalPosition.Y) == 2)
@@ -316,14 +335,9 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         CurrentGS->ClearEnPassantData();
     }
 
-    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Executing move for %s from (%d, %d) to (%d, %d)."),
-           *UEnum::GetValueAsString(PieceToMove->GetPieceType()),
-           OriginalPosition.X, OriginalPosition.Y,
-           TargetGridPosition.X, TargetGridPosition.Y);
-
     if (CapturedPiece)
     {
-        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d)."),
+        UE_LOG(LogTemp, Log, TEXT("Executing Move: Capturing %s at (%d, %d)."),
                *UEnum::GetValueAsString(CapturedPiece->GetPieceType()),
                TargetGridPosition.X, TargetGridPosition.Y);
         CurrentGS->RemovePieceFromState(CapturedPiece);
@@ -338,7 +352,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         APawnPiece* EnPassantCapturedPawn = CurrentGS->GetEnPassantPawnToCapture();
         if (EnPassantCapturedPawn)
         {
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Capturing %s at (%d, %d) via En Passant."),
+            UE_LOG(LogTemp, Log, TEXT("Executing Move: Capturing %s at (%d, %d) via En Passant."),
                    *UEnum::GetValueAsString(EnPassantCapturedPawn->GetPieceType()),
                    EnPassantCapturedPawn->GetBoardPosition().X, EnPassantCapturedPawn->GetBoardPosition().Y);
             CurrentGS->RemovePieceFromState(EnPassantCapturedPawn);
@@ -353,6 +367,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     
     FVector NewWorldLocation = GameBoard->GridToWorldPosition(TargetGridPosition);
     PieceToMove->SetActorLocation(NewWorldLocation);
+    UE_LOG(LogTemp, Log, TEXT("Executing Move: Setting Actor Location to %s"), *NewWorldLocation.ToString());
     
     GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition);
 
@@ -366,8 +381,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
             int32 Direction = (MovedPawn->GetPieceColor() == EPieceColor::White) ? 1 : -1;
             FIntPoint EnPassantSquare = FIntPoint(OriginalPosition.X, OriginalPosition.Y + Direction);
             CurrentGS->SetEnPassantData(EnPassantSquare, MovedPawn);
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: En Passant opportunity created at (%d, %d) for pawn at (%d, %d)"),
-                EnPassantSquare.X, EnPassantSquare.Y, MovedPawn->GetBoardPosition().X, MovedPawn->GetBoardPosition().Y);
         }
     }
 
@@ -376,6 +389,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     EndTurn();
 
+    UE_LOG(LogTemp, Log, TEXT("--- AttemptMove END (Success) ---"));
     return true;
 }
 
