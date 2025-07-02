@@ -254,8 +254,9 @@ uint32 FStockfishTask::Run()
             const FString ExePath = FString::Printf(TEXT("\"%s\""), *StockfishPath);
             const FString Params = FString::Printf(TEXT("< \"%s\" > \"%s\" 2>&1"), *InputFilePath, *OutputFilePath);
             const FString FullCommand = FString::Printf(TEXT("/c %s %s"), *ExePath, *Params);
+            const FString StockfishDir = FPaths::GetPath(StockfishPath);
             
-            FProcHandle ProcessHandle = FPlatformProcess::CreateProc(TEXT("cmd.exe"), *FullCommand, false, true, true, nullptr, 0, nullptr, nullptr, nullptr);
+            FProcHandle ProcessHandle = FPlatformProcess::CreateProc(TEXT("cmd.exe"), *FullCommand, false, true, true, nullptr, 0, *StockfishDir, nullptr, nullptr);
 
             if (!ProcessHandle.IsValid())
             {
