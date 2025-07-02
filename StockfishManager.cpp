@@ -230,8 +230,9 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    // Launch stockfish directly. The `true, true, true` parameters hide the console window.
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, true, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
+    // Launch stockfish directly, but make its console window visible for debugging.
+    // The `true, false, false` parameters will show the console window.
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, true, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
 
     if (!ProcessHandle.IsValid())
     {
