@@ -53,7 +53,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
     TSubclassOf<UStartMenuWidget> StartMenuWidgetClass;
 
-    // Enhanced Input
+    // Enhanced Input. Назначьте эти ассеты в вашем Blueprint Player Controller.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputMappingContext* ChessMappingContext;
 

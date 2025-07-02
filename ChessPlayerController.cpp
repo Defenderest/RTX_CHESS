@@ -35,6 +35,10 @@ void AChessPlayerController::BeginPlay()
         {
             Subsystem->AddMappingContext(ChessMappingContext, 0);
         }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::BeginPlay: ChessMappingContext не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+        }
     }
 
     SetCamera();
@@ -75,10 +79,18 @@ void AChessPlayerController::SetupInputComponent()
         {
             EnhancedInput->BindAction(ClickAction, ETriggerEvent::Started, this, &AChessPlayerController::OnClickStarted);
         }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ClickAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+        }
 
         if (LookAction)
         {
             EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleLook);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: LookAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
         }
     }
 }
