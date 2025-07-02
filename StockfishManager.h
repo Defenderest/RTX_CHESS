@@ -1,22 +1,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "HAL/PlatformProcess.h" // Для FProcHandle
 #include "UObject/NoExportTypes.h"
 #include "StockfishManager.generated.h"
 
-/**
- * Manages the Stockfish chess engine process.
- */
+class FRunnableThread;
+class FStockfishTask;
 
 UCLASS()
 class RTX_CHESS_API UStockfishManager : public UObject
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
     UStockfishManager();
-    ~UStockfishManager();
+    virtual void BeginDestroy() override;
 
     void StartEngine();
     void StopEngine();
@@ -32,11 +30,17 @@ public:
     int32 GetSearchTimeMsec() const;
 
 private:
-    void* ReadPipe;
-    void* WritePipe;
-    FProcHandle ProcessHandle;
+    // The background thread that will run Stockfish
+    FRunnableThread* StockfishThread;
 
-    bool bIsEngineRunningPrivate;
+    // The task object that contains the logic for the thread
+    FStockfishTask* StockfishTask;
+
+    // Thread-safe members
+    mutable FCriticalSection DataMutex;
     FString LastBestMovePrivate;
+    bool bIsEngineRunningPrivate;
     int32 SearchTimeMsecPrivate;
+
+    friend class FStockfishTask;
 };

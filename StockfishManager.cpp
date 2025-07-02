@@ -1,267 +1,329 @@
 #include "StockfishManager.h"
-#include "Misc/Paths.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 #include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "Containers/Queue.h"
 #include "Containers/StringConv.h"
+#include "HAL/ThreadSafeBool.h"
 
+// --- FStockfishTask Declaration ---
+class FStockfishTask : public FRunnable
+{
+public:
+    FStockfishTask(UStockfishManager* InManager);
+    virtual ~FStockfishTask();
+
+    // FRunnable interface
+    virtual bool Init() override;
+    virtual uint32 Run() override;
+    virtual void Stop() override;
+    virtual void Exit() override;
+
+    // Interface for UStockfishManager
+    void EnqueueCommand(const FString& Command);
+    bool DequeueResult(FString& OutResult);
+
+private:
+    UStockfishManager* Manager;
+    FThreadSafeBool bStopTask;
+
+    TQueue<FString, EQueueMode::Mpsc> CommandQueue;
+    TQueue<FString, EQueueMode::Mpsc> ResultQueue;
+
+    FProcHandle ProcessHandle;
+    void* ReadPipe;
+    void* WritePipe;
+};
+
+// --- UStockfishManager Implementation ---
 UStockfishManager::UStockfishManager()
 {
-    ReadPipe = nullptr;
-    WritePipe = nullptr;
+    StockfishThread = nullptr;
+    StockfishTask = nullptr;
     bIsEngineRunningPrivate = false;
     LastBestMovePrivate = TEXT("N/A");
-    SearchTimeMsecPrivate = 100; // Default search time
+    SearchTimeMsecPrivate = 1000;
 }
 
-UStockfishManager::~UStockfishManager()
+void UStockfishManager::BeginDestroy()
 {
+    Super::BeginDestroy();
     StopEngine();
 }
 
 void UStockfishManager::StartEngine()
 {
-    if (bIsEngineRunningPrivate)
+    FScopeLock Lock(&DataMutex);
+    if (bIsEngineRunningPrivate || StockfishThread)
     {
-        UE_LOG(LogTemp, Warning, TEXT("StockfishManager::StartEngine: Engine is already running."));
+        UE_LOG(LogTemp, Warning, TEXT("StockfishManager::StartEngine: Engine is already running or starting."));
         return;
     }
 
-    FString StockfishPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe"));
-
-    if (!FPaths::FileExists(StockfishPath))
+    StockfishTask = new FStockfishTask(this);
+    StockfishThread = FRunnableThread::Create(StockfishTask, TEXT("StockfishThread"), 0, TPri_BelowNormal);
+    if (StockfishThread)
     {
-        UE_LOG(LogTemp, Error, TEXT("Stockfish executable not found at %s"), *StockfishPath);
-        return;
-    }
-
-    // Создаем два канала: один для STDIN (ввод), другой для STDOUT (вывод)
-    void* ChildStdoutRead = nullptr;
-    void* ChildStdoutWrite = nullptr;
-    FPlatformProcess::CreatePipe(ChildStdoutRead, ChildStdoutWrite);
-
-    void* ChildStdinRead = nullptr;
-    void* ChildStdinWrite = nullptr;
-    FPlatformProcess::CreatePipe(ChildStdinRead, ChildStdinWrite);
-
-    // Родительский процесс будет использовать противоположные концы каналов
-    ReadPipe = ChildStdoutRead;  // Родитель читает из stdout дочернего процесса
-    WritePipe = ChildStdinWrite; // Родитель пишет в stdin дочернего процесса
-
-    // Устанавливаем рабочий каталог в папку, где находится stockfish.exe.
-    // Это может быть необходимо, если движок ищет какие-либо файлы относительно своего местоположения.
-    FString StockfishDir = FPaths::GetPath(StockfishPath);
-
-    // Концы каналов дочернего процесса передаются в CreateProc
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead);
-
-    if (!ProcessHandle.IsValid())
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to start Stockfish process."));
-        bIsEngineRunningPrivate = false;
-        FPlatformProcess::ClosePipe(ChildStdoutRead, ChildStdoutWrite);
-        FPlatformProcess::ClosePipe(ChildStdinRead, ChildStdinWrite);
-        ReadPipe = nullptr;
-        WritePipe = nullptr;
+        bIsEngineRunningPrivate = true;
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Stockfish thread created."));
     }
     else
     {
-        bIsEngineRunningPrivate = true;
-        UE_LOG(LogTemp, Log, TEXT("Stockfish process started successfully. Now performing UCI handshake."));
-        
-        // Даем процессу время на инициализацию и дублирование дескрипторов,
-        // прежде чем родительский процесс закроет свою копию этих дескрипторов.
-        FPlatformProcess::Sleep(0.1f);
-
-        // Родительский процесс теперь может безопасно закрыть свои дескрипторы на концы каналов дочернего процесса.
-        FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
-        FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
-
-        // --- Стандартный UCI-хендшейк ---
-        // Проверяем, не завершился ли процесс сразу после запуска, перед отправкой команд.
-        if (!FPlatformProcess::IsProcRunning(ProcessHandle))
-        {
-            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Process terminated unexpectedly before UCI handshake. Check working directory or executable permissions."));
-            StopEngine();
-            return;
-        }
-
-        // 1. Отправляем "uci" и ждем "uciok"
-        FString UciCommand = TEXT("uci\n");
-        FTCHARToUTF8 UciConverter(*UciCommand);
-        if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)UciConverter.Get(), UciConverter.Length()))
-        {
-            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Failed to send 'uci' command."));
-            StopEngine();
-            return;
-        }
-
-        FString UciOutput;
-        FDateTime UciStartTime = FDateTime::UtcNow();
-        bool bUciOk = false;
-        while (FDateTime::UtcNow() - UciStartTime < FTimespan::FromSeconds(5))
-        {
-            UciOutput += FPlatformProcess::ReadPipe(ReadPipe);
-            if (UciOutput.Contains(TEXT("uciok")))
-            {
-                bUciOk = true;
-                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'uciok'."));
-                break;
-            }
-            FPlatformProcess::Sleep(0.05f);
-        }
-
-        if (!bUciOk)
-        {
-            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Did not receive 'uciok'. Engine might be unresponsive. Output:\n%s"), *UciOutput);
-            StopEngine();
-            return;
-        }
-
-        // 2. Отправляем "isready" и ждем "readyok"
-        FString IsReadyCommand = TEXT("isready\n");
-        FTCHARToUTF8 IsReadyConverter(*IsReadyCommand);
-        if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)IsReadyConverter.Get(), IsReadyConverter.Length()))
-        {
-            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Failed to send 'isready' command."));
-            StopEngine();
-            return;
-        }
-
-        FString ReadyOutput;
-        FDateTime ReadyStartTime = FDateTime::UtcNow();
-        bool bReadyOk = false;
-        while (FDateTime::UtcNow() - ReadyStartTime < FTimespan::FromSeconds(5))
-        {
-            ReadyOutput += FPlatformProcess::ReadPipe(ReadPipe);
-            if (ReadyOutput.Contains(TEXT("readyok")))
-            {
-                bReadyOk = true;
-                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'readyok'. Engine is fully initialized."));
-                break;
-            }
-            FPlatformProcess::Sleep(0.05f);
-        }
-
-        if (!bReadyOk)
-        {
-            UE_LOG(LogTemp, Error, TEXT("StockfishManager::StartEngine: Did not receive 'readyok'. Engine might be unresponsive. Output:\n%s"), *ReadyOutput);
-            StopEngine();
-            return;
-        }
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to create Stockfish thread."));
+        delete StockfishTask;
+        StockfishTask = nullptr;
     }
 }
 
 void UStockfishManager::StopEngine()
 {
-    if (ProcessHandle.IsValid())
+    FScopeLock Lock(&DataMutex);
+    if (!bIsEngineRunningPrivate && !StockfishThread)
     {
-        FPlatformProcess::TerminateProc(ProcessHandle);
-        FPlatformProcess::CloseProc(ProcessHandle);
-        UE_LOG(LogTemp, Log, TEXT("Stockfish process terminated."));
+        return;
     }
-    bIsEngineRunningPrivate = false;
 
-    // Закрываем дескрипторы каналов родительского процесса
-    if (WritePipe)
+    if (StockfishTask)
     {
-        FPlatformProcess::ClosePipe(nullptr, WritePipe);
-        WritePipe = nullptr;
+        StockfishTask->Stop();
     }
-    if (ReadPipe)
+
+    if (StockfishThread)
     {
-        FPlatformProcess::ClosePipe(ReadPipe, nullptr);
-        ReadPipe = nullptr;
+        StockfishThread->WaitForCompletion();
+        delete StockfishThread;
+        StockfishThread = nullptr;
     }
+
+    if (StockfishTask)
+    {
+        delete StockfishTask;
+        StockfishTask = nullptr;
+    }
+    
+    bIsEngineRunningPrivate = false;
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Engine stopped."));
 }
 
 FString UStockfishManager::GetBestMove(const FString& FEN)
 {
-    if (!bIsEngineRunningPrivate || !ProcessHandle.IsValid() || !WritePipe || !ReadPipe)
+    if (!IsEngineRunning() || !StockfishTask)
     {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Cannot get best move, process or pipes are not valid."));
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager::GetBestMove: Engine is not running."));
         return TEXT("");
     }
 
-    // Дополнительная проверка, что процесс все еще запущен, перед попыткой записи.
-    if (!FPlatformProcess::IsProcRunning(ProcessHandle))
-    {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Cannot get best move, process is no longer running. It might have crashed."));
-        bIsEngineRunningPrivate = false; // Обновляем состояние
-        StopEngine(); // Попытка очистки
-        return TEXT("");
-    }
+    FString Command = FString::Printf(TEXT("position fen %s\ngo movetime %d"), *FEN, GetSearchTimeMsec());
+    StockfishTask->EnqueueCommand(Command);
 
-    // Отправляем команду для установки позиции и начала поиска
-    FString Command = FString::Printf(TEXT("position fen %s\ngo movetime %d\n"), *FEN, SearchTimeMsecPrivate);
-    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending command to Stockfish: %s"), *Command.Replace(TEXT("\n"), TEXT(" ")));
-
-    FTCHARToUTF8 Converter(*Command);
-    if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length()))
-    {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to write to pipe."));
-        return TEXT("");
-    }
-
-    // Читаем ответ с тайм-аутом
-    FString FullOutput;
+    // Blocking wait for the result
+    FString Result;
     FDateTime StartTime = FDateTime::UtcNow();
-    // Добавляем небольшой буфер к тайм-ауту для учета накладных расходов
-    const FTimespan Timeout = FTimespan::FromMilliseconds(SearchTimeMsecPrivate + 500);
+    const FTimespan Timeout = FTimespan::FromMilliseconds(GetSearchTimeMsec() + 2000); // Search time + buffer
 
     while (FDateTime::UtcNow() - StartTime < Timeout)
     {
-        FString CurrentOutput = FPlatformProcess::ReadPipe(ReadPipe);
-        if (!CurrentOutput.IsEmpty())
+        if (StockfishTask->DequeueResult(Result))
         {
-            FullOutput += CurrentOutput;
-            // 'bestmove' - это последнее, что печатает Stockfish для команды 'go'.
-            // Поэтому мы можем прекратить чтение, как только увидим это.
-            if (FullOutput.Contains(TEXT("bestmove")))
-            {
-                break;
-            }
+            FScopeLock Lock(&DataMutex);
+            LastBestMovePrivate = Result;
+            return Result;
         }
-        // Небольшая задержка, чтобы не загружать ЦП на 100%
-        FPlatformProcess::Sleep(0.01f);
+        FPlatformProcess::Sleep(0.02f);
     }
 
-    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received output:\n%s"), *FullOutput);
-
-    TArray<FString> Lines;
-    FullOutput.ParseIntoArray(Lines, TEXT("\n"), true);
-
-    // Ищем с конца, так как 'bestmove' обычно последняя строка
-    for (int32 i = Lines.Num() - 1; i >= 0; --i)
-    {
-        const FString& Line = Lines[i];
-        if (Line.StartsWith(TEXT("bestmove")))
-        {
-            TArray<FString> Parts;
-            Line.ParseIntoArray(Parts, TEXT(" "), true);
-            if (Parts.Num() > 1)
-            {
-                LastBestMovePrivate = Parts[1];
-                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Parsed best move: %s"), *LastBestMovePrivate);
-                return LastBestMovePrivate;
-            }
-        }
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Could not find 'bestmove' in Stockfish output. Full output was:\n%s"), *FullOutput);
-    LastBestMovePrivate = TEXT("Not Found");
+    UE_LOG(LogTemp, Warning, TEXT("StockfishManager::GetBestMove: Timed out waiting for a response from the engine."));
     return TEXT("");
 }
 
 bool UStockfishManager::IsEngineRunning() const
 {
+    FScopeLock Lock(&DataMutex);
     return bIsEngineRunningPrivate;
 }
 
 FString UStockfishManager::GetLastBestMove() const
 {
+    FScopeLock Lock(&DataMutex);
     return LastBestMovePrivate;
 }
 
 int32 UStockfishManager::GetSearchTimeMsec() const
 {
+    FScopeLock Lock(&DataMutex);
     return SearchTimeMsecPrivate;
+}
+
+// --- FStockfishTask Implementation ---
+FStockfishTask::FStockfishTask(UStockfishManager* InManager)
+    : Manager(InManager), bStopTask(false), ProcessHandle(), ReadPipe(nullptr), WritePipe(nullptr)
+{
+}
+
+FStockfishTask::~FStockfishTask()
+{
+}
+
+bool FStockfishTask::Init()
+{
+    UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Initializing background thread..."));
+    return true;
+}
+
+uint32 FStockfishTask::Run()
+{
+    FString StockfishPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe"));
+    if (!FPaths::FileExists(StockfishPath))
+    {
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: stockfish.exe not found at %s"), *StockfishPath);
+        return 1;
+    }
+
+    void* ChildStdoutRead, *ChildStdoutWrite;
+    FPlatformProcess::CreatePipe(ChildStdoutRead, ChildStdoutWrite);
+    ReadPipe = ChildStdoutRead;
+
+    void* ChildStdinRead, *ChildStdinWrite;
+    FPlatformProcess::CreatePipe(ChildStdinRead, ChildStdinWrite);
+    WritePipe = ChildStdinWrite;
+
+    FString StockfishDir = FPaths::GetPath(StockfishPath);
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead);
+
+    if (!ProcessHandle.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to create Stockfish process."));
+        FPlatformProcess::ClosePipe(ReadPipe, ChildStdoutWrite);
+        FPlatformProcess::ClosePipe(ChildStdinRead, WritePipe);
+        return 1;
+    }
+
+    FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
+    FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
+
+    auto SendCommandToPipe = [&](const FString& Cmd) {
+        if (!WritePipe) return false;
+        FString FullCmd = Cmd + TEXT("\n");
+        return FPlatformProcess::WritePipe(WritePipe, (uint8*)TCHAR_TO_UTF8(*FullCmd), FullCmd.Len());
+    };
+
+    auto ReadPipeWithTimeout = [&](const FString& ExpectedResponse, float TimeoutSeconds) -> bool {
+        FDateTime StartTime = FDateTime::UtcNow();
+        FString Buffer;
+        while (FDateTime::UtcNow() - StartTime < FTimespan::FromSeconds(TimeoutSeconds))
+        {
+            if (bStopTask) return false;
+            Buffer += FPlatformProcess::ReadPipe(ReadPipe);
+            if (Buffer.Contains(ExpectedResponse))
+            {
+                UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Received expected response '%s'"), *ExpectedResponse);
+                return true;
+            }
+            FPlatformProcess::Sleep(0.05f);
+        }
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Timed out waiting for '%s'. Full buffer:\n%s"), *ExpectedResponse, *Buffer);
+        return false;
+    };
+
+    // UCI Handshake
+    if (!SendCommandToPipe(TEXT("uci")) || !ReadPipeWithTimeout(TEXT("uciok"), 5.0f))
+    {
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: UCI handshake step 1 ('uci' -> 'uciok') failed."));
+        Stop();
+    }
+
+    if (!bStopTask)
+    {
+        if (!SendCommandToPipe(TEXT("isready")) || !ReadPipeWithTimeout(TEXT("readyok"), 5.0f))
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: UCI handshake step 2 ('isready' -> 'readyok') failed."));
+            Stop();
+        }
+    }
+
+    if (!bStopTask)
+    {
+        UE_LOG(LogTemp, Log, TEXT("FStockfishTask: UCI Handshake complete. Entering main loop."));
+    }
+
+    // Main loop
+    while (!bStopTask)
+    {
+        if (!FPlatformProcess::IsProcRunning(ProcessHandle))
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process is no longer running. Exiting thread."));
+            break;
+        }
+
+        FString CommandToRun;
+        if (CommandQueue.Dequeue(CommandToRun))
+        {
+            SendCommandToPipe(CommandToRun);
+        }
+
+        FString Output = FPlatformProcess::ReadPipe(ReadPipe);
+        if (!Output.IsEmpty())
+        {
+            TArray<FString> Lines;
+            Output.ParseIntoArray(Lines, TEXT("\n"), true);
+            for (const FString& Line : Lines)
+            {
+                if (Line.StartsWith(TEXT("bestmove")))
+                {
+                    TArray<FString> Parts;
+                    Line.ParseIntoArray(Parts, TEXT(" "), true);
+                    if (Parts.Num() > 1)
+                    {
+                        ResultQueue.Enqueue(Parts[1]);
+                    }
+                }
+            }
+        }
+        FPlatformProcess::Sleep(0.01f);
+    }
+
+    // Cleanup before exiting thread
+    UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Exiting run loop, cleaning up process and pipes."));
+    if (ProcessHandle.IsValid())
+    {
+        if (FPlatformProcess::IsProcRunning(ProcessHandle))
+        {
+            SendCommandToPipe(TEXT("quit"));
+            FPlatformProcess::Sleep(0.1f);
+        }
+        FPlatformProcess::TerminateProc(ProcessHandle);
+        FPlatformProcess::CloseProc(ProcessHandle);
+    }
+    FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
+    ReadPipe = nullptr;
+    WritePipe = nullptr;
+
+    if (Manager)
+    {
+        FScopeLock Lock(&Manager->DataMutex);
+        Manager->bIsEngineRunningPrivate = false;
+    }
+
+    return 0;
+}
+
+void FStockfishTask::Stop()
+{
+    bStopTask = true;
+}
+
+void FStockfishTask::Exit()
+{
+    UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Thread is exiting."));
+}
+
+void FStockfishTask::EnqueueCommand(const FString& Command)
+{
+    CommandQueue.Enqueue(Command);
+}
+
+bool FStockfishTask::DequeueResult(FString& OutResult)
+{
+    return ResultQueue.Dequeue(OutResult);
 }
