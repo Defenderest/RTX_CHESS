@@ -9,6 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "StartMenuWidget.h"
 #include "Blueprint/UserWidget.h"
+#include "ChessGameState.h"
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -33,7 +34,20 @@ void AChessPlayerController::BeginPlay()
     }
 
     SetCamera();
-    ShowStartMenu();
+    
+    // Показываем меню только если игра еще не началась.
+    // GameMode отвечает за запуск игры (и смену состояния) при перезагрузке уровня с опциями.
+    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (GameState && GameState->GetGamePhase() == EGamePhase::WaitingToStart)
+    {
+        ShowStartMenu();
+    }
+    else
+    {
+        // Если игра уже идет, убеждаемся, что ввод настроен для игры.
+        SetInputMode(FInputModeGameOnly());
+        bShowMouseCursor = true;
+    }
 }
 
 void AChessPlayerController::SetupInputComponent()
@@ -134,8 +148,6 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 {
     return PlayerColor;
 }
-
-#include "ChessGameState.h"
 
 void AChessPlayerController::OnClickStarted()
 {

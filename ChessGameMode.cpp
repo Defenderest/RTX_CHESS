@@ -124,7 +124,6 @@ void AChessGameMode::FindGameBoard()
 
 void AChessGameMode::StartNewGame()
 {
-    CurrentGameMode = EGameModeType::PlayerVsPlayer;
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (!GameBoard || !CurrentGS)
     {
