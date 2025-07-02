@@ -9,7 +9,7 @@ UStockfishManager::UStockfishManager()
     WritePipe = nullptr;
     bIsEngineRunningPrivate = false;
     LastBestMovePrivate = TEXT("N/A");
-    SearchTimeMsecPrivate = 1000; // Default search time
+    SearchTimeMsecPrivate = 100; // Default search time
 }
 
 UStockfishManager::~UStockfishManager()
