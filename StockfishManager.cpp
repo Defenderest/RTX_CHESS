@@ -229,7 +229,9 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, ChildStdoutWrite);
+    // TEMPORARY DEBUGGING: Launch Stockfish in its own window without pipe redirection
+    // This will break AI, but allows to check if the executable runs correctly.
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, false, false, nullptr, 0, *StockfishDir, nullptr, nullptr, nullptr);
 
     if (!ProcessHandle.IsValid())
     {
