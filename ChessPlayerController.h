@@ -80,6 +80,9 @@ private:
     /** Снимает выделение с фигуры и убирает подсветку ходов. */
     void ClearSelectionAndHighlights();
 
+    /** Флаг, чтобы убедиться, что мы устанавливаем режим ввода для игры только один раз. */
+    bool bIsInputModeSetForGame;
+
 public:
     /** Gets the current chess game mode. */
     UFUNCTION(BlueprintPure, Category = "Chess Player Controller")

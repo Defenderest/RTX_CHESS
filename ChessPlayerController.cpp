@@ -22,6 +22,7 @@ AChessPlayerController::AChessPlayerController()
     PlayerColor = EPieceColor::White;
     SelectedPiece = nullptr;
     ChessBoard = nullptr;
+    bIsInputModeSetForGame = false;
 }
 
 void AChessPlayerController::BeginPlay()
@@ -97,14 +98,21 @@ void AChessPlayerController::Tick(float DeltaTime)
         if (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check)
         {
             // Если игра активна, мы должны быть в режиме "Game and UI", чтобы обрабатывать клики по миру.
-            // FInputModeGameAndUI является хорошим выбором, так как он позволяет видеть курсор и взаимодействовать с игрой.
-            if (CurrentInputMode != EInputMode::GameAndUI)
+            // Мы проверяем наш собственный флаг, чтобы избежать вызова SetInputMode каждый кадр.
+            if (!bIsInputModeSetForGame)
             {
-                UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::Tick: Incorrect input mode detected during active game phase. Forcing FInputModeGameAndUI."));
+                UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::Tick: Input mode not set for active game. Forcing FInputModeGameAndUI."));
                 FInputModeGameAndUI InputMode;
                 SetInputMode(InputMode);
                 bShowMouseCursor = true;
+                bIsInputModeSetForGame = true;
             }
+        }
+        else
+        {
+            // Сбрасываем флаг, когда игра неактивна (например, в меню или на экране результатов),
+            // чтобы режим ввода был снова установлен при начале следующей игры.
+            bIsInputModeSetForGame = false;
         }
     }
 
