@@ -156,13 +156,9 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Вычисляем смещение от центра доски, предполагая, что pivot находится в центре.
-    const float HalfBoardSizeX = (BoardSize.X * TileSize) / 2.0f;
-    const float HalfBoardSizeY = (BoardSize.Y * TileSize) / 2.0f;
-
-    // Вычисляем позицию в локальном пространстве доски.
-    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f) - HalfBoardSizeX;
-    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f) - HalfBoardSizeY;
+    // Расчет для доски, где pivot находится в углу.
+    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f);
+    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f);
     const float LocalZ = PieceZOffsetOnBoard;
 
     const FVector LocalPosition(LocalX, LocalY, LocalZ);
@@ -176,13 +172,9 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
     // Преобразуем мировую позицию в локальное пространство актора доски.
     const FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Учитываем смещение pivot'а при обратном преобразовании.
-    const float HalfBoardSizeX = (BoardSize.X * TileSize) / 2.0f;
-    const float HalfBoardSizeY = (BoardSize.Y * TileSize) / 2.0f;
-
-    // Преобразуем в координаты сетки.
-    int32 GridX = FMath::FloorToInt((LocalPosition.X + HalfBoardSizeX) / TileSize);
-    int32 GridY = FMath::FloorToInt((LocalPosition.Y + HalfBoardSizeY) / TileSize);
+    // Преобразуем в координаты сетки (для доски с pivot'ом в углу).
+    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
+    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
 
     // Ограничиваем значения в пределах доски.
     GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
