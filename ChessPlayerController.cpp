@@ -205,24 +205,40 @@ void AChessPlayerController::OnClickCompleted()
         FHitResult HitResult;
         GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
-        AChessGameMode* GameMode = GetChessGameMode();
-
-        if (ChessBoard && GameMode && HitResult.bBlockingHit)
+        // Проверяем, был ли клик на доске или на другой фигуре
+        if (ChessBoard && HitResult.bBlockingHit && (HitResult.GetActor() == ChessBoard || HitResult.GetActor()->IsA<AChessPiece>()))
         {
             FIntPoint TargetSquare = ChessBoard->WorldToGridPosition(HitResult.Location);
-
-            if (!GameMode->AttemptMove(SelectedPiece, TargetSquare, this))
-            {
-                // Если ход не удался, возвращаем фигуру на место
-                SelectedPiece->SetActorLocation(OriginalPieceLocation);
-            }
+            
+            // Вместо прямого вызова GameMode, отправляем RPC на сервер
+            Server_AttemptMove(SelectedPiece, TargetSquare);
+            // Клиент не должен сам возвращать фигуру. Сервер решит ее судьбу,
+            // и правильная позиция придет через репликацию.
         }
         else
         {
-            // Если клик был не на доске, возвращаем фигуру на место
+            // Если клик был не на доске, возвращаем фигуру на место локально для мгновенной обратной связи.
             SelectedPiece->SetActorLocation(OriginalPieceLocation);
         }
 
         SelectedPiece = nullptr;
+    }
+}
+
+bool AChessPlayerController::Server_AttemptMove_Validate(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition)
+{
+    // Простая валидация, чтобы предотвратить отправку некорректных данных от клиента.
+    return PieceToMove != nullptr;
+}
+
+void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition)
+{
+    AChessGameMode* GameMode = GetChessGameMode();
+    if (GameMode)
+    {
+        // GameMode->AttemptMove выполнит ход, если он валиден.
+        // Если ход невалиден, он просто вернет false, и положение фигуры на сервере не изменится.
+        // Репликация положения актора позаботится о том, чтобы на клиенте фигура вернулась на место.
+        GameMode->AttemptMove(PieceToMove, TargetGridPosition, this);
     }
 }

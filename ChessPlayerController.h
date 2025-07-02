@@ -60,6 +60,10 @@ protected:
     /** Handles camera look. */
     void HandleLook(const struct FInputActionValue& Value);
 
+    /** [SERVER] Attempts to move a piece. Called from client, runs on server. */
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);
+
 private:
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
