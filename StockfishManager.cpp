@@ -239,6 +239,16 @@ uint32 FStockfishTask::Run()
         return 1;
     }
 
+    // Check if the process is running immediately after launch
+    if (!FPlatformProcess::IsProcRunning(ProcessHandle))
+    {
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process terminated immediately after launch. Check for missing dependencies or incorrect executable path."));
+        FPlatformProcess::ClosePipe(ReadPipe, ChildStdoutWrite);
+        FPlatformProcess::ClosePipe(ChildStdinRead, WritePipe);
+        FPlatformProcess::CloseProc(ProcessHandle);
+        return 1;
+    }
+
     FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
     FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
@@ -263,7 +273,16 @@ uint32 FStockfishTask::Run()
             }
             FPlatformProcess::Sleep(0.05f);
         }
-        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Timed out waiting for '%s'. Full buffer:\n%s"), *ExpectedResponse, *Buffer);
+        
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Timed out waiting for '%s'."), *ExpectedResponse);
+        if (Buffer.IsEmpty())
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: The read buffer was empty. The process might have crashed or is not producing output."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Full buffer on timeout:\n%s"), *Buffer);
+        }
         return false;
     };
 
