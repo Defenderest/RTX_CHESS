@@ -230,8 +230,8 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    // Launch the process with a visible window for debugging purposes
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
+    // Launch the process detached and with a visible window for debugging purposes
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, true, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
 
     if (!ProcessHandle.IsValid())
     {
@@ -241,8 +241,8 @@ uint32 FStockfishTask::Run()
         return 1;
     }
 
-    // Give the process a moment to start
-    FPlatformProcess::Sleep(0.1f);
+    // Give the process a moment to start and initialize
+    FPlatformProcess::Sleep(0.5f);
 
     if (!FPlatformProcess::IsProcRunning(ProcessHandle))
     {
