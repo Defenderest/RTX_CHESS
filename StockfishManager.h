@@ -8,6 +8,7 @@
 /**
  * Manages the Stockfish chess engine process.
  */
+
 UCLASS()
 class RTX_CHESS_API UStockfishManager : public UObject
 {
