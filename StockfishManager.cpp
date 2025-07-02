@@ -6,6 +6,8 @@
 #include "Containers/Queue.h"
 #include "Containers/StringConv.h"
 #include "HAL/ThreadSafeBool.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 
 // --- FStockfishTask Declaration ---
 class FStockfishTask : public FRunnable
@@ -209,9 +211,6 @@ bool FStockfishTask::Init()
     UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Initializing background thread..."));
     return true;
 }
-
-#include "HAL/FileManager.h"
-#include "Misc/FileHelper.h"
 
 uint32 FStockfishTask::Run()
 {
