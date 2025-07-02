@@ -5,6 +5,7 @@
 #include "ChessPiece.h"
 #include "ChessBoard.h"
 #include "ChessGameMode.h"
+#include "StockfishManager.h"
 #include "GameCameraActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "StartMenuWidget.h"
