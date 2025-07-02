@@ -197,30 +197,32 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 
 void AChessPlayerController::OnClickStarted()
 {
+    UE_LOG(LogTemp, Warning, TEXT("<<<<< OnClickStarted FIRED! Left Mouse Button Click Detected. >>>>>"));
+
     // --- 1. Предварительные проверки состояния игры ---
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
     if (!GameState)
     {
-        UE_LOG(LogTemp, Warning, TEXT("OnClickStarted: GameState is NULL."));
+        UE_LOG(LogTemp, Warning, TEXT("OnClickStarted ABORTED: GameState is NULL."));
         return;
     }
 
     if (GameState->GetCurrentTurnColor() != PlayerColor)
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Not player's turn."));
+        UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Not player's turn."));
         return;
     }
 
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
+        UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
         return;
     }
 
     if (!ChessBoard)
     {
-        UE_LOG(LogTemp, Error, TEXT("OnClickStarted: ChessBoard reference is NULL."));
+        UE_LOG(LogTemp, Error, TEXT("OnClickStarted ABORTED: ChessBoard reference is NULL."));
         return;
     }
 
