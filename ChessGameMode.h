@@ -128,5 +128,8 @@ private:
 
     // Вспомогательная функция для получения ChessGameState с проверкой типа
     AChessGameState* GetCurrentGameState() const;
+
+    // Общая функция для настройки доски и состояния игры
+    void SetupBoardAndGameState();
 };
 

@@ -70,12 +70,19 @@ void AChessGameMode::BeginPlay()
 void AChessGameMode::StartBotGame()
 {
     CurrentGameMode = EGameModeType::PlayerVsBot;
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Bot game."));
+
     if (StockfishManager)
     {
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Attempting to start Stockfish engine..."));
         StockfishManager->StartEngine();
     }
-    // Вызываем StartNewGame, который теперь корректно настроит игрока
-    StartNewGame();
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::StartBotGame: StockfishManager is NULL! Cannot start engine."));
+    }
+    
+    SetupBoardAndGameState();
 }
 
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
@@ -180,23 +187,28 @@ void AChessGameMode::FindGameBoard()
 
 void AChessGameMode::StartNewGame()
 {
+    CurrentGameMode = EGameModeType::PlayerVsPlayer;
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
+    SetupBoardAndGameState();
+}
+
+void AChessGameMode::SetupBoardAndGameState()
+{
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (!GameBoard || !CurrentGS)
     {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::StartNewGame: GameBoard or GameState is null. Cannot start new game."));
+        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::SetupBoardAndGameState: GameBoard or GameState is null. Cannot start new game."));
         return;
     }
 
     GameBoard->ClearAllHighlights();
-
     GameBoard->InitializeBoard();
-
     SpawnInitialPieces();
 
     CurrentGS->SetCurrentTurnColor(EPieceColor::White);
     CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
-    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: New game started. White's turn."));
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Board and game state have been reset. White's turn."));
 }
 
 #include "ChessPlayerCameraManager.h"
