@@ -46,14 +46,24 @@ void AChessGameMode::BeginPlay()
 
     FindGameBoard();
 
-    if (UGameplayStatics::HasOption(this->OptionsString, "bIsBotGame"))
+    FString IsBotGameValue;
+    // Мы начинаем игру, только если в опциях запуска явно указан режим игры.
+    // Это позволяет при первом запуске просто показать главное меню.
+    if (UGameplayStatics::ParseOption(this->OptionsString, "bIsBotGame", IsBotGameValue))
     {
-        StartBotGame();
+        if (IsBotGameValue.ToBool())
+        {
+            // Запускаем игру против бота
+            StartBotGame();
+        }
+        else
+        {
+            // Запускаем игру "Игрок против Игрока"
+            StartNewGame();
+        }
     }
-    else
-    {
-        StartNewGame();
-    }
+    // Если опция не найдена, ничего не делаем. GameState останется в EGamePhase::WaitingToStart,
+    // и PlayerController покажет стартовое меню.
 }
 
 void AChessGameMode::StartBotGame()

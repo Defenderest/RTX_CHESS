@@ -179,8 +179,6 @@ void AChessPlayerController::OnClickStarted()
             }
             // Подсветка текущей клетки
             ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
-
-            SetInputMode(FInputModeGameAndUI());
         }
     }
 }
@@ -220,10 +218,5 @@ void AChessPlayerController::OnClickCompleted()
         }
 
         SelectedPiece = nullptr;
-
-        if (StartMenuWidgetInstance && !StartMenuWidgetInstance->IsVisible())
-        {
-            SetInputMode(FInputModeGameOnly());
-        }
     }
 }
