@@ -213,6 +213,7 @@ bool FStockfishTask::Init()
 
 uint32 FStockfishTask::Run()
 {
+    // --- 1. Setup and Process Launch ---
     FString StockfishPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe"));
     if (!FPaths::FileExists(StockfishPath))
     {
@@ -229,7 +230,8 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
+    // Launch the process with a visible window for debugging purposes
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, false, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
 
     if (!ProcessHandle.IsValid())
     {
@@ -239,10 +241,12 @@ uint32 FStockfishTask::Run()
         return 1;
     }
 
-    // Check if the process is running immediately after launch
+    // Give the process a moment to start
+    FPlatformProcess::Sleep(0.1f);
+
     if (!FPlatformProcess::IsProcRunning(ProcessHandle))
     {
-        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process terminated immediately after launch. Check for missing dependencies or incorrect executable path."));
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process terminated immediately after launch. Check console window for errors."));
         FPlatformProcess::ClosePipe(ReadPipe, ChildStdoutWrite);
         FPlatformProcess::ClosePipe(ChildStdinRead, WritePipe);
         FPlatformProcess::CloseProc(ProcessHandle);
@@ -250,76 +254,97 @@ uint32 FStockfishTask::Run()
     }
 
     // The parent process must close the handles to the pipes that are now used by the child process.
-    // This is crucial for correct process communication and to prevent resource leaks.
     FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
     FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
-    auto SendCommandToPipe = [&](const FString& Cmd) {
-        if (!WritePipe) return false;
+    // --- Helper Lambdas ---
+    auto SendCommand = [&](const FString& Cmd) -> bool {
+        if (!WritePipe || !ProcessHandle.IsValid() || !FPlatformProcess::IsProcRunning(ProcessHandle))
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Cannot send command '%s', pipe is closed or process is not running."), *Cmd);
+            return false;
+        }
         FString FullCmd = Cmd + TEXT("\n");
         FTCHARToUTF8 Converter(*FullCmd);
         bool bSuccess = FPlatformProcess::WritePipe(WritePipe, (uint8*)Converter.Get(), Converter.Length());
-        UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Sent command '%s'. Success: %s"), *Cmd, bSuccess ? TEXT("true") : TEXT("false"));
+        if (!bSuccess)
+        {
+            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: FPlatformProcess::WritePipe failed for command '%s'."), *Cmd);
+        }
         return bSuccess;
     };
 
-    auto ReadPipeWithTimeout = [&](const FString& ExpectedResponse, float TimeoutSeconds) -> bool {
+    FString ReadBuffer;
+    auto ReadLinesFromPipe = [&](TArray<FString>& OutLines) {
+        FString PipeData = FPlatformProcess::ReadPipe(ReadPipe);
+        if (!PipeData.IsEmpty())
+        {
+            ReadBuffer.Append(PipeData);
+        }
+
+        int32 NewLineIndex;
+        while (ReadBuffer.FindChar(TCHAR('\n'), NewLineIndex))
+        {
+            FString Line = ReadBuffer.Left(NewLineIndex).TrimEnd();
+            ReadBuffer.RemoveAt(0, NewLineIndex + 1);
+            if (!Line.IsEmpty())
+            {
+                OutLines.Add(Line);
+            }
+        }
+    };
+
+    auto WaitForResponse = [&](const FString& ExpectedResponse, float TimeoutSeconds) -> bool {
         FDateTime StartTime = FDateTime::UtcNow();
-        FString Buffer;
         UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Waiting for '%s' with %.1f sec timeout."), *ExpectedResponse, TimeoutSeconds);
         while (FDateTime::UtcNow() - StartTime < FTimespan::FromSeconds(TimeoutSeconds))
         {
             if (bStopTask) return false;
 
-            FString PipeData = FPlatformProcess::ReadPipe(ReadPipe);
-            if (!PipeData.IsEmpty())
+            TArray<FString> Lines;
+            ReadLinesFromPipe(Lines);
+            for (const FString& Line : Lines)
             {
-                UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Read from pipe: %s"), *PipeData);
-                Buffer += PipeData;
-            }
-            
-            if (Buffer.Contains(ExpectedResponse))
-            {
-                UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Received expected response '%s'"), *ExpectedResponse);
-                return true;
+                UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Read from pipe: %s"), *Line);
+                if (Line.Contains(ExpectedResponse))
+                {
+                    UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Received expected response '%s'"), *ExpectedResponse);
+                    return true;
+                }
             }
             FPlatformProcess::Sleep(0.05f);
         }
-        
         UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Timed out waiting for '%s'."), *ExpectedResponse);
-        if (Buffer.IsEmpty())
-        {
-            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: The read buffer was empty. The process might have crashed or is not producing output."));
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Full buffer on timeout:\n%s"), *Buffer);
-        }
         return false;
     };
 
-    // UCI Handshake
-    if (!SendCommandToPipe(TEXT("uci")) || !ReadPipeWithTimeout(TEXT("uciok"), 5.0f))
+    // --- 2. UCI Handshake ---
+    bool bHandshakeOk = false;
+    if (SendCommand(TEXT("uci")))
     {
-        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: UCI handshake step 1 ('uci' -> 'uciok') failed."));
-        Stop();
-    }
-
-    if (!bStopTask)
-    {
-        if (!SendCommandToPipe(TEXT("isready")) || !ReadPipeWithTimeout(TEXT("readyok"), 5.0f))
+        if (WaitForResponse(TEXT("uciok"), 5.0f))
         {
-            UE_LOG(LogTemp, Error, TEXT("FStockfishTask: UCI handshake step 2 ('isready' -> 'readyok') failed."));
-            Stop();
+            if (SendCommand(TEXT("isready")))
+            {
+                if (WaitForResponse(TEXT("readyok"), 5.0f))
+                {
+                    bHandshakeOk = true;
+                }
+            }
         }
     }
 
-    if (!bStopTask)
+    if (!bHandshakeOk)
+    {
+        UE_LOG(LogTemp, Error, TEXT("FStockfishTask: UCI handshake failed. Exiting thread."));
+        Stop();
+    }
+    else
     {
         UE_LOG(LogTemp, Log, TEXT("FStockfishTask: UCI Handshake complete. Entering main loop."));
     }
 
-    // Main loop
+    // --- 3. Main Loop ---
     while (!bStopTask)
     {
         if (!FPlatformProcess::IsProcRunning(ProcessHandle))
@@ -331,42 +356,45 @@ uint32 FStockfishTask::Run()
         FString CommandToRun;
         if (CommandQueue.Dequeue(CommandToRun))
         {
-            SendCommandToPipe(CommandToRun);
+            SendCommand(CommandToRun);
         }
 
-        FString Output = FPlatformProcess::ReadPipe(ReadPipe);
-        if (!Output.IsEmpty())
+        TArray<FString> Lines;
+        ReadLinesFromPipe(Lines);
+        for (const FString& Line : Lines)
         {
-            TArray<FString> Lines;
-            Output.ParseIntoArray(Lines, TEXT("\n"), true);
-            for (const FString& Line : Lines)
+            if (Line.StartsWith(TEXT("bestmove")))
             {
-                if (Line.StartsWith(TEXT("bestmove")))
+                TArray<FString> Parts;
+                Line.ParseIntoArray(Parts, TEXT(" "), true);
+                if (Parts.Num() > 1)
                 {
-                    TArray<FString> Parts;
-                    Line.ParseIntoArray(Parts, TEXT(" "), true);
-                    if (Parts.Num() > 1)
-                    {
-                        ResultQueue.Enqueue(Parts[1]);
-                    }
+                    UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Found bestmove: %s"), *Parts[1]);
+                    ResultQueue.Enqueue(Parts[1]);
                 }
             }
         }
         FPlatformProcess::Sleep(0.01f);
     }
 
-    // Cleanup before exiting thread
+    // --- 4. Cleanup ---
     UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Exiting run loop, cleaning up process and pipes."));
-    if (ProcessHandle.IsValid())
+    if (ProcessHandle.IsValid() && FPlatformProcess::IsProcRunning(ProcessHandle))
     {
-        if (FPlatformProcess::IsProcRunning(ProcessHandle))
-        {
-            SendCommandToPipe(TEXT("quit"));
-            FPlatformProcess::Sleep(0.1f);
-        }
+        SendCommand(TEXT("quit"));
+        FPlatformProcess::Sleep(0.2f); // Give it a moment to quit gracefully
+    }
+
+    if (ProcessHandle.IsValid() && FPlatformProcess::IsProcRunning(ProcessHandle))
+    {
         FPlatformProcess::TerminateProc(ProcessHandle);
+    }
+    
+    if(ProcessHandle.IsValid())
+    {
         FPlatformProcess::CloseProc(ProcessHandle);
     }
+
     FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
     ReadPipe = nullptr;
     WritePipe = nullptr;
