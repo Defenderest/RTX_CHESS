@@ -197,6 +197,7 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 
 void AChessPlayerController::OnClickStarted()
 {
+    // --- 1. Предварительные проверки состояния игры ---
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
     if (!GameState)
     {
@@ -204,85 +205,78 @@ void AChessPlayerController::OnClickStarted()
         return;
     }
 
-    // Проверяем, ход текущего игрока
     if (GameState->GetCurrentTurnColor() != PlayerColor)
     {
         UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Not player's turn."));
-        return; // Не наш ход
+        return;
     }
 
-    // Ходить можно только в фазах InProgress и Check
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
     {
         UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
-        return; // Игра неактивна
+        return;
     }
 
     if (!ChessBoard)
     {
-        UE_LOG(LogTemp, Error, TEXT("OnClickStarted: ChessBoard is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("OnClickStarted: ChessBoard reference is NULL."));
         return;
     }
 
+    // --- 2. Трассировка курсора и определение клетки на доске ---
     FHitResult HitResult;
     GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
 
-    if (!HitResult.bBlockingHit)
+    // Если клик не попал ни во что, или попал не в доску и не в фигуру, отменяем выделение
+    if (!HitResult.bBlockingHit || (Cast<AChessBoard>(HitResult.GetActor()) == nullptr && Cast<AChessPiece>(HitResult.GetActor()) == nullptr))
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked into empty space. Clearing selection."));
-        ClearSelectionAndHighlights(); // Клик в пустоту
+        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked off-board or on an irrelevant actor. Clearing selection."));
+        ClearSelectionAndHighlights();
         return;
     }
 
-    AActor* HitActor = HitResult.GetActor();
-    UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on actor: %s"), *GetNameSafe(HitActor));
-
-    AChessPiece* ClickedPiece = Cast<AChessPiece>(HitActor);
-    if (ClickedPiece)
+    const FIntPoint HitGridPosition = ChessBoard->WorldToGridPosition(HitResult.Location);
+    if (!ChessBoard->IsValidGridPosition(HitGridPosition))
     {
-        // --- Логика клика по фигуре ---
-        if (ClickedPiece->GetPieceColor() == PlayerColor)
-        {
-            // Кликнули на свою фигуру (выбрать/перевыбрать)
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Handling selection of friendly piece %s."), *ClickedPiece->GetName());
-            HandlePieceSelection(ClickedPiece);
-        }
-        else if (SelectedPiece)
-        {
-            // Кликнули на фигуру противника, когда наша фигура выбрана (атака)
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Attempting to capture enemy piece %s with selected piece %s."), *ClickedPiece->GetName(), *SelectedPiece->GetName());
-            HandleBoardClick(ClickedPiece->GetBoardPosition());
-        }
-        else
-        {
-            // Кликнули на фигуру противника, когда ничего не выбрано
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked enemy piece %s with no selection. Clearing."), *ClickedPiece->GetName());
-            ClearSelectionAndHighlights();
-        }
-    }
-    else if (Cast<AChessBoard>(HitActor))
-    {
-        // --- Логика клика по доске ---
-        if (SelectedPiece)
-        {
-            // Фигура выбрана, и кликнули на доску (ход на пустую клетку)
-            FIntPoint TargetGridPosition = ChessBoard->WorldToGridPosition(HitResult.Location);
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Attempting to move selected piece %s to board position (%d, %d)."), *SelectedPiece->GetName(), TargetGridPosition.X, TargetGridPosition.Y);
-            HandleBoardClick(TargetGridPosition);
-        }
-        else
-        {
-            // Фигура не выбрана, и кликнули на доску
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on board with no selection. Clearing."));
-            ClearSelectionAndHighlights();
-        }
-    }
-    else
-    {
-        // Кликнули на что-то другое
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on an unhandled actor. Clearing selection."));
+        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked outside of valid board grid. Clearing selection."));
         ClearSelectionAndHighlights();
+        return;
+    }
+
+    // --- 3. Основная логика выбора и хода, основанная на состоянии ---
+    AChessPiece* PieceOnSquare = ChessBoard->GetPieceAtGridPosition(HitGridPosition);
+    UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on grid (%d, %d). Piece on square: %s"), HitGridPosition.X, HitGridPosition.Y, *GetNameSafe(PieceOnSquare));
+
+    if (PieceOnSquare) // Кликнули на клетку, где стоит фигура
+    {
+        if (PieceOnSquare->GetPieceColor() == PlayerColor) // Это наша фигура
+        {
+            // Логика выбора/перевыбора/отмены выбора обрабатывается в этой функции
+            HandlePieceSelection(PieceOnSquare);
+        }
+        else // Это фигура противника
+        {
+            if (SelectedPiece) // Если у нас уже выбрана фигура, это попытка взятия
+            {
+                HandleBoardClick(HitGridPosition);
+            }
+            else // Если ничего не выбрано, клик по врагу ничего не делает
+            {
+                UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked enemy piece with no selection. No action."));
+            }
+        }
+    }
+    else // Кликнули на пустую клетку
+    {
+        if (SelectedPiece) // Если у нас выбрана фигура, это попытка хода
+        {
+            HandleBoardClick(HitGridPosition);
+        }
+        else // Если ничего не выбрано, клик по пустой клетке ничего не делает
+        {
+            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked empty square with no selection. No action."));
+        }
     }
 }
 
