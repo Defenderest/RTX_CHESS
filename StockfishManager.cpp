@@ -233,6 +233,7 @@ uint32 FStockfishTask::Run()
             IFileManager::Get().MakeDirectory(*TempDir, true);
             const FString InputFilePath = TempDir / TEXT("stockfish_input.txt");
             const FString OutputFilePath = TempDir / TEXT("stockfish_output.txt");
+            const FString BatchFilePath = TempDir / TEXT("run_stockfish.bat");
 
             // 2. Create input file with commands for Stockfish
             const FString CommandList = FString::Printf(
@@ -248,42 +249,52 @@ uint32 FStockfishTask::Run()
                 continue;
             }
 
-            // 3. Launch Stockfish process with file redirection
-            // We must use cmd.exe to handle the '<' and '>' redirection operators.
-            // We also redirect stderr to stdout (2>&1) to capture any error messages from Stockfish.
-            const FString ExePath = FString::Printf(TEXT("\"%s\""), *StockfishPath);
-            const FString Params = FString::Printf(TEXT("< \"%s\" > \"%s\" 2>&1"), *InputFilePath, *OutputFilePath);
-            const FString FullCommand = FString::Printf(TEXT("/c %s %s"), *ExePath, *Params);
+            // 3. Create a batch file to run Stockfish for robust debugging
             const FString StockfishDir = FPaths::GetPath(StockfishPath);
+            const FString BatchFileContent = FString::Printf(
+                TEXT("@echo off\r\n")
+                TEXT("cd /d \"%s\"\r\n")
+                TEXT("echo --- Running Stockfish from batch file --- > \"%s\"\r\n")
+                TEXT("\"%s\" < \"%s\" >> \"%s\" 2>&1\r\n")
+                TEXT("echo --- Batch finished with exit code %%errorlevel%% --- >> \"%s\"\r\n"),
+                *StockfishDir,
+                *OutputFilePath,
+                *StockfishPath, *InputFilePath, *OutputFilePath,
+                *OutputFilePath
+            );
+
+            if (!FFileHelper::SaveStringToFile(BatchFileContent, *BatchFilePath, FFileHelper::EEncodingOptions::ForceAnsi))
+            {
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to create batch file: %s"), *BatchFilePath);
+                ResultQueue.Enqueue(TEXT(""));
+                continue;
+            }
             
-            FProcHandle ProcessHandle = FPlatformProcess::CreateProc(TEXT("cmd.exe"), *FullCommand, false, true, true, nullptr, 0, *StockfishDir, nullptr, nullptr);
+            UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Executing batch file: %s"), *FPaths::ConvertRelativePathToFull(*BatchFilePath));
+
+            // 4. Launch the batch file
+            FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*BatchFilePath, nullptr, false, true, true, nullptr, 0, nullptr, nullptr, nullptr);
 
             if (!ProcessHandle.IsValid())
             {
-                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to create Stockfish process via cmd.exe."));
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to create process for batch file: %s"), *BatchFilePath);
                 ResultQueue.Enqueue(TEXT(""));
                 continue;
             }
 
-            // 4. Wait for the process to complete
+            // 5. Wait for the process to complete
             FPlatformProcess::WaitForProc(ProcessHandle);
             FPlatformProcess::CloseProc(ProcessHandle);
 
-            // 5. Read the output file
+            // 6. Read the output file
             if (!IFileManager::Get().FileExists(*OutputFilePath))
             {
-                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process did not create the output file: %s"), *FPaths::ConvertRelativePathToFull(*OutputFilePath));
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Batch file did not create the output file: %s. Check batch file execution."), *FPaths::ConvertRelativePathToFull(*OutputFilePath));
                 ResultQueue.Enqueue(TEXT(""));
                 continue;
             }
 
-            // Add a small delay to allow the OS to release the file handle after the process closes.
-            FPlatformProcess::Sleep(0.1f);
-
             const FString FullPath = FPaths::ConvertRelativePathToFull(*OutputFilePath);
-            int64 FileSize = IFileManager::Get().FileSize(*OutputFilePath);
-            UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Output file exists. Path: %s, Size: %lld bytes."), *FullPath, FileSize);
-
             FString OutputData;
             if (!FFileHelper::LoadFileToString(OutputData, *OutputFilePath))
             {
@@ -292,7 +303,7 @@ uint32 FStockfishTask::Run()
                 continue;
             }
 
-            // 6. Parse the result to find the best move
+            // 7. Parse the result to find the best move
             FString BestMoveResult = TEXT("");
             TArray<FString> Lines;
             OutputData.ParseIntoArrayLines(Lines);
@@ -322,6 +333,7 @@ uint32 FStockfishTask::Run()
             // To re-enable cleanup, uncomment the following lines:
             // IFileManager::Get().Delete(*InputFilePath);
             // IFileManager::Get().Delete(*OutputFilePath);
+            // IFileManager::Get().Delete(*BatchFilePath);
         }
         else
         {
