@@ -24,34 +24,11 @@ void AChessBoard::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (BoardMeshComponent)
-    {
-        // Используем GetComponentBounds для получения размеров в мировом пространстве, что учитывает масштаб актора.
-        FVector Origin;
-        FVector BoxExtent;
-        float SphereRadius;
-        UKismetSystemLibrary::GetComponentBounds(BoardMeshComponent, Origin, BoxExtent, SphereRadius);
-
-        // Полный размер компонента в мире
-        FVector ComponentSize = BoxExtent * 2.0f;
-
-        if (BoardSize.X > 0 && BoardSize.Y > 0)
-        {
-            // Предполагаем, что плоскость доски совпадает с осями X и Y компонента.
-            float CalculatedTileSizeX = ComponentSize.X / BoardSize.X;
-            float CalculatedTileSizeY = ComponentSize.Y / BoardSize.Y;
-
-            // Используем среднее значение, чтобы клетки были квадратными.
-            TileSize = (CalculatedTileSizeX + CalculatedTileSizeY) / 2.0f;
-
-            UE_LOG(LogTemp, Log, TEXT("AChessBoard: Auto-calculated TileSize = %f based on Component Bounds Size (%f, %f) and board size (%d, %d)"),
-                TileSize, ComponentSize.X, ComponentSize.Y, BoardSize.X, BoardSize.Y);
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AChessBoard: Could not auto-calculate TileSize. BoardMeshComponent is missing. Using default value: %f"), TileSize);
-    }
+    // Автоматический расчет TileSize был удален, так как он некорректно работал с мешами,
+    // у которых есть рамка. Он использовал полный размер меша, что приводило к завышенному
+    // значению TileSize и смещению фигур.
+    // Теперь TileSize должен быть задан вручную в редакторе Blueprint для актора AChessBoard.
+    UE_LOG(LogTemp, Log, TEXT("AChessBoard: Using manually set TileSize: %f. Ensure this is set correctly in the Blueprint."), TileSize);
 
     InitializeBoard();
 }
@@ -156,9 +133,16 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
 {
-    // Расчет для доски, где pivot находится в углу.
-    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f);
-    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f);
+    // Вычисляем общее смещение, чтобы центрировать сетку относительно pivot'а актора.
+    // Это предполагает, что pivot актора находится в центре доски.
+    const float HalfBoardWidth = (BoardSize.X * TileSize) / 2.0f;
+    const float HalfBoardHeight = (BoardSize.Y * TileSize) / 2.0f;
+
+    // Вычисляем позицию в локальном пространстве доски.
+    // Мы смещаем начало координат в левый нижний угол сетки (-HalfBoardWidth, -HalfBoardHeight),
+    // а затем добавляем позицию клетки.
+    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f) - HalfBoardWidth;
+    const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f) - HalfBoardHeight;
     const float LocalZ = PieceZOffsetOnBoard;
 
     const FVector LocalPosition(LocalX, LocalY, LocalZ);
@@ -172,9 +156,14 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
     // Преобразуем мировую позицию в локальное пространство актора доски.
     const FVector LocalPosition = GetActorTransform().InverseTransformPosition(WorldPosition);
 
-    // Преобразуем в координаты сетки (для доски с pivot'ом в углу).
-    int32 GridX = FMath::FloorToInt(LocalPosition.X / TileSize);
-    int32 GridY = FMath::FloorToInt(LocalPosition.Y / TileSize);
+    // Вычисляем общее смещение, чтобы центрировать сетку относительно pivot'а актора.
+    const float HalfBoardWidth = (BoardSize.X * TileSize) / 2.0f;
+    const float HalfBoardHeight = (BoardSize.Y * TileSize) / 2.0f;
+
+    // Преобразуем локальные координаты в координаты сетки.
+    // Сначала смещаем локальную позицию так, чтобы (0,0) был в левом нижнем углу сетки.
+    int32 GridX = FMath::FloorToInt((LocalPosition.X + HalfBoardWidth) / TileSize);
+    int32 GridY = FMath::FloorToInt((LocalPosition.Y + HalfBoardHeight) / TileSize);
 
     // Ограничиваем значения в пределах доски.
     GridX = FMath::Clamp(GridX, 0, BoardSize.X - 1);
