@@ -63,13 +63,15 @@ void UStockfishManager::StartEngine()
         bIsEngineRunningPrivate = true;
         UE_LOG(LogTemp, Log, TEXT("Stockfish process started successfully. Now performing UCI handshake."));
         
-        // Родительский процесс может закрыть свои дескрипторы на концы каналов дочернего процесса.
+        // Даем процессу время на инициализацию и дублирование дескрипторов,
+        // прежде чем родительский процесс закроет свою копию этих дескрипторов.
+        FPlatformProcess::Sleep(0.1f);
+
+        // Родительский процесс теперь может безопасно закрыть свои дескрипторы на концы каналов дочернего процесса.
         FPlatformProcess::ClosePipe(nullptr, ChildStdoutWrite);
         FPlatformProcess::ClosePipe(ChildStdinRead, nullptr);
 
         // --- Стандартный UCI-хендшейк ---
-        FPlatformProcess::Sleep(0.1f); // Даем процессу время на инициализацию
-
         // 1. Отправляем "uci" и ждем "uciok"
         FString UciCommand = TEXT("uci\n");
         FTCHARToUTF8 UciConverter(*UciCommand);
