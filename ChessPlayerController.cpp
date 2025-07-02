@@ -172,7 +172,7 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 void AChessPlayerController::OnClickStarted()
 {
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-    if (!GameState || (GameState->GetGamePhase() == EGamePhase::InPlay && GameState->GetCurrentTurnColor() != PlayerColor))
+    if (!GameState || (GameState->GetGamePhase() == EGamePhase::InProgress && GameState->GetCurrentTurnColor() != PlayerColor))
     {
         return; // Не наш ход или игра неактивна
     }
