@@ -271,15 +271,22 @@ uint32 FStockfishTask::Run()
             // 5. Read the output file
             if (!IFileManager::Get().FileExists(*OutputFilePath))
             {
-                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process did not create the output file: %s"), *OutputFilePath);
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Stockfish process did not create the output file: %s"), *FPaths::ConvertRelativePathToFull(*OutputFilePath));
                 ResultQueue.Enqueue(TEXT(""));
                 continue;
             }
 
+            // Add a small delay to allow the OS to release the file handle after the process closes.
+            FPlatformProcess::Sleep(0.1f);
+
+            const FString FullPath = FPaths::ConvertRelativePathToFull(*OutputFilePath);
+            int64 FileSize = IFileManager::Get().FileSize(*OutputFilePath);
+            UE_LOG(LogTemp, Log, TEXT("FStockfishTask: Output file exists. Path: %s, Size: %lld bytes."), *FullPath, FileSize);
+
             FString OutputData;
             if (!FFileHelper::LoadFileToString(OutputData, *OutputFilePath))
             {
-                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to read from output file, although it exists: %s"), *OutputFilePath);
+                UE_LOG(LogTemp, Error, TEXT("FStockfishTask: Failed to read from output file, although it exists: %s"), *FullPath);
                 ResultQueue.Enqueue(TEXT(""));
                 continue;
             }
