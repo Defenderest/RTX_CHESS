@@ -46,10 +46,10 @@ void AChessGameMode::BeginPlay()
 
     FindGameBoard();
 
-    FString IsBotGameValue;
     // Мы начинаем игру, только если в опциях запуска явно указан режим игры.
     // Это позволяет при первом запуске просто показать главное меню.
-    if (UGameplayStatics::ParseOption(this->OptionsString, "bIsBotGame", IsBotGameValue))
+    FString IsBotGameValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("bIsBotGame"));
+    if (!IsBotGameValue.IsEmpty())
     {
         if (IsBotGameValue.ToBool())
         {
