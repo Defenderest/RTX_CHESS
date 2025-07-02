@@ -190,7 +190,9 @@ void AChessPlayerController::OnClickStarted()
     }
 
     FHitResult HitResult;
-    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+    // Используем комплексную трассировку (true), так как у мешей фигур может не быть простой коллизии.
+    // Это гарантирует, что клик будет зарегистрирован по видимой геометрии меша.
+    GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
 
     if (HitResult.bBlockingHit)
     {
@@ -229,7 +231,8 @@ void AChessPlayerController::OnClickCompleted()
         SelectedPiece->OnDeselected();
 
         FHitResult HitResult;
-        GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+        // Используем комплексную трассировку (true) для согласованности с OnClickStarted.
+        GetHitResultUnderCursor(ECC_Visibility, true, HitResult);
 
         // Проверяем, был ли клик на доске или на другой фигуре
         if (ChessBoard && HitResult.bBlockingHit && (HitResult.GetActor() == ChessBoard || HitResult.GetActor()->IsA<AChessPiece>()))
