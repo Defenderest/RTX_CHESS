@@ -230,11 +230,8 @@ uint32 FStockfishTask::Run()
     WritePipe = ChildStdinWrite;
 
     FString StockfishDir = FPaths::GetPath(StockfishPath);
-    // Launch stockfish via cmd.exe to ensure a stable environment and prevent the console window from closing instantly on error.
-    // The /k parameter tells cmd to execute the command and then KEEP the console open.
-    // This is a debugging step to see any error messages from stockfish.exe.
-    const FString Command = FString::Printf(TEXT("/k \"%s\""), *StockfishPath);
-    ProcessHandle = FPlatformProcess::CreateProc(TEXT("cmd.exe"), *Command, true, false, false, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
+    // Launch stockfish directly. The `true, true, true` parameters hide the console window.
+    ProcessHandle = FPlatformProcess::CreateProc(*StockfishPath, nullptr, true, true, true, nullptr, 0, *StockfishDir, ChildStdoutWrite, ChildStdinRead, nullptr);
 
     if (!ProcessHandle.IsValid())
     {
