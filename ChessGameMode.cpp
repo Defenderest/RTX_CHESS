@@ -78,7 +78,7 @@ void AChessGameMode::StartBotGame()
     StartNewGame();
 }
 
-void AChessGameMode::PostLogin(APlayerController* NewPlayer) override
+void AChessGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
 
