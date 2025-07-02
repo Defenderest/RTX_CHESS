@@ -15,7 +15,7 @@ AChessPiece::AChessPiece()
     // Настраиваем коллизию меша так, чтобы он был интерактивным.
     // Он должен быть видимым для трассировки курсора (ECC_Visibility).
     PieceMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    PieceMeshComponent->SetCollisionObjectType(ECC_Pawn); // Используем тип Pawn для интерактивных объектов
+    PieceMeshComponent->SetCollisionObjectType(ECC_WorldDynamic); // Используем тип WorldDynamic для интерактивных объектов
     PieceMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
     PieceMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // Блокируем канал Visibility для обнаружения кликов
     PieceMeshComponent->CanCharacterStepUpOn = ECB_No;
