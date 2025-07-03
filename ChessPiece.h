@@ -57,6 +57,19 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     bool bHasMoved;
 
+    // --- Movement Animation ---
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Piece|Movement")
+    float MoveSpeed = 2.0f; // Скорость движения фигуры (где 1.0f = 1 секунда на ход)
+
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Piece|Movement")
+    float KnightArcHeight = 50.0f; // Высота прыжка коня в юнитах
+
+    FVector StartWorldLocation;
+    FVector TargetWorldLocation;
+    float MoveLerpAlpha;
+    bool bIsMoving;
+    // --- End Movement Animation ---
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
 
@@ -82,6 +95,10 @@ protected:
 
 public:
     virtual void Tick(float DeltaTime) override;
+
+    // Запускает плавную анимацию перемещения фигуры в указанную мировую позицию
+    UFUNCTION(BlueprintCallable, Category = "Chess Piece")
+    void AnimateMoveTo(const FVector& TargetLocation);
 
     UFUNCTION(BlueprintCallable, Category = "Chess Piece")
     virtual void InitializePiece(EPieceColor InColor, EPieceType InType, FIntPoint InBoardPosition);

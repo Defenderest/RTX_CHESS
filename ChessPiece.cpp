@@ -6,7 +6,7 @@
 
 AChessPiece::AChessPiece()
 {
-    PrimaryActorTick.bCanEverTick = false; // Фигуры обычно не тикают каждый кадр
+    PrimaryActorTick.bCanEverTick = true; // Включаем Tick для анимации движения
 
     // Создаем компонент меша и делаем его корневым компонентом.
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
@@ -26,6 +26,10 @@ AChessPiece::AChessPiece()
     TypeOfPiece = EPieceType::Pawn;
     BoardPosition = FIntPoint(-1, -1); // Невалидная начальная позиция
     bHasMoved = false; // Инициализация по умолчанию
+
+    // Инициализация переменных для движения
+    bIsMoving = false;
+    MoveLerpAlpha = 0.0f;
 }
 
 void AChessPiece::BeginPlay()
@@ -38,6 +42,45 @@ void AChessPiece::BeginPlay()
 void AChessPiece::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    if (bIsMoving)
+    {
+        // MoveLerpAlpha будет идти от 0 до 1. MoveSpeed регулирует скорость.
+        MoveLerpAlpha = FMath::Clamp(MoveLerpAlpha + DeltaTime * MoveSpeed, 0.f, 1.f);
+
+        FVector CurrentLocation;
+        if (TypeOfPiece == EPieceType::Knight)
+        {
+            // Параболическая интерполяция для коня (прыжок)
+            CurrentLocation = FMath::Lerp(StartWorldLocation, TargetWorldLocation, MoveLerpAlpha);
+            // Добавляем высоту дуги. Sin(0) = 0, Sin(PI) = 0. Максимум в Sin(PI/2)=1.
+            CurrentLocation.Z += KnightArcHeight * FMath::Sin(PI * MoveLerpAlpha);
+        }
+        else
+        {
+            // Линейная интерполяция для остальных фигур
+            CurrentLocation = FMath::Lerp(StartWorldLocation, TargetWorldLocation, MoveLerpAlpha);
+        }
+
+        SetActorLocation(CurrentLocation);
+
+        if (MoveLerpAlpha >= 1.0f)
+        {
+            // Точно устанавливаем в конце, чтобы избежать погрешностей
+            SetActorLocation(TargetWorldLocation);
+            bIsMoving = false;
+        }
+    }
+}
+
+void AChessPiece::AnimateMoveTo(const FVector& TargetLocation)
+{
+    if (GetActorLocation().Equals(TargetLocation, 1.f)) return;
+
+    StartWorldLocation = GetActorLocation();
+    TargetWorldLocation = TargetLocation;
+    MoveLerpAlpha = 0.f;
+    bIsMoving = true;
 }
 
 void AChessPiece::InitializePiece(EPieceColor InColor, EPieceType InType, FIntPoint InBoardPosition)

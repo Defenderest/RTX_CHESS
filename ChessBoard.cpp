@@ -102,7 +102,7 @@ void AChessBoard::SetPieceAtGridPosition(AChessPiece* Piece, const FIntPoint& Gr
     {
         // Устанавливаем позицию фигуры на доске
         FVector WorldPos = GridToWorldPosition(GridPosition);
-        Piece->SetActorLocation(WorldPos);
+        Piece->AnimateMoveTo(WorldPos);
 
         // Обновляем внутреннюю позицию фигуры
         Piece->SetBoardPosition(GridPosition);
