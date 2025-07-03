@@ -162,3 +162,8 @@ void AChessPiece::NotifyMoveCompleted_Implementation()
     //        *UEnum::GetValueAsString(TypeOfPiece),
     //        BoardPosition.X, BoardPosition.Y);
 }
+
+bool AChessPiece::HasMoved() const
+{
+    return bHasMoved;
+}

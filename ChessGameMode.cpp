@@ -221,6 +221,8 @@ void AChessGameMode::SetupBoardAndGameState()
     GameBoard->InitializeBoard();
     SpawnInitialPieces();
 
+    CurrentGS->ResetGameStateForNewGame();
+
     CurrentGS->SetCurrentTurnColor(EPieceColor::White);
     CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
@@ -235,6 +237,12 @@ void AChessGameMode::EndTurn()
     AChessGameState* CurrentGS = GetCurrentGameState();
     if (CurrentGS)
     {
+        // Увеличиваем номер полного хода, если ход сделали черные
+        if (CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
+        {
+            CurrentGS->IncrementFullmoveNumber();
+        }
+
         CurrentGS->Server_SwitchTurn();
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (CurrentGS->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         
@@ -327,6 +335,9 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     // --- Все проверки пройдены, выполняем ход ---
     UE_LOG(LogTemp, Log, TEXT("--- ALL CHECKS PASSED: EXECUTING MOVE ---"));
 
+    const bool bIsPawnMove = PieceToMove->GetPieceType() == EPieceType::Pawn;
+    const bool bIsCapture = CapturedPiece != nullptr;
+
     bool bIsPawnTwoStep = false;
     if (PieceToMove->GetPieceType() == EPieceType::Pawn && FMath::Abs(TargetGridPosition.Y - OriginalPosition.Y) == 2)
     {
@@ -375,6 +386,24 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition);
 
     PieceToMove->NotifyMoveCompleted();
+
+    // --- Обновление состояния игры для FEN ---
+    CurrentGS->UpdateCastlingRights(PieceToMove);
+    if (bIsCapture)
+    {
+        // Если захвачена ладья, это также влияет на права рокировки
+        CurrentGS->UpdateCastlingRights(CapturedPiece);
+    }
+    
+    if (bIsPawnMove || bIsCapture)
+    {
+        CurrentGS->ResetHalfmoveClock();
+    }
+    else
+    {
+        CurrentGS->IncrementHalfmoveClock();
+    }
+    // --- Конец обновления состояния игры ---
 
     if (bIsPawnTwoStep)
     {

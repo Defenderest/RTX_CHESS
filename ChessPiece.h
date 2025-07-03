@@ -97,6 +97,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Piece")
     virtual void SetBoardPosition(const FIntPoint& NewPosition);
 
+    UFUNCTION(BlueprintPure, Category = "Chess Piece")
+    bool HasMoved() const;
+
     UFUNCTION(BlueprintCallable, Category = "Chess Piece")
     virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const;
 

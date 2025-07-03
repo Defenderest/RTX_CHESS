@@ -60,6 +60,27 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State") // VisibleInstanceOnly убрано
     TWeakObjectPtr<APawnPiece> EnPassantPawnToCapture;
 
+    // Счетчик полуходов для правила 50 ходов
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    int32 HalfmoveClock;
+
+    // Счетчик полных ходов
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    int32 FullmoveNumber;
+
+    // Права на рокировку
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    bool bCanWhiteCastleKingSide;
+
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    bool bCanWhiteCastleQueenSide;
+
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    bool bCanBlackCastleKingSide;
+
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    bool bCanBlackCastleQueenSide;
+
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     // Возвращает цвет игрока, чей сейчас ход
@@ -102,6 +123,23 @@ public:
     bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board); // Removed const
 
 public: // Changed from protected
+    // --- Full Game State Management (called from GameMode) ---
+
+    // Сбрасывает состояние игры в начальное положение.
+    void ResetGameStateForNewGame();
+
+    // Обновляет права на рокировку на основе перемещенной или захваченной фигуры.
+    void UpdateCastlingRights(const AChessPiece* Piece);
+
+    // Увеличивает счетчик полных ходов.
+    void IncrementFullmoveNumber();
+
+    // Увеличивает счетчик полуходов.
+    void IncrementHalfmoveClock();
+
+    // Сбрасывает счетчик полуходов.
+    void ResetHalfmoveClock();
+    
     // Внутренний метод для изменения цвета текущего хода, вызывается Server_SwitchTurn
     void SetCurrentTurnColor(EPieceColor NewTurnColor);
 

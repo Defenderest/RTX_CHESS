@@ -10,6 +10,12 @@ AChessGameState::AChessGameState()
     CurrentGamePhase = EGamePhase::WaitingToStart;
     EnPassantTargetSquare = FIntPoint(-1, -1); // Инициализация невалидным значением
     EnPassantPawnToCapture = nullptr;
+    HalfmoveClock = 0;
+    FullmoveNumber = 1;
+    bCanWhiteCastleKingSide = true;
+    bCanWhiteCastleQueenSide = true;
+    bCanBlackCastleKingSide = true;
+    bCanBlackCastleQueenSide = true;
 }
 
 void AChessGameState::OnRep_CurrentTurn()
@@ -32,6 +38,12 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, ActivePieces);
     DOREPLIFETIME(AChessGameState, EnPassantTargetSquare);
     DOREPLIFETIME(AChessGameState, EnPassantPawnToCapture);
+    DOREPLIFETIME(AChessGameState, HalfmoveClock);
+    DOREPLIFETIME(AChessGameState, FullmoveNumber);
+    DOREPLIFETIME(AChessGameState, bCanWhiteCastleKingSide);
+    DOREPLIFETIME(AChessGameState, bCanWhiteCastleQueenSide);
+    DOREPLIFETIME(AChessGameState, bCanBlackCastleKingSide);
+    DOREPLIFETIME(AChessGameState, bCanBlackCastleQueenSide);
 }
 
 EPieceColor AChessGameState::GetCurrentTurnColor() const
@@ -245,6 +257,87 @@ bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Bo
     return true; // Нет допустимых ходов, и игрок не в шахе, значит это пат
 }
 
+// --- Full Game State Management ---
+
+void AChessGameState::ResetGameStateForNewGame()
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        HalfmoveClock = 0;
+        FullmoveNumber = 1;
+        bCanWhiteCastleKingSide = true;
+        bCanWhiteCastleQueenSide = true;
+        bCanBlackCastleKingSide = true;
+        bCanBlackCastleQueenSide = true;
+        ClearEnPassantData();
+        // CurrentTurnColor и GamePhase устанавливаются в GameMode
+    }
+}
+
+void AChessGameState::UpdateCastlingRights(const AChessPiece* Piece)
+{
+    if (GetLocalRole() != ROLE_Authority || !Piece)
+    {
+        return;
+    }
+
+    // Если король двинулся, он теряет оба права на рокировку
+    if (Piece->GetPieceType() == EPieceType::King)
+    {
+        if (Piece->GetPieceColor() == EPieceColor::White)
+        {
+            if (bCanWhiteCastleKingSide) bCanWhiteCastleKingSide = false;
+            if (bCanWhiteCastleQueenSide) bCanWhiteCastleQueenSide = false;
+        }
+        else
+        {
+            if (bCanBlackCastleKingSide) bCanBlackCastleKingSide = false;
+            if (bCanBlackCastleQueenSide) bCanBlackCastleQueenSide = false;
+        }
+    }
+    // Если двинулась (или была захвачена) ладья, теряется соответствующее право
+    else if (Piece->GetPieceType() == EPieceType::Rook)
+    {
+        // Предполагается стандартная доска 8x8 для определения, какая это ладья
+        const FIntPoint Pos = Piece->GetBoardPosition();
+        if (Piece->GetPieceColor() == EPieceColor::White)
+        {
+            if (Pos == FIntPoint(7, 0) && bCanWhiteCastleKingSide) bCanWhiteCastleKingSide = false; // H1
+            else if (Pos == FIntPoint(0, 0) && bCanWhiteCastleQueenSide) bCanWhiteCastleQueenSide = false; // A1
+        }
+        else
+        {
+            if (Pos == FIntPoint(7, 7) && bCanBlackCastleKingSide) bCanBlackCastleKingSide = false; // H8
+            else if (Pos == FIntPoint(0, 7) && bCanBlackCastleQueenSide) bCanBlackCastleQueenSide = false; // A8
+        }
+    }
+}
+
+void AChessGameState::IncrementFullmoveNumber()
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        FullmoveNumber++;
+    }
+}
+
+void AChessGameState::IncrementHalfmoveClock()
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        HalfmoveClock++;
+    }
+}
+
+void AChessGameState::ResetHalfmoveClock()
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        HalfmoveClock = 0;
+    }
+}
+
+
 void AChessGameState::SetCurrentTurnColor(EPieceColor NewTurnColor)
 {
     if (GetLocalRole() == ROLE_Authority) // Убеждаемся, что это вызывается на сервере
@@ -301,7 +394,7 @@ void AChessGameState::ClearEnPassantData()
 FString AChessGameState::GetFEN() const
 {
     FString FEN = "";
-    const int32 BoardSize = 8; // Assuming 8x8 board
+    const int32 BoardSize = 8; // FEN стандартно для доски 8x8
 
     for (int32 y = BoardSize - 1; y >= 0; --y)
     {
@@ -347,13 +440,19 @@ FString AChessGameState::GetFEN() const
         }
     }
 
+    // Active color
     FEN += " ";
     FEN += (CurrentTurnColor == EPieceColor::White) ? "w" : "b";
 
-    // TODO: Implement full castling rights logic. This is a placeholder.
-    FEN += " -";
+    // Castling availability
+    FString CastlingRights = "";
+    if (bCanWhiteCastleKingSide) CastlingRights += "K";
+    if (bCanWhiteCastleQueenSide) CastlingRights += "Q";
+    if (bCanBlackCastleKingSide) CastlingRights += "k";
+    if (bCanBlackCastleQueenSide) CastlingRights += "q";
+    FEN += " " + (CastlingRights.IsEmpty() ? "-" : CastlingRights);
 
-    // En Passant
+    // En Passant target square
     const FIntPoint EnPassantSquare = GetEnPassantTargetSquare();
     if (EnPassantSquare.X != -1 && EnPassantSquare.Y != -1)
     {
@@ -367,10 +466,11 @@ FString AChessGameState::GetFEN() const
         FEN += " -";
     }
 
-    // TODO: Implement halfmove clock and fullmove number tracking.
-    FEN += " 0 1"; // Placeholder for halfmove clock and fullmove number
+    // Halfmove clock and fullmove number
+    FEN += " " + FString::FromInt(HalfmoveClock);
+    FEN += " " + FString::FromInt(FullmoveNumber);
 
-    UE_LOG(LogTemp, Warning, TEXT("AChessGameState::GetFEN: Generated FEN with simplified castling/move counters: %s"), *FEN);
+    UE_LOG(LogTemp, Log, TEXT("AChessGameState::GetFEN: Generated FEN: %s"), *FEN);
 
     return FEN;
 }
