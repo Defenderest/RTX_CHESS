@@ -129,7 +129,7 @@ public: // Changed from protected
     void ResetGameStateForNewGame();
 
     // Обновляет права на рокировку на основе перемещенной или захваченной фигуры.
-    void UpdateCastlingRights(const AChessPiece* Piece);
+    void UpdateCastlingRights(const AChessPiece* Piece, const FIntPoint& FromPosition);
 
     // Увеличивает счетчик полных ходов.
     void IncrementFullmoveNumber();

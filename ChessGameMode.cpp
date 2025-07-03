@@ -388,11 +388,11 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     PieceToMove->NotifyMoveCompleted();
 
     // --- Обновление состояния игры для FEN ---
-    CurrentGS->UpdateCastlingRights(PieceToMove);
+    CurrentGS->UpdateCastlingRights(PieceToMove, OriginalPosition);
     if (bIsCapture)
     {
         // Если захвачена ладья, это также влияет на права рокировки
-        CurrentGS->UpdateCastlingRights(CapturedPiece);
+        CurrentGS->UpdateCastlingRights(CapturedPiece, CapturedPiece->GetBoardPosition());
     }
     
     if (bIsPawnMove || bIsCapture)

@@ -274,7 +274,7 @@ void AChessGameState::ResetGameStateForNewGame()
     }
 }
 
-void AChessGameState::UpdateCastlingRights(const AChessPiece* Piece)
+void AChessGameState::UpdateCastlingRights(const AChessPiece* Piece, const FIntPoint& FromPosition)
 {
     if (GetLocalRole() != ROLE_Authority || !Piece)
     {
@@ -299,7 +299,7 @@ void AChessGameState::UpdateCastlingRights(const AChessPiece* Piece)
     else if (Piece->GetPieceType() == EPieceType::Rook)
     {
         // Предполагается стандартная доска 8x8 для определения, какая это ладья
-        const FIntPoint Pos = Piece->GetBoardPosition();
+        const FIntPoint Pos = FromPosition;
         if (Piece->GetPieceColor() == EPieceColor::White)
         {
             if (Pos == FIntPoint(7, 0) && bCanWhiteCastleKingSide) bCanWhiteCastleKingSide = false; // H1
