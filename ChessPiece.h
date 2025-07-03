@@ -101,7 +101,7 @@ public:
     bool HasMoved() const;
 
     UFUNCTION(BlueprintCallable, Category = "Chess Piece")
-    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const;
+    virtual TArray<FIntPoint> GetValidMoves(const class AChessGameState* GameState, const AChessBoard* Board) const;
 
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Chess Piece")
     void OnSelected();

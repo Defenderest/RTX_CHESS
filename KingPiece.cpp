@@ -25,12 +25,12 @@ void AKingPiece::Tick(float DeltaTime)
 //     return false;
 // }
 
-TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessBoard* Board) const
+TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
     TArray<FIntPoint> ValidMoves;
-    if (!Board)
+    if (!Board || !GameState)
     {
-        UE_LOG(LogTemp, Error, TEXT("AKingPiece::GetValidMoves: Board is null."));
+        UE_LOG(LogTemp, Error, TEXT("AKingPiece::GetValidMoves: Board or GameState is null."));
         return ValidMoves;
     }
 
@@ -48,7 +48,7 @@ TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessBoard* Board) const
 
         if (Board->IsValidGridPosition(TargetPos))
         {
-            AChessPiece* PieceAtTarget = Board->GetPieceAtGridPosition(TargetPos);
+            AChessPiece* PieceAtTarget = GameState->GetPieceAtGridPosition(TargetPos);
             if (!PieceAtTarget || PieceAtTarget->GetPieceColor() != PieceColor)
             {
                 // Клетка либо пуста, либо занята фигурой противника

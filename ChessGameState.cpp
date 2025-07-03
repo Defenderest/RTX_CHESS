@@ -140,7 +140,7 @@ bool AChessGameState::IsPlayerInCheck(EPieceColor PlayerColor, const AChessBoard
     {
         if (OpponentPiece && OpponentPiece->GetPieceColor() == OpponentColor)
         {
-            TArray<FIntPoint> OpponentValidMoves = OpponentPiece->GetValidMoves(Board);
+            TArray<FIntPoint> OpponentValidMoves = OpponentPiece->GetValidMoves(this, Board);
             if (OpponentValidMoves.Contains(KingPosition))
             {
                 return true; // Король находится под шахом
@@ -163,7 +163,7 @@ bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessB
     {
         if (PlayerPiece && PlayerPiece->GetPieceColor() == PlayerColor)
         {
-            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(Board);
+            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(this, Board);
             FIntPoint OriginalPosition = PlayerPiece->GetBoardPosition();
 
             for (const FIntPoint& TargetPosition : ValidMoves)
@@ -217,7 +217,7 @@ bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Bo
     {
         if (PlayerPiece && PlayerPiece->GetPieceColor() == PlayerColor)
         {
-            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(Board);
+            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(this, Board);
             FIntPoint OriginalPosition = PlayerPiece->GetBoardPosition();
 
             for (const FIntPoint& TargetPosition : ValidMoves)

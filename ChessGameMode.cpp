@@ -292,7 +292,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     UE_LOG(LogTemp, Log, TEXT("AttemptMove PASS: Turn check passed."));
 
     // Проверка 2: Является ли ход допустимым для этой фигуры?
-    TArray<FIntPoint> ValidMoves = PieceToMove->GetValidMoves(GameBoard);
+    TArray<FIntPoint> ValidMoves = PieceToMove->GetValidMoves(CurrentGS, GameBoard);
     if (!ValidMoves.Contains(TargetGridPosition))
     {
         UE_LOG(LogTemp, Warning, TEXT("AttemptMove FAIL: Target position (%d, %d) is not a valid move for this piece."),

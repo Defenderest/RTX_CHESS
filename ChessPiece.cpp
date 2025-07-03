@@ -116,7 +116,7 @@ void AChessPiece::SetPieceMesh(UStaticMesh* NewMesh)
     }
 }
 
-TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessBoard* Board) const
+TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
     // Базовая реализация: фигура не имеет допустимых ходов.
     // Эта функция должна быть переопределена в дочерних классах для каждого типа фигуры.
