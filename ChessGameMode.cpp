@@ -335,6 +335,38 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     // --- Все проверки пройдены, выполняем ход ---
     UE_LOG(LogTemp, Log, TEXT("--- ALL CHECKS PASSED: EXECUTING MOVE ---"));
 
+    // --- Специальная обработка рокировки ---
+    if (PieceToMove->GetPieceType() == EPieceType::King && FMath::Abs(TargetGridPosition.X - OriginalPosition.X) == 2)
+    {
+        // Это ход рокировки. Нам нужно переместить и ладью.
+        UE_LOG(LogTemp, Log, TEXT("Executing Move: Castling detected."));
+        if (TargetGridPosition.X > OriginalPosition.X) // Рокировка в сторону короля (короткая)
+        {
+            const FIntPoint RookOriginalPos(GameBoard->GetBoardSize().X - 1, OriginalPosition.Y);
+            const FIntPoint RookTargetPos(OriginalPosition.X + 1, OriginalPosition.Y);
+            AChessPiece* RookToMove = CurrentGS->GetPieceAtGridPosition(RookOriginalPos);
+            if (RookToMove && RookToMove->GetPieceType() == EPieceType::Rook)
+            {
+                GameBoard->ClearSquare(RookOriginalPos);
+                GameBoard->SetPieceAtGridPosition(RookToMove, RookTargetPos);
+                RookToMove->NotifyMoveCompleted();
+            }
+        }
+        else // Рокировка в сторону ферзя (длинная)
+        {
+            const FIntPoint RookOriginalPos(0, OriginalPosition.Y);
+            const FIntPoint RookTargetPos(OriginalPosition.X - 1, OriginalPosition.Y);
+            AChessPiece* RookToMove = CurrentGS->GetPieceAtGridPosition(RookOriginalPos);
+            if (RookToMove && RookToMove->GetPieceType() == EPieceType::Rook)
+            {
+                GameBoard->ClearSquare(RookOriginalPos);
+                GameBoard->SetPieceAtGridPosition(RookToMove, RookTargetPos);
+                RookToMove->NotifyMoveCompleted();
+            }
+        }
+    }
+    // --- Конец обработки рокировки ---
+
     const bool bIsPawnMove = PieceToMove->GetPieceType() == EPieceType::Pawn;
     const bool bIsCapture = CapturedPiece != nullptr;
 
@@ -377,12 +409,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     }
 
     GameBoard->ClearSquare(OriginalPosition);
-    PieceToMove->SetBoardPosition(TargetGridPosition); 
-    
-    FVector NewWorldLocation = GameBoard->GridToWorldPosition(TargetGridPosition);
-    PieceToMove->SetActorLocation(NewWorldLocation);
-    UE_LOG(LogTemp, Log, TEXT("Executing Move: Setting Actor Location to %s"), *NewWorldLocation.ToString());
-    
     GameBoard->SetPieceAtGridPosition(PieceToMove, TargetGridPosition);
 
     PieceToMove->NotifyMoveCompleted();
