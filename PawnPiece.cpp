@@ -19,23 +19,23 @@ void APawnPiece::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 }
 
-TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
+TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
     TArray<FIntPoint> ValidMoves;
-    if (!Board) return ValidMoves;
+    if (!Board || !GameState) return ValidMoves;
 
     FIntPoint CurrentPos = GetBoardPosition();
     int32 Direction = (PieceColor == EPieceColor::White) ? 1 : -1; // 1 для белых (вверх), -1 для черных (вниз)
 
     // 1. Ход вперед на 1 клетку
     FIntPoint OneStepForward = FIntPoint(CurrentPos.X, CurrentPos.Y + Direction);
-    if (Board->IsValidGridPosition(OneStepForward) && !Board->GetPieceAtGridPosition(OneStepForward))
+    if (Board->IsValidGridPosition(OneStepForward) && !GameState->GetPieceAtGridPosition(OneStepForward))
     {
         ValidMoves.Add(OneStepForward);
 
         // 2. Ход вперед на 2 клетки (только если это первый ход пешки)
         FIntPoint TwoStepsForward = FIntPoint(CurrentPos.X, CurrentPos.Y + 2 * Direction);
-        if (!bHasMoved && Board->IsValidGridPosition(TwoStepsForward) && !Board->GetPieceAtGridPosition(TwoStepsForward))
+        if (!bHasMoved && Board->IsValidGridPosition(TwoStepsForward) && !GameState->GetPieceAtGridPosition(TwoStepsForward))
         {
             ValidMoves.Add(TwoStepsForward);
         }
@@ -48,7 +48,7 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
     // Проверяем взятие влево
     if (Board->IsValidGridPosition(DiagonalLeft))
     {
-        AChessPiece* PieceAtDiagonalLeft = Board->GetPieceAtGridPosition(DiagonalLeft);
+        AChessPiece* PieceAtDiagonalLeft = GameState->GetPieceAtGridPosition(DiagonalLeft);
         if (PieceAtDiagonalLeft && PieceAtDiagonalLeft->GetPieceColor() != PieceColor)
         {
             ValidMoves.Add(DiagonalLeft);
@@ -58,7 +58,7 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
     // Проверяем взятие вправо
     if (Board->IsValidGridPosition(DiagonalRight))
     {
-        AChessPiece* PieceAtDiagonalRight = Board->GetPieceAtGridPosition(DiagonalRight);
+        AChessPiece* PieceAtDiagonalRight = GameState->GetPieceAtGridPosition(DiagonalRight);
         if (PieceAtDiagonalRight && PieceAtDiagonalRight->GetPieceColor() != PieceColor)
         {
             ValidMoves.Add(DiagonalRight);
@@ -66,28 +66,24 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessBoard* Board) const
     }
 
     // 4. Взятие на проходе (En Passant)
-    if (GetWorld())
+    if (GameState)
     {
-        AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-        if (GameState)
-        {
-            FIntPoint EnPassantTarget = GameState->GetEnPassantTargetSquare();
-            APawnPiece* PawnToCaptureEP = GameState->GetEnPassantPawnToCapture();
+        FIntPoint EnPassantTarget = GameState->GetEnPassantTargetSquare();
+        APawnPiece* PawnToCaptureEP = GameState->GetEnPassantPawnToCapture();
 
-            // Проверяем, является ли диагональный ход ходом на клетку для взятия на проходе
-            // И что пешка для взятия на проходе существует и имеет противоположный цвет
-            if (PawnToCaptureEP && PawnToCaptureEP->GetPieceColor() != PieceColor)
+        // Проверяем, является ли диагональный ход ходом на клетку для взятия на проходе
+        // И что пешка для взятия на проходе существует и имеет противоположный цвет
+        if (PawnToCaptureEP && PawnToCaptureEP->GetPieceColor() != PieceColor)
+        {
+            if (Board->IsValidGridPosition(DiagonalLeft) && DiagonalLeft == EnPassantTarget &&
+                PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X - 1, CurrentPos.Y))
             {
-                if (Board->IsValidGridPosition(DiagonalLeft) && DiagonalLeft == EnPassantTarget &&
-                    PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X - 1, CurrentPos.Y))
-                {
-                    ValidMoves.Add(DiagonalLeft);
-                }
-                if (Board->IsValidGridPosition(DiagonalRight) && DiagonalRight == EnPassantTarget &&
-                     PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X + 1, CurrentPos.Y))
-                {
-                    ValidMoves.Add(DiagonalRight);
-                }
+                ValidMoves.Add(DiagonalLeft);
+            }
+            if (Board->IsValidGridPosition(DiagonalRight) && DiagonalRight == EnPassantTarget &&
+                 PawnToCaptureEP->GetBoardPosition() == FIntPoint(CurrentPos.X + 1, CurrentPos.Y))
+            {
+                ValidMoves.Add(DiagonalRight);
             }
         }
     }

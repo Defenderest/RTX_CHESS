@@ -17,10 +17,10 @@ void AKnightPiece::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 }
 
-TArray<FIntPoint> AKnightPiece::GetValidMoves(const AChessBoard* Board) const
+TArray<FIntPoint> AKnightPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
     TArray<FIntPoint> ValidMoves;
-    if (!Board) return ValidMoves;
+    if (!Board || !GameState) return ValidMoves;
 
     FIntPoint CurrentPos = GetBoardPosition();
 
@@ -40,7 +40,7 @@ TArray<FIntPoint> AKnightPiece::GetValidMoves(const AChessBoard* Board) const
     {
         if (Board->IsValidGridPosition(TargetPos))
         {
-            AChessPiece* PieceAtTarget = Board->GetPieceAtGridPosition(TargetPos);
+            AChessPiece* PieceAtTarget = GameState->GetPieceAtGridPosition(TargetPos);
             if (!PieceAtTarget || PieceAtTarget->GetPieceColor() != PieceColor)
             {
                 ValidMoves.Add(TargetPos); // Клетка свободна или занята фигурой противника

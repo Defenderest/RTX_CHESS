@@ -17,10 +17,10 @@ void AQueenPiece::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 }
 
-TArray<FIntPoint> AQueenPiece::GetValidMoves(const AChessBoard* Board) const
+TArray<FIntPoint> AQueenPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
     TArray<FIntPoint> ValidMoves;
-    if (!Board) return ValidMoves;
+    if (!Board || !GameState) return ValidMoves;
 
     FIntPoint CurrentPos = GetBoardPosition();
 
@@ -45,7 +45,7 @@ TArray<FIntPoint> AQueenPiece::GetValidMoves(const AChessBoard* Board) const
                 break; // Вышли за пределы доски
             }
 
-            AChessPiece* PieceAtTarget = Board->GetPieceAtGridPosition(TargetPos);
+            AChessPiece* PieceAtTarget = GameState->GetPieceAtGridPosition(TargetPos);
 
             if (PieceAtTarget)
             {
