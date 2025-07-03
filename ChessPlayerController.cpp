@@ -362,7 +362,8 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     SelectedPiece->OnSelected();
 
     // Подсветка допустимых ходов
-    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
+    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
     for (const FIntPoint& Move : ValidMoves)
     {
         ChessBoard->HighlightSquare(Move, FLinearColor::Green);
@@ -378,7 +379,8 @@ void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
         return;
     }
 
-    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(ChessBoard);
+    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    TArray<FIntPoint> ValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
     if (ValidMoves.Contains(GridPosition))
     {
         Server_AttemptMove(SelectedPiece, GridPosition);
