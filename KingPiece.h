@@ -6,6 +6,7 @@
 
 // Forward declarations
 class AChessBoard;
+class AChessGameState;
 
 UCLASS()
 class RTX_CHESS_API AKingPiece : public AChessPiece
@@ -25,7 +26,7 @@ public:
     // Возвращает массив допустимых ходов для Короля с учетом текущего состояния доски.
     // Король движется на одну клетку в любом направлении (горизонтально, вертикально или диагонально).
     // Также включает логику для рокировки.
-    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
+    virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 
     // bHasMoved теперь наследуется от AChessPiece
 

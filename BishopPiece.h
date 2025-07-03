@@ -6,6 +6,7 @@
 
 // Forward declarations
 class AChessBoard;
+class AChessGameState;
 
 UCLASS()
 class RTX_CHESS_API ABishopPiece : public AChessPiece
@@ -24,5 +25,5 @@ public:
     // Переопределяет GetValidMoves из AChessPiece.
     // Возвращает массив допустимых ходов для Слона с учетом текущего состояния доски.
     // Слон движется по диагонали на любое количество свободных клеток.
-    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
+    virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 };

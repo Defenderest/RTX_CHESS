@@ -25,7 +25,7 @@ public:
     // Переопределяет GetValidMoves из AChessPiece.
     // Возвращает массив допустимых ходов для Пешки с учетом текущего состояния доски.
     // Логика включает движение вперед, первый двойной ход, взятие по диагонали и ан пассан (опционально).
-    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
+    virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 
     // bHasMoved теперь наследуется от AChessPiece
     virtual void NotifyMoveCompleted_Implementation() override;

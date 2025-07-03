@@ -8,6 +8,7 @@
 
 // Forward declarations
 class AChessBoard;
+class AChessGameState;
 class UStaticMeshComponent;
 class UStaticMesh;
 class UMaterialInterface;

@@ -6,6 +6,7 @@
 
 // Forward declarations
 class AChessBoard;
+class AChessGameState;
 
 UCLASS()
 class RTX_CHESS_API AQueenPiece : public AChessPiece
@@ -24,5 +25,5 @@ public:
     // Переопределяет GetValidMoves из AChessPiece.
     // Возвращает массив допустимых ходов для Ферзя с учетом текущего состояния доски.
     // Ферзь движется по горизонтали, вертикали или диагонали на любое количество свободных клеток.
-    virtual TArray<FIntPoint> GetValidMoves(const AChessBoard* Board) const override;
+    virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 };

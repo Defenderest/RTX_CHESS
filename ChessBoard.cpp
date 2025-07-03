@@ -216,7 +216,7 @@ bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColo
             // так как оно показывает, куда фигура МОЖЕТ пойти и взять.
             // Если для пешки нужно особое правило "атаки пустой клетки по диагонали", это потребует доработки GetValidMoves или отдельного метода.
             // Пока будем использовать стандартный GetValidMoves.
-            TArray<FIntPoint> AttackingMoves = Piece->GetValidMoves(this);
+            TArray<FIntPoint> AttackingMoves = Piece->GetValidMoves(GS, this);
 
             // Специальная логика для пешек: они атакуют диагонали, даже если там нет фигуры для взятия (для проверки шаха)
             if (Piece->GetPieceType() == EPieceType::Pawn)
