@@ -17,6 +17,7 @@ enum class EGamePhase : uint8
 {
     WaitingToStart UMETA(DisplayName = "Waiting To Start"),
     InProgress UMETA(DisplayName = "In Progress"),
+    AwaitingPromotion UMETA(DisplayName = "Awaiting Promotion"),
     Check UMETA(DisplayName = "Check"),
     WhiteWins UMETA(DisplayName = "White Wins"),
     BlackWins UMETA(DisplayName = "Black Wins"),
@@ -81,6 +82,10 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
     bool bCanBlackCastleQueenSide;
 
+    // Пешка, ожидающая превращения
+    UPROPERTY(Replicated)
+    TObjectPtr<APawnPiece> PawnToPromote;
+
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     // Возвращает цвет игрока, чей сейчас ход
@@ -121,6 +126,12 @@ public:
     // Board необходим для анализа возможных ходов
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
     bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board); // Removed const
+
+    // --- Pawn Promotion ---
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    APawnPiece* GetPawnToPromote() const;
+    void SetPawnToPromote(APawnPiece* Pawn);
+    // --- End Pawn Promotion ---
 
 public: // Changed from protected
     // --- Full Game State Management (called from GameMode) ---

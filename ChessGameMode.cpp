@@ -413,6 +413,27 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     PieceToMove->NotifyMoveCompleted();
 
+    // --- Проверка на превращение пешки ---
+    APawnPiece* MovedPawn = Cast<APawnPiece>(PieceToMove);
+    if (MovedPawn)
+    {
+        const int32 PromotionRank = (MovedPawn->GetPieceColor() == EPieceColor::White) ? GameBoard->GetBoardSize().Y - 1 : 0;
+        if (TargetGridPosition.Y == PromotionRank)
+        {
+            CurrentGS->SetGamePhase(EGamePhase::AwaitingPromotion);
+            CurrentGS->SetPawnToPromote(MovedPawn);
+            if (RequestingController)
+            {
+                RequestingController->Client_ShowPromotionMenu(MovedPawn);
+            }
+            UE_LOG(LogTemp, Log, TEXT("Pawn promotion initiated for pawn at (%d, %d). Awaiting player choice."), TargetGridPosition.X, TargetGridPosition.Y);
+            // НЕ вызываем EndTurn() здесь. Ждем выбора игрока.
+            UE_LOG(LogTemp, Log, TEXT("--- AttemptMove END (Success - Promotion Pending) ---"));
+            return true;
+        }
+    }
+    // --- Конец проверки на превращение ---
+
     // --- Обновление состояния игры для FEN ---
     CurrentGS->UpdateCastlingRights(PieceToMove, OriginalPosition);
     if (bIsCapture)

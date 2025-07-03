@@ -58,12 +58,68 @@ TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessGameState* GameState, co
         }
     }
 
-    // TODO: Реализовать логику рокировки
-    // 1. Король не должен был двигаться (bHasMoved == false)
-    // 2. Соответствующая ладья не должна была двигаться
-    // 3. Между королем и ладьей не должно быть фигур
-    // 4. Король не должен быть под шахом
-    // 5. Клетки, через которые проходит король, не должны быть под атакой
+    // --- Логика рокировки ---
+    const EPieceColor OpponentColor = (PieceColor == EPieceColor::White) ? EPieceColor::Black : EPieceColor::White;
+
+    // 1. Король не должен был двигаться и не должен быть под шахом
+    if (!HasMoved() && !Board->IsSquareAttackedBy(CurrentPos, OpponentColor))
+    {
+        // --- Рокировка в сторону короля (короткая) ---
+        const bool bCanCastleKingside = (PieceColor == EPieceColor::White) ? GameState->bCanWhiteCastleKingSide : GameState->bCanBlackCastleKingSide;
+        if (bCanCastleKingside)
+        {
+            // Проверяем, что клетки между королем и ладьей пусты
+            bool bPathIsClear = true;
+            for (int32 X = CurrentPos.X + 1; X < Board->GetBoardSize().X - 1; ++X)
+            {
+                if (GameState->GetPieceAtGridPosition(FIntPoint(X, CurrentPos.Y)) != nullptr)
+                {
+                    bPathIsClear = false;
+                    break;
+                }
+            }
+
+            // Проверяем, что клетки, через которые проходит король, не под атакой
+            if (bPathIsClear)
+            {
+                const FIntPoint KingPassThrough1(CurrentPos.X + 1, CurrentPos.Y);
+                const FIntPoint KingPassThrough2(CurrentPos.X + 2, CurrentPos.Y);
+                if (!Board->IsSquareAttackedBy(KingPassThrough1, OpponentColor) &&
+                    !Board->IsSquareAttackedBy(KingPassThrough2, OpponentColor))
+                {
+                    ValidMoves.Add(KingPassThrough2); // Добавляем ход рокировки
+                }
+            }
+        }
+
+        // --- Рокировка в сторону ферзя (длинная) ---
+        const bool bCanCastleQueenside = (PieceColor == EPieceColor::White) ? GameState->bCanWhiteCastleQueenSide : GameState->bCanBlackCastleQueenSide;
+        if (bCanCastleQueenside)
+        {
+            // Проверяем, что клетки между королем и ладьей пусты
+            bool bPathIsClear = true;
+            for (int32 X = CurrentPos.X - 1; X > 0; --X)
+            {
+                if (GameState->GetPieceAtGridPosition(FIntPoint(X, CurrentPos.Y)) != nullptr)
+                {
+                    bPathIsClear = false;
+                    break;
+                }
+            }
+
+            // Проверяем, что клетки, через которые проходит король, не под атакой
+            if (bPathIsClear)
+            {
+                const FIntPoint KingPassThrough1(CurrentPos.X - 1, CurrentPos.Y);
+                const FIntPoint KingPassThrough2(CurrentPos.X - 2, CurrentPos.Y);
+                if (!Board->IsSquareAttackedBy(KingPassThrough1, OpponentColor) &&
+                    !Board->IsSquareAttackedBy(KingPassThrough2, OpponentColor))
+                {
+                    ValidMoves.Add(KingPassThrough2); // Добавляем ход рокировки
+                }
+            }
+        }
+    }
 
     return ValidMoves;
 }

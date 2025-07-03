@@ -9,6 +9,8 @@
 #include "GameCameraActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "StartMenuWidget.h"
+#include "UI/PromotionMenuWidget.h"
+#include "PawnPiece.h"
 #include "Blueprint/UserWidget.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
@@ -243,6 +245,11 @@ void AChessPlayerController::OnClickStarted()
     }
 
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
+    if (CurrentPhase == EGamePhase::AwaitingPromotion)
+    {
+        // Игрок должен сначала выбрать фигуру в меню, игнорируем клики по доске.
+        return;
+    }
     if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
     {
         UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
@@ -400,5 +407,58 @@ void AChessPlayerController::ClearSelectionAndHighlights()
     {
         SelectedPiece->OnDeselected();
         SelectedPiece = nullptr;
+    }
+}
+
+void AChessPlayerController::Client_ShowPromotionMenu_Implementation(APawnPiece* PawnForPromotion)
+{
+    if (PromotionMenuWidgetClass)
+    {
+        if (!PromotionMenuWidgetInstance)
+        {
+            PromotionMenuWidgetInstance = CreateWidget<UPromotionMenuWidget>(this, PromotionMenuWidgetClass);
+            if (PromotionMenuWidgetInstance)
+            {
+                // Привязываем обработчик к событию выбора
+                PromotionMenuWidgetInstance->OnPromotionPieceSelected.AddDynamic(this, &AChessPlayerController::HandlePromotionSelection);
+            }
+        }
+
+        if (PromotionMenuWidgetInstance && !PromotionMenuWidgetInstance->IsInViewport())
+        {
+            PawnAwaitingPromotion = PawnForPromotion; // Сохраняем пешку для отправки на сервер
+            PromotionMenuWidgetInstance->AddToViewport();
+            SetInputModeForUI();
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PromotionMenuWidgetClass is not set in the Blueprint!"));
+    }
+}
+
+void AChessPlayerController::HandlePromotionSelection(EPieceType SelectedType)
+{
+    if (PawnAwaitingPromotion)
+    {
+        Server_CompletePawnPromotion(PawnAwaitingPromotion, SelectedType);
+    }
+    SetInputModeForGame(); // Возвращаем управление в игру
+    PawnAwaitingPromotion = nullptr;
+}
+
+
+bool AChessPlayerController::Server_CompletePawnPromotion_Validate(APawnPiece* PawnToPromote, EPieceType PromoteToType)
+{
+    // Простая валидация: пешка должна существовать, а тип фигуры быть допустимым для превращения.
+    return PawnToPromote != nullptr && (PromoteToType == EPieceType::Queen || PromoteToType == EPieceType::Rook || PromoteToType == EPieceType::Bishop || PromoteToType == EPieceType::Knight);
+}
+
+void AChessPlayerController::Server_CompletePawnPromotion_Implementation(APawnPiece* PawnToPromote, EPieceType PromoteToType)
+{
+    AChessGameMode* GameMode = GetChessGameMode();
+    if (GameMode)
+    {
+        GameMode->CompletePawnPromotion(PawnToPromote, PromoteToType);
     }
 }

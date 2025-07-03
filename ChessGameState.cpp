@@ -44,6 +44,7 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, bCanWhiteCastleQueenSide);
     DOREPLIFETIME(AChessGameState, bCanBlackCastleKingSide);
     DOREPLIFETIME(AChessGameState, bCanBlackCastleQueenSide);
+    DOREPLIFETIME(AChessGameState, PawnToPromote);
 }
 
 EPieceColor AChessGameState::GetCurrentTurnColor() const
@@ -270,6 +271,7 @@ void AChessGameState::ResetGameStateForNewGame()
         bCanBlackCastleKingSide = true;
         bCanBlackCastleQueenSide = true;
         ClearEnPassantData();
+        PawnToPromote = nullptr;
         // CurrentTurnColor и GamePhase устанавливаются в GameMode
     }
 }
@@ -473,4 +475,17 @@ FString AChessGameState::GetFEN() const
     UE_LOG(LogTemp, Log, TEXT("AChessGameState::GetFEN: Generated FEN: %s"), *FEN);
 
     return FEN;
+}
+
+APawnPiece* AChessGameState::GetPawnToPromote() const
+{
+    return PawnToPromote;
+}
+
+void AChessGameState::SetPawnToPromote(APawnPiece* Pawn)
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        PawnToPromote = Pawn;
+    }
 }
