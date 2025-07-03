@@ -271,7 +271,7 @@ uint32 FStockfishTask::Run()
                 TEXT("@echo off\r\n")
                 TEXT("cd /d \"%s\"\r\n")
                 TEXT("echo --- Running Stockfish from batch file --- > \"%s\"\r\n")
-                TEXT("\"%s\" < \"%s\" >> \"%s\" 2>&1\r\n")
+                TEXT("\"%s\" < \"%s\" > \"%s\" 2>&1\r\n")
                 TEXT("echo --- Batch finished with exit code %%errorlevel%% --- >> \"%s\"\r\n"),
                 *StockfishDir,
                 *OutputFilePath,

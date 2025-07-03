@@ -349,7 +349,28 @@ FString AChessGameState::GetFEN() const
 
     FEN += " ";
     FEN += (CurrentTurnColor == EPieceColor::White) ? "w" : "b";
-    FEN += " - - 0 1"; // Simplified FEN, no castling/en passant info
+
+    // TODO: Implement full castling rights logic. This is a placeholder.
+    FEN += " -";
+
+    // En Passant
+    const FIntPoint EnPassantSquare = GetEnPassantTargetSquare();
+    if (EnPassantSquare.X != -1 && EnPassantSquare.Y != -1)
+    {
+        FString EnPassantString;
+        EnPassantString += TCHAR('a' + EnPassantSquare.X);
+        EnPassantString += TCHAR('1' + EnPassantSquare.Y);
+        FEN += " " + EnPassantString;
+    }
+    else
+    {
+        FEN += " -";
+    }
+
+    // TODO: Implement halfmove clock and fullmove number tracking.
+    FEN += " 0 1"; // Placeholder for halfmove clock and fullmove number
+
+    UE_LOG(LogTemp, Warning, TEXT("AChessGameState::GetFEN: Generated FEN with simplified castling/move counters: %s"), *FEN);
 
     return FEN;
 }
