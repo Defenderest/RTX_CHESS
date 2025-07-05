@@ -91,9 +91,10 @@ void UStockfishManager::LaunchStockfish()
 
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Attempting to launch Stockfish..."));
 
-    // 1. Define the path to the executable
+    // 1. Define the path to the executable and its directory
     // Note: The user mentioned Content/Binaries, but Binaries/Win64 is the standard location for packaged executables.
     const FString StockfishPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe"));
+    const FString StockfishDir = FPaths::GetPath(StockfishPath);
     
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Checking for executable at: %s"), *StockfishPath);
     if (!FPaths::FileExists(StockfishPath))
@@ -131,7 +132,7 @@ void UStockfishManager::LaunchStockfish()
         false,   // bLaunchReallyHidden (set to false)
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
-        nullptr, // OptionalWorkingDirectory
+        *StockfishDir, // OptionalWorkingDirectory
         PipeFromStockfish_Write, // Child process's STDOUT is the WRITE end of our "from stockfish" pipe
         PipeToStockfish_Read     // Child process's STDIN is the READ end of our "to stockfish" pipe
     );
