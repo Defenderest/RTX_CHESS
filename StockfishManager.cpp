@@ -4,6 +4,8 @@
 #include "Misc/Paths.h"
 #include "Async/Async.h"
 #include "Containers/StringConv.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 
 // --- FStockfishReader Implementation ---
 
@@ -103,6 +105,24 @@ void UStockfishManager::LaunchStockfish()
         UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: stockfish.exe not found at path: %s. Please ensure it is present."), *StockfishPath);
         return;
     }
+    
+    // Create a temporary batch file to ensure correct working directory and environment
+    const FString TempDir = FPaths::ProjectIntermediateDir() / TEXT("StockfishTemp");
+    IFileManager::Get().MakeDirectory(*TempDir, true);
+    const FString BatchFilePath = FPaths::ConvertRelativePathToFull(TempDir / TEXT("run_stockfish.bat"));
+    const FString BatchFileContent = FString::Printf(
+        TEXT("@echo off\r\n")
+        TEXT("cd /d \"%s\"\r\n")
+        TEXT("\"%s\""),
+        *StockfishDir, *StockfishPath
+    );
+
+    if (!FFileHelper::SaveStringToFile(BatchFileContent, *BatchFilePath))
+    {
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to create batch file: %s"), *BatchFilePath);
+        return;
+    }
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Created batch file for execution: %s"), *BatchFilePath);
 
     // 2. Create two independent pipes for communication
     // Pipe for UE -> Stockfish (Stockfish's stdin)
@@ -121,11 +141,10 @@ void UStockfishManager::LaunchStockfish()
     }
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Pipes created successfully."));
     
-    // 3. Launch the process via cmd.exe for more robust I/O redirection.
-    // This mimics how Explorer launches a process and can solve complex handle inheritance issues.
+    // 3. Launch the batch file via cmd.exe for the most robust I/O redirection.
     uint32 ProcessId = 0;
     const FString CmdExePath = TEXT("C:\\Windows\\System32\\cmd.exe");
-    const FString CmdArgs = FString::Printf(TEXT("/c \"%s\""), *StockfishPath);
+    const FString CmdArgs = FString::Printf(TEXT("/c \"%s\""), *BatchFilePath);
     
     // FPlatformProcess::CreateProc expects: (..., PipeWrite (stdout), PipeRead (stdin), ...)
     ProcessHandle = FPlatformProcess::CreateProc(
@@ -136,7 +155,7 @@ void UStockfishManager::LaunchStockfish()
         true,    // bLaunchReallyHidden
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
-        *StockfishDir, // OptionalWorkingDirectory
+        *StockfishDir, // The batch file itself will handle changing directory, but this is a safe fallback.
         PipeFromStockfish_Write, // Child process's STDOUT is the WRITE end of our "from stockfish" pipe
         PipeToStockfish_Read     // Child process's STDIN is the READ end of our "to stockfish" pipe
     );
