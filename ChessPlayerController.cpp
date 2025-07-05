@@ -526,8 +526,8 @@ void AChessPlayerController::HostSession(const FString& SessionName, FName Level
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 
-    UE_LOG(LogTemp, Log, TEXT("Creating LAN session with name: %s"), *SessionName);
-    SessionInterface->CreateSession(*GetLocalPlayer()->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
+    UE_LOG(LogTemp, Log, TEXT("Creating LAN session with name: %s for player %d"), *SessionName, GetLocalPlayer()->GetControllerId());
+    SessionInterface->CreateSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, *SessionSettings);
 }
 
 void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
@@ -555,8 +555,8 @@ void AChessPlayerController::FindSessions()
 
     SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
-    UE_LOG(LogTemp, Log, TEXT("Finding all LAN sessions..."));
-    SessionInterface->FindSessions(*GetLocalPlayer()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
+    UE_LOG(LogTemp, Log, TEXT("Finding all LAN sessions for player %d..."), GetLocalPlayer()->GetControllerId());
+    SessionInterface->FindSessions(GetLocalPlayer()->GetControllerId(), SessionSearch.ToSharedRef());
 }
 
 void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& SearchResult)
@@ -566,8 +566,8 @@ void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& Searc
         return;
     }
     SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
-    UE_LOG(LogTemp, Log, TEXT("Joining session..."));
-    SessionInterface->JoinSession(*GetLocalPlayer()->GetPreferredUniqueNetId(), NAME_GameSession, SearchResult);
+    UE_LOG(LogTemp, Log, TEXT("Player %d joining session..."), GetLocalPlayer()->GetControllerId());
+    SessionInterface->JoinSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, SearchResult);
 }
 
 
