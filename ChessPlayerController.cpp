@@ -131,13 +131,9 @@ void AChessPlayerController::Tick(float DeltaTime)
             UStockfishManager* SFManager = GameMode->GetStockfishManager();
             if (SFManager)
             {
-                FString SFStatus = SFManager->IsEngineRunning() ? TEXT("Running") : TEXT("Stopped");
-                FString SFBestMove = SFManager->GetLastBestMove();
-                int32 SFSearchTime = SFManager->GetSearchTimeMsec();
-
-                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Status: %s"), *SFStatus));
-                GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Last Best Move: %s"), *SFBestMove));
-                GEngine->AddOnScreenDebugMessage(6, 0.f, FColor::Orange, FString::Printf(TEXT("Stockfish Search Time (ms): %d"), SFSearchTime));
+                // NOTE: The new async StockfishManager doesn't expose internal state for debug logs.
+                // We can only confirm that the manager object exists.
+                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Orange, TEXT("Stockfish Manager: Present"));
             }
             else
             {
