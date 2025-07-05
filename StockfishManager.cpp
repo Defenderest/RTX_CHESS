@@ -59,7 +59,7 @@ uint32 FStockfishReader::Run()
         else
         {
             EmptyReads++;
-            if (EmptyReads % 1000 == 0) // Log every 1000 empty reads to avoid spam
+            if (EmptyReads % 1000 == 0)
             {
                 UE_LOG(LogTemp, Verbose, TEXT("FStockfishReader: [Attempt %d] Empty read count: %d"), ReadAttempts, EmptyReads);
             }
@@ -153,15 +153,15 @@ void UStockfishManager::LaunchStockfish()
     ProcessHandle = FPlatformProcess::CreateProc(
         *StockfishPath,
         TEXT(""),
-        false,      // bLaunchDetached
-        true,       // bLaunchHidden
-        true,       // bLaunchReallyHidden
+        false,
+        true,
+        true,
         &ProcessId,
-        0,          // PriorityModifier
+        0,
         *StockfishDir,
         StockfishStdoutWrite,
         StockfishStdinRead,
-        nullptr     // StdErrPipe
+        nullptr
     );
 
     if (!ProcessHandle.IsValid())
@@ -177,17 +177,13 @@ void UStockfishManager::LaunchStockfish()
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Process launched successfully - PID: %u, Handle valid: %s"),
         ProcessId, ProcessHandle.IsValid() ? TEXT("true") : TEXT("false"));
 
-    // Закрываем ненужные концы pipes для родительского процесса
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Closing unused pipe ends..."));
     FPlatformProcess::ClosePipe(StockfishStdinRead, nullptr);
     FPlatformProcess::ClosePipe(nullptr, StockfishStdoutWrite);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Unused pipe ends closed"));
 
-    // Проверяем состояние pipes после закрытия
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Final pipe state - ToStockfish_Write=%p, FromStockfish_Read=%p"),
         PipeToStockfish_Write, PipeFromStockfish_Read);
 
-    // Создаем поток для чтения
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Creating reader task..."));
     ReaderTask = new FStockfishReader(PipeFromStockfish_Read, this);
 
@@ -207,11 +203,9 @@ void UStockfishManager::LaunchStockfish()
         return;
     }
 
-    // Даем процессу время запуститься
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Waiting for process to initialize..."));
     FPlatformProcess::Sleep(0.2f);
 
-    // Проверяем, что процесс все еще работает
     FProcHandle ProcessHandleCopy = ProcessHandle;
     bool bStillRunning = FPlatformProcess::IsProcRunning(ProcessHandleCopy);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Process running check: %s"), bStillRunning ? TEXT("true") : TEXT("false"));
@@ -223,7 +217,6 @@ void UStockfishManager::LaunchStockfish()
         return;
     }
 
-    // Устанавливаем состояние и отправляем команду uci
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Setting state to UciSent and sending UCI command..."));
     UciState = EUciState::UciSent;
 
@@ -244,7 +237,6 @@ void UStockfishManager::Shutdown()
         return;
     }
 
-    // Проверяем, работает ли процесс
     FProcHandle ProcessHandleCopy = ProcessHandle;
     bool bProcessRunning = FPlatformProcess::IsProcRunning(ProcessHandleCopy);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Process running status: %s"), bProcessRunning ? TEXT("true") : TEXT("false"));
@@ -255,7 +247,6 @@ void UStockfishManager::Shutdown()
         WriteCommandToPipe(TEXT("quit"));
     }
 
-    // Останавливаем поток чтения
     if (ReaderTask)
     {
         UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Stopping reader task..."));
@@ -278,11 +269,9 @@ void UStockfishManager::Shutdown()
         ReaderTask = nullptr;
     }
 
-    // Даем процессу время на завершение
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Waiting for process to terminate gracefully..."));
     FPlatformProcess::Sleep(0.3f);
 
-    // Проверяем, завершился ли процесс
     ProcessHandleCopy = ProcessHandle;
     bProcessRunning = FPlatformProcess::IsProcRunning(ProcessHandleCopy);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Process running after quit: %s"), bProcessRunning ? TEXT("true") : TEXT("false"));
@@ -292,7 +281,6 @@ void UStockfishManager::Shutdown()
         UE_LOG(LogTemp, Warning, TEXT("UStockfishManager::Shutdown: Process still running, forcing termination..."));
         FPlatformProcess::TerminateProc(ProcessHandle);
 
-        // Проверяем результат принудительного завершения
         FPlatformProcess::Sleep(0.1f);
         ProcessHandleCopy = ProcessHandle;
         bProcessRunning = FPlatformProcess::IsProcRunning(ProcessHandleCopy);
@@ -312,7 +300,6 @@ void UStockfishManager::CleanupResources()
 {
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::CleanupResources: Starting resource cleanup..."));
 
-    // Закрываем pipes
     if (PipeFromStockfish_Read)
     {
         UE_LOG(LogTemp, Log, TEXT("UStockfishManager::CleanupResources: Closing read pipe..."));
@@ -329,7 +316,6 @@ void UStockfishManager::CleanupResources()
         UE_LOG(LogTemp, Log, TEXT("UStockfishManager::CleanupResources: Write pipe closed"));
     }
 
-    // Сбрасываем состояние
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::CleanupResources: Resetting state variables..."));
     UciState = EUciState::NotConnected;
     bIsInitialized = false;
@@ -349,7 +335,6 @@ void UStockfishManager::WriteCommandToPipe(const FString& Command)
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: === WRITE COMMAND START ==="));
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Command to write: '%s'"), *Command);
 
-    // Проверяем состояние процесса и pipe
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: ProcessHandle.IsValid(): %s"), ProcessHandle.IsValid() ? TEXT("true") : TEXT("false"));
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: PipeToStockfish_Write: %p"), PipeToStockfish_Write);
 
@@ -359,7 +344,6 @@ void UStockfishManager::WriteCommandToPipe(const FString& Command)
         return;
     }
 
-    // Проверяем, что процесс все еще работает
     FProcHandle ProcessHandleCopy = ProcessHandle;
     bool bProcessRunning = FPlatformProcess::IsProcRunning(ProcessHandleCopy);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Process running check: %s"), bProcessRunning ? TEXT("true") : TEXT("false"));
@@ -367,57 +351,14 @@ void UStockfishManager::WriteCommandToPipe(const FString& Command)
     FString FullCommand = Command + TEXT("\n");
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Full command with newline: '%s'"), *FullCommand.Replace(TEXT("\n"), TEXT("\\n")));
 
-    // Конвертируем в UTF8
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Converting to UTF8..."));
-    FTCHARToUTF8 Converter(*FullCommand);
-    const char* UTF8Data = Converter.Get();
-    int32 UTF8Length = Converter.Length();
+    bool bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, FullCommand);
 
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: UTF8 conversion - Length: %d, Data ptr: %p"), UTF8Length, UTF8Data);
-
-    if (UTF8Length <= 0 || !UTF8Data)
-    {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: UTF8 conversion failed - Length: %d, Data: %p"), UTF8Length, UTF8Data);
-        return;
-    }
-
-    // Логируем первые несколько байтов для диагностики
-    FString BytesHex;
-    for (int32 i = 0; i < FMath::Min(UTF8Length, 10); i++)
-    {
-        BytesHex += FString::Printf(TEXT("%02X "), (uint8)UTF8Data[i]);
-    }
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: First bytes (hex): %s"), *BytesHex);
-
-    // Попробуем несколько вариантов записи
-    bool bWriteSuccess = false;
-
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Attempting write method 1 - WritePipe with UTF8 data and length"));
-
-    // Метод 1: WritePipe с UTF8 данными и длиной
-#if ENGINE_MAJOR_VERSION >= 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26)
-    // Для более новых версий UE
-    bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, UTF8Data, UTF8Length);
-#else
-    // Для старых версий UE - пробуем передать как FString
-    bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, FullCommand);
-#endif
-
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Write method 1 result: %s"), bWriteSuccess ? TEXT("SUCCESS") : TEXT("FAILED"));
-
-    // Если первый метод не сработал, пробуем альтернативный
-    if (!bWriteSuccess)
-    {
-        UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Attempting write method 2 - WritePipe with FString"));
-        bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, FullCommand);
-        UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Write method 2 result: %s"), bWriteSuccess ? TEXT("SUCCESS") : TEXT("FAILED"));
-    }
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Write result: %s"), bWriteSuccess ? TEXT("SUCCESS") : TEXT("FAILED"));
 
     if (!bWriteSuccess)
     {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: ALL WRITE METHODS FAILED for command: '%s'"), *Command);
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: WRITE FAILED for command: '%s'"), *Command);
 
-        // Дополнительная диагностика
         ProcessHandleCopy = ProcessHandle;
         if (!FPlatformProcess::IsProcRunning(ProcessHandleCopy))
         {
@@ -471,7 +412,6 @@ void UStockfishManager::ProcessCommandQueue()
         UE_LOG(LogTemp, Log, TEXT("UStockfishManager::ProcessCommandQueue: Processing command %d/%d: '%s'"), i + 1, CommandQueue.Num(), *Command);
         WriteCommandToPipe(Command);
 
-        // Небольшая задержка между командами для стабильности
         FPlatformProcess::Sleep(0.05f);
     }
 
@@ -512,7 +452,6 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, in
         UE_LOG(LogTemp, Log, TEXT("UStockfishManager::RequestBestMove: Search time clamped from %d to %d"), SearchTimeMsec, ClampedTime);
     }
 
-    // Формируем команды
     FString SkillCommand = FString::Printf(TEXT("setoption name Skill Level value %d"), ClampedSkill);
     FString PositionCommand;
     FString GoCommand = FString::Printf(TEXT("go movetime %d"), ClampedTime);
@@ -531,7 +470,6 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, in
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::RequestBestMove:   2. %s"), *PositionCommand);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::RequestBestMove:   3. %s"), *GoCommand);
 
-    // Отправляем команды
     SendCommand(SkillCommand);
     SendCommand(PositionCommand);
     SendCommand(GoCommand);
@@ -545,14 +483,12 @@ void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 
     OutputBuffer.Append(OutputChunk);
 
-    // Обрабатываем все полные строки в буфере
     int32 NewLineIndex;
     while (OutputBuffer.FindChar(TCHAR('\n'), NewLineIndex))
     {
         FString Line = OutputBuffer.Left(NewLineIndex);
         OutputBuffer.RemoveAt(0, NewLineIndex + 1, false);
 
-        // Убираем возможные символы возврата каретки
         Line = Line.Replace(TEXT("\r"), TEXT(""));
         Line.TrimStartAndEndInline();
 
@@ -563,7 +499,6 @@ void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 
         UE_LOG(LogTemp, Log, TEXT("Stockfish Parsed Line: %s"), *Line);
 
-        // Обрабатываем строку в зависимости от текущего состояния UCI
         HandleParsedLine(Line);
     }
 }
@@ -578,7 +513,6 @@ void UStockfishManager::HandleParsedLine(const FString& Line)
             UciState = EUciState::Ready;
             bIsInitialized = true;
 
-            // Обрабатываем очередь команд
             ProcessCommandQueue();
         }
         else if (Line.StartsWith(TEXT("id")) || Line.StartsWith(TEXT("option")) || Line.StartsWith(TEXT("Stockfish")))
@@ -601,7 +535,6 @@ void UStockfishManager::HandleParsedLine(const FString& Line)
                 const FString BestMove = Parts[1];
                 UE_LOG(LogTemp, Log, TEXT("UStockfishManager::HandleParsedLine: Best move found: %s"), *BestMove);
 
-                // Проверяем, что это валидный ход (не "none" или "(none)")
                 if (!BestMove.Equals(TEXT("none"), ESearchCase::IgnoreCase) &&
                     !BestMove.Equals(TEXT("(none)"), ESearchCase::IgnoreCase))
                 {
@@ -639,7 +572,6 @@ bool UStockfishManager::IsReady() const
 
 bool UStockfishManager::IsRunning() const
 {
-    // Create a non-const copy for IsProcRunning since it requires a non-const reference
     FProcHandle ProcessHandleCopy = ProcessHandle;
     return ProcessHandle.IsValid() && FPlatformProcess::IsProcRunning(ProcessHandleCopy);
 }
