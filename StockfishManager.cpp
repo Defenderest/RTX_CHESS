@@ -121,16 +121,19 @@ void UStockfishManager::LaunchStockfish()
     }
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Pipes created successfully."));
     
-    // 3. Launch the process
-    // We pass the ends of the pipes that the child process will use.
+    // 3. Launch the process via cmd.exe for more robust I/O redirection.
+    // This mimics how Explorer launches a process and can solve complex handle inheritance issues.
     uint32 ProcessId = 0;
+    const FString CmdExePath = TEXT("C:\\Windows\\System32\\cmd.exe");
+    const FString CmdArgs = FString::Printf(TEXT("/c \"%s\""), *StockfishPath);
+    
     // FPlatformProcess::CreateProc expects: (..., PipeWrite (stdout), PipeRead (stdin), ...)
     ProcessHandle = FPlatformProcess::CreateProc(
-        *StockfishPath,
-        nullptr, // No parameters
+        *CmdExePath,
+        *CmdArgs,
         false,   // bLaunchDetached
-        false,   // bLaunchHidden (set to false to see console for debugging)
-        false,   // bLaunchReallyHidden (set to false to see console for debugging)
+        true,    // bLaunchHidden
+        true,    // bLaunchReallyHidden
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         *StockfishDir, // OptionalWorkingDirectory
@@ -140,7 +143,7 @@ void UStockfishManager::LaunchStockfish()
 
     if (!ProcessHandle.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to launch Stockfish process."));
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to launch process container (cmd.exe)."));
         // Clean up all pipe handles if process creation fails
         FPlatformProcess::ClosePipe(PipeToStockfish_Read, PipeToStockfish_Write);
         FPlatformProcess::ClosePipe(PipeFromStockfish_Read, PipeFromStockfish_Write);
@@ -156,18 +159,7 @@ void UStockfishManager::LaunchStockfish()
     PipeToStockfish_Read = nullptr;
     PipeFromStockfish_Write = nullptr;
 
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
-
-    // Add a small delay and check if the process is still running. This helps diagnose immediate crashes.
-    FPlatformProcess::Sleep(0.2f);
-    if (!FPlatformProcess::IsProcRunning(ProcessHandle))
-    {
-        uint32 ReturnCode;
-        FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode);
-        UE_LOG(LogTemp, Error, TEXT("Stockfish process terminated immediately after launch! Exit Code: %u. This usually means it could not find its required data files (e.g., .nnue files). Check working directory and file permissions."), ReturnCode);
-        Shutdown();
-        return;
-    }
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process container (cmd.exe) launched successfully. PID: %u"), ProcessId);
 
     // 4. Create and start the reader thread to read from Stockfish's stdout
     ReaderTask = new FStockfishReader(PipeFromStockfish_Read, this);
