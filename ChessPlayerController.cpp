@@ -154,7 +154,6 @@ void AChessPlayerController::Tick(float DeltaTime)
         if (!CurrentLobbyName.IsEmpty())
         {
             const FString PlayerName = PlayerState ? PlayerState->GetPlayerName() : TEXT("Loading...");
-            const FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
             GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::Cyan, FString::Printf(TEXT("Lobby: %s  |  Player: %s  |  Color: %s"), *CurrentLobbyName, *PlayerName, *MyColorStr));
         }
 
