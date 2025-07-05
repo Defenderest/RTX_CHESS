@@ -120,6 +120,10 @@ private:
     FName LevelNameToHost;
     FString SessionNameToFind;
     FString SessionNameToCreate;
+    int32 FindSessionRetryCount;
+    FTimerHandle FindSessionTimerHandle;
+
+    static const int32 MAX_FIND_SESSION_RETRIES = 3;
 
     IOnlineSessionPtr SessionInterface;
     TSharedPtr<FOnlineSessionSearch> SessionSearch;

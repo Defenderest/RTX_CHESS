@@ -21,6 +21,8 @@
 #include "OnlineSessionSettings.h"
 #include "GameFramework/PlayerState.h"
 
+const int32 AChessPlayerController::MAX_FIND_SESSION_RETRIES;
+
 AChessPlayerController::AChessPlayerController()
 {
     bAutoManageActiveCameraTarget = false;
@@ -31,6 +33,7 @@ AChessPlayerController::AChessPlayerController()
     SelectedPiece = nullptr;
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
+    FindSessionRetryCount = 0;
 }
 
 void AChessPlayerController::BeginPlay()
@@ -511,47 +514,57 @@ void AChessPlayerController::HostSession(const FString& SessionName, FName Level
 {
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] HostSession ABORTED: SessionInterface is not valid."));
         return;
     }
     if (SessionName.IsEmpty())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] SessionName is empty."));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] HostSession ABORTED: SessionName is empty."));
         return;
     }
 
     LevelNameToHost = LevelName;
     SessionNameToCreate = SessionName;
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting Host Process ---"));
     UE_LOG(LogTemp, Log, TEXT("[HostSession] Caching LevelNameToHost: %s and SessionNameToCreate: %s"), *LevelNameToHost.ToString(), *SessionNameToCreate);
 
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr)
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found an existing session. Destroying it..."));
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found an existing session named '%s'. Destroying it before creating a new one..."), *ExistingSession->SessionName.ToString());
         SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
         SessionInterface->DestroySession(NAME_GameSession);
     }
     else
     {
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] No existing session found. Proceeding to create a new one."));
         CreateSession(SessionNameToCreate);
     }
 }
 
 void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
 {
+    if (!SessionInterface.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindAndJoinSession ABORTED: SessionInterface is not valid."));
+        return;
+    }
     if (SessionName.IsEmpty())
     {
         UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession called with empty SessionName."));
         return;
     }
+
     SessionNameToFind = SessionName;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession called. Caching SessionNameToFind: %s"), *SessionNameToFind);
+    FindSessionRetryCount = 0;
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession called. Will search for '%s'. Resetting retry count."), *SessionNameToFind);
+
+    // Очищаем предыдущий таймер, если он был
+    GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
     
-    // Добавляем небольшую задержку перед поиском. Это решает проблемы с таймингом,
-    // когда клиент начинает искать сессию до того, как хост успел ее полностью зарегистрировать.
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 1.0s before starting session search..."));
-    FTimerHandle UnusedHandle;
-    GetWorld()->GetTimerManager().SetTimer(UnusedHandle, this, &AChessPlayerController::FindSessions, 1.0f, false);
+    // Начинаем первую попытку поиска через небольшую задержку, чтобы дать хосту время.
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 1.5s before starting first session search..."));
+    GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &AChessPlayerController::FindSessions, 1.5f, false);
 }
 
 void AChessPlayerController::FindSessions()
@@ -562,11 +575,14 @@ void AChessPlayerController::FindSessions()
         return;
     }
     
+    FindSessionRetryCount++;
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting session search attempt %d of %d... ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
+
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
-    SessionSearch->MaxSearchResults = 20; // Увеличим для надежности
-    // Мы больше не фильтруем поиск здесь, а получаем все LAN сессии.
-    // Фильтрация будет происходить в коллбэке OnFindSessionsComplete.
+    SessionSearch->MaxSearchResults = 20;
+    SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals); // Искать presence-сессии
+
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d"), SessionSearch->bIsLanQuery);
 
     SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
@@ -597,7 +613,7 @@ void AChessPlayerController::CreateSession(const FString& SessionName)
     SessionSettings->bIsLANMatch = true;
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = false;
+    SessionSettings->bUsesPresence = true; // Важно для поиска через SEARCH_PRESENCE
     SessionSettings->bAllowJoinInProgress = true;
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
@@ -635,6 +651,11 @@ void AChessPlayerController::OnDestroySessionComplete(FName SessionName, bool bW
     {
         UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to destroy session '%s'."), *SessionName.ToString());
     }
+
+    if (SessionInterface.IsValid())
+    {
+        SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+    }
 }
 
 void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
@@ -643,10 +664,11 @@ void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 
     if (bWasSuccessful && SessionSearch.IsValid())
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found %d sessions."), SessionSearch->SearchResults.Num());
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found %d raw search results."), SessionSearch->SearchResults.Num());
+        
+        bool bFoundMatch = false;
         if (SessionSearch->SearchResults.Num() > 0)
         {
-            // Перебираем все найденные сессии, чтобы найти ту, которая соответствует нашему имени комнаты
             for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
             {
                 FString RoomName;
@@ -655,9 +677,11 @@ void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
                     UE_LOG(LogTemp, Log, TEXT("[HostSession] Checking session with RoomName: '%s' against desired '%s'"), *RoomName, *SessionNameToFind);
                     if (RoomName == SessionNameToFind)
                     {
-                        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found matching session: '%s'. Joining..."), *RoomName);
+                        UE_LOG(LogTemp, Log, TEXT("[HostSession] !!! Found matching session: '%s'. Joining..."), *RoomName);
+                        GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
                         JoinSession(SearchResult);
-                        return; // Сессия найдена и мы к ней присоединяемся, выходим из функции
+                        bFoundMatch = true;
+                        break; // Выходим из цикла, т.к. нашли нужную сессию
                     }
                 }
                 else
@@ -665,17 +689,32 @@ void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
                     UE_LOG(LogTemp, Warning, TEXT("[HostSession] Found a session without ROOM_NAME_KEY. Owner: %s"), *SearchResult.GetSessionIdStr());
                 }
             }
-            // Если цикл завершился, сессия с нужным именем не найдена
-            UE_LOG(LogTemp, Warning, TEXT("[HostSession] Looped through all %d sessions, but none matched the name '%s'."), SessionSearch->SearchResults.Num(), *SessionNameToFind);
         }
-        else
+        
+        if (!bFoundMatch)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[HostSession] Could not find any LAN sessions."));
+            if (FindSessionRetryCount < MAX_FIND_SESSION_RETRIES)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[HostSession] No matching session found. Retrying in 2.0s..."));
+                GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &AChessPlayerController::FindSessions, 2.0f, false);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("[HostSession] All %d search attempts failed. Could not find a session named '%s'. Giving up."), MAX_FIND_SESSION_RETRIES, *SessionNameToFind);
+                GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
+            }
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Session search failed. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), bWasSuccessful, SessionSearch.IsValid());
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] Session search failed on attempt %d. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), FindSessionRetryCount, bWasSuccessful, SessionSearch.IsValid());
+        GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
+    }
+    
+    // Очищаем делегат после использования
+    if (SessionInterface.IsValid())
+    {
+        SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
     }
 }
 
@@ -699,6 +738,11 @@ void AChessPlayerController::OnJoinSessionComplete(FName SessionName, EOnJoinSes
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Error: %d"), *SessionName.ToString(), static_cast<int32>(Result));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Error: %s"), *SessionName.ToString(), EOnJoinSessionCompleteResult::ToString(Result));
+    }
+    
+    if (SessionInterface.IsValid())
+    {
+        SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
     }
 }
