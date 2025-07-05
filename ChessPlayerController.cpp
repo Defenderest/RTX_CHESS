@@ -566,7 +566,6 @@ void AChessPlayerController::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20; // Увеличим для надежности
-    SessionSearch->bUseLobbiesIfAvailable = true;
     // Мы больше не фильтруем поиск здесь, а получаем все LAN сессии.
     // Фильтрация будет происходить в коллбэке OnFindSessionsComplete.
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d"), SessionSearch->bIsLanQuery);
@@ -601,7 +600,6 @@ void AChessPlayerController::CreateSession(const FString& SessionName)
     SessionSettings->bShouldAdvertise = true;
     SessionSettings->bUsesPresence = false;
     SessionSettings->bAllowJoinInProgress = true;
-    SessionSettings->bUseLobbiesIfAvailable = true;
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
 
