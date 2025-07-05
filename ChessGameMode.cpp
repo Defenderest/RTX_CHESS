@@ -20,7 +20,7 @@ AChessGameMode::AChessGameMode()
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     NumberOfPlayers = 0;
-    BotSkillLevel = 20; // Уровень сложности по умолчанию
+    BotSkillLevel = 10; // Глубина поиска для бота (1-15)
 }
 
 void AChessGameMode::BeginPlay()
@@ -90,8 +90,7 @@ void AChessGameMode::StartBotGame()
 
     if (StockfishManager)
     {
-        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Attempting to launch Stockfish engine..."));
-        StockfishManager->LaunchStockfish();
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Initializing API-based bot."));
         StockfishManager->OnBestMoveReceived.AddDynamic(this, &AChessGameMode::HandleBotMoveReceived);
     }
     else
@@ -145,7 +144,7 @@ void AChessGameMode::MakeBotMove()
         UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Requesting bot move."));
         FString FEN = CurrentGS->GetFEN();
         // Запрашиваем ход, результат придет асинхронно в HandleBotMoveReceived
-        StockfishManager->RequestBestMove(FEN, BotSkillLevel, 1000); 
+        StockfishManager->RequestBestMove(FEN, BotSkillLevel); 
     }
 }
 
