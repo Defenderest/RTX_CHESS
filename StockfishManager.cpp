@@ -4,7 +4,7 @@
 #include "Misc/Paths.h"
 #include "Async/Async.h"
 #include "Containers/StringConv.h"
-#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFileManager.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
 
 FStockfishReader::FStockfishReader(void* InReadPipe, UStockfishManager* InManager)
