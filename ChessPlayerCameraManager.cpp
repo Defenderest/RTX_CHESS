@@ -28,16 +28,19 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 {
     Super::UpdateViewTarget(OutVT, DeltaTime);
 
+    // Рассчитываем конечную точку с учетом панорамирования
+    const FVector FinalTargetLocation = TargetCameraLocation + CurrentPanOffset;
+
     if (bShouldInterpolateCamera)
     {
-        // Плавно инте��полируем положение, поворот и FOV камеры к целевым значениям,
+        // Плавно интерполируем положение, поворот и FOV камеры к целевым значениям,
         // изменяя непосредственно структуру OutVT.POV.
-        OutVT.POV.Location = FMath::VInterpTo(OutVT.POV.Location, TargetCameraLocation, DeltaTime, CameraInterpolationSpeed);
+        OutVT.POV.Location = FMath::VInterpTo(OutVT.POV.Location, FinalTargetLocation, DeltaTime, CameraInterpolationSpeed);
         OutVT.POV.Rotation = FMath::RInterpTo(OutVT.POV.Rotation, TargetCameraRotation, DeltaTime, CameraInterpolationSpeed);
         OutVT.POV.FOV = FMath::FInterpTo(OutVT.POV.FOV, TargetCameraFOV, DeltaTime, CameraInterpolationSpeed);
 
         // Проверяем, достигла ли камера цели (с небольшой погрешностью)
-        if (OutVT.POV.Location.Equals(TargetCameraLocation, 1.0f) && OutVT.POV.Rotation.Equals(TargetCameraRotation, 1.0f))
+        if (OutVT.POV.Location.Equals(FinalTargetLocation, 1.0f) && OutVT.POV.Rotation.Equals(TargetCameraRotation, 1.0f))
         {
             bShouldInterpolateCamera = false; // Останавливаем интерполяцию
         }
@@ -46,7 +49,7 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
     {
         // Если интерполяция не требуется, просто жестко устанавливаем целевые параметры,
         // чтобы избежать "дрейфа" камеры из-за неточностей вычислений.
-        OutVT.POV.Location = TargetCameraLocation;
+        OutVT.POV.Location = FinalTargetLocation;
         OutVT.POV.Rotation = TargetCameraRotation;
         OutVT.POV.FOV = TargetCameraFOV;
     }
