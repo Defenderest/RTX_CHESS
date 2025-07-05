@@ -133,6 +133,11 @@ private:
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
 
+    FDelegateHandle OnCreateSessionCompleteDelegateHandle;
+    FDelegateHandle OnDestroySessionCompleteDelegateHandle;
+    FDelegateHandle OnFindSessionsCompleteDelegateHandle;
+    FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+
     void CreateSession(const FString& SessionName);
     void FindSessions();
     void JoinSession(const FOnlineSessionSearchResult& SearchResult);

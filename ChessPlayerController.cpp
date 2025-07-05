@@ -532,7 +532,7 @@ void AChessPlayerController::HostSession(const FString& SessionName, FName Level
     if (ExistingSession != nullptr)
     {
         UE_LOG(LogTemp, Log, TEXT("[HostSession] Found an existing session named '%s'. Destroying it before creating a new one..."), *ExistingSession->SessionName.ToString());
-        SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+        OnDestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
         SessionInterface->DestroySession(NAME_GameSession);
     }
     else
@@ -581,11 +581,11 @@ void AChessPlayerController::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20;
-    SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals); // Искать presence-сессии
+    SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals); // Искать presence-сессии
 
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d"), SessionSearch->bIsLanQuery);
 
-    SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
+    OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
     UE_LOG(LogTemp, Log, TEXT("[HostSession] Finding all LAN sessions for player %d..."), GetLocalPlayer()->GetControllerId());
     SessionInterface->FindSessions(GetLocalPlayer()->GetControllerId(), SessionSearch.ToSharedRef());
@@ -598,7 +598,7 @@ void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& Searc
         UE_LOG(LogTemp, Error, TEXT("[HostSession] JoinSession failed: SessionInterface is not valid."));
         return;
     }
-    SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+    OnJoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
     UE_LOG(LogTemp, Log, TEXT("[HostSession] Player %d joining session..."), GetLocalPlayer()->GetControllerId());
     SessionInterface->JoinSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, SearchResult);
 }
@@ -607,7 +607,7 @@ void AChessPlayerController::CreateSession(const FString& SessionName)
 {
     if (!SessionInterface.IsValid()) return;
 
-    SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+    OnCreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 
     TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
     SessionSettings->bIsLANMatch = true;
@@ -640,7 +640,7 @@ void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWa
 
     if (SessionInterface.IsValid())
     {
-        SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+        SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegateHandle);
     }
 }
 
@@ -659,7 +659,7 @@ void AChessPlayerController::OnDestroySessionComplete(FName SessionName, bool bW
 
     if (SessionInterface.IsValid())
     {
-        SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+        SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegateHandle);
     }
 }
 
@@ -719,7 +719,7 @@ void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
     // Очищаем делегат после использования
     if (SessionInterface.IsValid())
     {
-        SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
+        SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle);
     }
 }
 
@@ -743,11 +743,11 @@ void AChessPlayerController::OnJoinSessionComplete(FName SessionName, EOnJoinSes
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Error: %s"), *SessionName.ToString(), EOnJoinSessionCompleteResult::ToString(Result));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Error code: %d"), *SessionName.ToString(), static_cast<int32>(Result));
     }
     
     if (SessionInterface.IsValid())
     {
-        SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+        SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegateHandle);
     }
 }
