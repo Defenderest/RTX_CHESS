@@ -264,17 +264,28 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, in
     SendCommand(FString::Printf(TEXT("go movetime %d"), ClampedTime));
 }
 
-void UStockfishManager::HandleStockfishOutput(const FString& Output)
+void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 {
-    UE_LOG(LogTemp, Verbose, TEXT("Stockfish Raw Output: %s"), *Output);
+    // Append new data to the buffer
+    OutputBuffer.Append(OutputChunk);
 
-    // Stockfish can send multiple lines in one go. We need to split them.
-    TArray<FString> Lines;
-    Output.ParseIntoArrayLines(Lines, false); // Keep empty lines to see full output
-
-    for (const FString& Line : Lines)
+    // Process all complete lines (ending with \n) in the buffer
+    int32 NewLineIndex;
+    // Use a loop to process multiple lines that might have been received in one chunk
+    while (OutputBuffer.FindChar(TCHAR('\n'), NewLineIndex))
     {
-        if (Line.IsEmpty()) continue;
+        // Extract the line (without the newline character)
+        FString Line = OutputBuffer.Left(NewLineIndex);
+        // Remove the processed line and the newline character from the buffer
+        OutputBuffer.RemoveAt(0, NewLineIndex + 1, false);
+
+        // Trim any whitespace (like \r that might be present) from the line itself
+        Line.TrimStartAndEndInline();
+
+        if (Line.IsEmpty())
+        {
+            continue;
+        }
 
         UE_LOG(LogTemp, Log, TEXT("Stockfish Parsed Line: %s"), *Line);
 

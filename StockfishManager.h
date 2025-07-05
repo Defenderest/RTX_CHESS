@@ -76,6 +76,9 @@ private:
     
     void HandleStockfishOutput(const FString& Output);
 
+    // Buffer for incomplete lines from the Stockfish process
+    FString OutputBuffer;
+
     // --- Process and Thread Management ---
     
     // Handle to the Stockfish process
