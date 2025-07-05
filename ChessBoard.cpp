@@ -209,32 +209,51 @@ bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColo
     {
         if (Piece && Piece->GetPieceColor() == AttackingColor)
         {
-            // Для пешек, их "атакующие" ходы - это диагональные ходы, даже если там нет фигуры для взятия.
-            // GetValidMoves для пешки уже включает диагональные ходы только если там есть фигура противника.
-            // Нам нужно проверить "потенциальные" атаки.
-            // Однако, для IsSquareAttackedBy, стандартное GetValidMoves обычно подходит,
-            // так как оно показывает, куда фигура МОЖЕТ пойти и взять.
-            // Если для пешки нужно особое правило "атаки пустой клетки по диагонали", это потребует доработки GetValidMoves или отдельного метода.
-            // Пока будем использовать стандартный GetValidMoves.
-            TArray<FIntPoint> AttackingMoves = Piece->GetValidMoves(GS, this);
-
-            // Специальная логика для пешек: они атакуют диагонали, даже если там нет фигуры для взятия (для проверки шаха)
-            if (Piece->GetPieceType() == EPieceType::Pawn)
+            const EPieceType Type = Piece->GetPieceType();
+            
+            if (Type == EPieceType::King)
             {
-                AttackingMoves.Empty(); // Очистим стандартные ходы и добавим только атакующие
-                FIntPoint PawnPos = Piece->GetBoardPosition();
-                int32 Direction = (Piece->GetPieceColor() == EPieceColor::White) ? 1 : -1;
-
-                FIntPoint AttackLeft(PawnPos.X - 1, PawnPos.Y + Direction);
-                if (IsValidGridPosition(AttackLeft)) AttackingMoves.Add(AttackLeft);
-
-                FIntPoint AttackRight(PawnPos.X + 1, PawnPos.Y + Direction);
-                if (IsValidGridPosition(AttackRight)) AttackingMoves.Add(AttackRight);
+                // Специальная проверка для короля, чтобы избежать рекурсии.
+                // Король атакует 8 соседних клеток.
+                const FIntPoint KingPos = Piece->GetBoardPosition();
+                const int32 KingMoveOffsets[][2] = {
+                    {0, 1}, {1, 1}, {1, 0}, {1, -1},
+                    {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}
+                };
+                for (const auto& Offset : KingMoveOffsets)
+                {
+                    if (KingPos + FIntPoint(Offset[0], Offset[1]) == SquarePosition)
+                    {
+                        return true; // Нашли атакующую клетку, выходим.
+                    }
+                }
             }
-
-            if (AttackingMoves.Contains(SquarePosition))
+            else 
             {
-                return true;
+                TArray<FIntPoint> AttackingMoves;
+                if (Type == EPieceType::Pawn)
+                {
+                    // Пешки атакуют по диагонали вперед.
+                    const FIntPoint PawnPos = Piece->GetBoardPosition();
+                    const int32 Direction = (Piece->GetPieceColor() == EPieceColor::White) ? 1 : -1;
+
+                    const FIntPoint AttackLeft(PawnPos.X - 1, PawnPos.Y + Direction);
+                    if (IsValidGridPosition(AttackLeft)) AttackingMoves.Add(AttackLeft);
+
+                    const FIntPoint AttackRight(PawnPos.X + 1, PawnPos.Y + Direction);
+                    if (IsValidGridPosition(AttackRight)) AttackingMoves.Add(AttackRight);
+                }
+                else
+                {
+                    // Для всех остальных фигур (Ферзь, Ладья, Конь, Слон)
+                    // их атакующие ходы совпадают с их обычными ходами.
+                    AttackingMoves = Piece->GetValidMoves(GS, this);
+                }
+
+                if (AttackingMoves.Contains(SquarePosition))
+                {
+                    return true;
+                }
             }
         }
     }
