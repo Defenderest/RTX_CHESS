@@ -102,8 +102,12 @@ private:
     FProcHandle ProcessHandle;
 
     // Pipes for communication with the process
-    void* ReadPipe = nullptr;
-    void* WritePipe = nullptr;
+    void* PipeToStockfish_Write = nullptr;  // We write to this (Stockfish's STDIN)
+    void* PipeFromStockfish_Read = nullptr; // We read from this (Stockfish's STDOUT)
+
+    // The other ends of the pipes that the child process uses. We need to store them to close them properly.
+    void* PipeToStockfish_Read = nullptr;   // The end Stockfish reads from
+    void* PipeFromStockfish_Write = nullptr;// The end Stockfish writes to
 
     // Thread for reading Stockfish output
     FRunnableThread* ReaderThread = nullptr;

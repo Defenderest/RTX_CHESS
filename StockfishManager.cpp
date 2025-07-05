@@ -63,8 +63,10 @@ UStockfishManager::UStockfishManager()
 {
     // Initialize all handles and pointers to null
     ProcessHandle.Reset();
-    ReadPipe = nullptr;
-    WritePipe = nullptr;
+    PipeToStockfish_Write = nullptr;
+    PipeFromStockfish_Read = nullptr;
+    PipeToStockfish_Read = nullptr;
+    PipeFromStockfish_Write = nullptr;
     ReaderThread = nullptr;
     ReaderTask = nullptr;
     UciState = EUciState::NotConnected;
@@ -100,16 +102,25 @@ void UStockfishManager::LaunchStockfish()
         return;
     }
 
-    // 2. Create pipes for communication
-    if (!FPlatformProcess::CreatePipe(ReadPipe, WritePipe))
+    // 2. Create two independent pipes for communication
+    // Pipe for UE -> Stockfish (Stockfish's stdin)
+    if (!FPlatformProcess::CreatePipe(PipeToStockfish_Read, PipeToStockfish_Write))
     {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to create pipes for Stockfish process."));
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to create stdin pipe for Stockfish process."));
+        return;
+    }
+
+    // Pipe for Stockfish -> UE (Stockfish's stdout)
+    if (!FPlatformProcess::CreatePipe(PipeFromStockfish_Read, PipeFromStockfish_Write))
+    {
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to create stdout pipe for Stockfish process."));
+        FPlatformProcess::ClosePipe(PipeToStockfish_Read, PipeToStockfish_Write); // Clean up the first pipe
         return;
     }
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Pipes created successfully."));
-
+    
     // 3. Launch the process
-    // We pass an empty string for parameters. Use CREATE_NO_WINDOW to hide the console.
+    // We pass the ends of the pipes that the child process will use.
     uint32 ProcessId = 0;
     ProcessHandle = FPlatformProcess::CreateProc(
         *StockfishPath,
@@ -120,23 +131,23 @@ void UStockfishManager::LaunchStockfish()
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory
-        WritePipe, // PipeWrite: This is the pipe we WRITE to, which becomes the child process's STDIN.
-        ReadPipe   // PipeRead: This is the pipe we READ from, which is the child process's STDOUT.
+        PipeFromStockfish_Write, // This becomes the child process's STDOUT
+        PipeToStockfish_Read     // This becomes the child process's STDIN
     );
 
     if (!ProcessHandle.IsValid())
     {
         UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: Failed to launch Stockfish process."));
-        // Clean up the pipes if process creation fails
-        FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
-        ReadPipe = nullptr;
-        WritePipe = nullptr;
+        // Clean up all pipe handles if process creation fails
+        FPlatformProcess::ClosePipe(PipeToStockfish_Read, PipeToStockfish_Write);
+        FPlatformProcess::ClosePipe(PipeFromStockfish_Read, PipeFromStockfish_Write);
+        PipeToStockfish_Read = PipeToStockfish_Write = PipeFromStockfish_Read = PipeFromStockfish_Write = nullptr;
         return;
     }
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
 
-    // 4. Create and start the reader thread
-    ReaderTask = new FStockfishReader(ReadPipe, this);
+    // 4. Create and start the reader thread to read from Stockfish's stdout
+    ReaderTask = new FStockfishReader(PipeFromStockfish_Read, this);
     ReaderThread = FRunnableThread::Create(ReaderTask, TEXT("StockfishReaderThread"), 0, TPri_BelowNormal);
     
     if (ReaderThread)
@@ -200,24 +211,27 @@ void UStockfishManager::Shutdown()
     ProcessHandle.Reset();
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Process terminated and handle closed."));
 
-    // 4. Close pipes (WritePipe is owned by the process, ReadPipe is ours)
-    // Closing ReadPipe here might not be necessary as it's closed by the reader, but it's safe to do so.
-    if (ReadPipe)
+    // 4. Close all pipe handles to avoid resource leaks
+    if (PipeFromStockfish_Read || PipeFromStockfish_Write)
     {
-        FPlatformProcess::ClosePipe(ReadPipe, nullptr);
-        ReadPipe = nullptr;
+        FPlatformProcess::ClosePipe(PipeFromStockfish_Read, PipeFromStockfish_Write);
+        PipeFromStockfish_Read = nullptr;
+        PipeFromStockfish_Write = nullptr;
+        UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Closed stdout pipe."));
     }
-    if (WritePipe)
+    if (PipeToStockfish_Read || PipeToStockfish_Write)
     {
-        FPlatformProcess::ClosePipe(nullptr, WritePipe);
-        WritePipe = nullptr;
+        FPlatformProcess::ClosePipe(PipeToStockfish_Read, PipeToStockfish_Write);
+        PipeToStockfish_Read = nullptr;
+        PipeToStockfish_Write = nullptr;
+        UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Closed stdin pipe."));
     }
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Pipes closed. Shutdown complete."));
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: All pipes closed. Shutdown complete."));
 }
 
 void UStockfishManager::WriteCommandToPipe(const FString& Command)
 {
-    if (!ProcessHandle.IsValid() || !WritePipe)
+    if (!ProcessHandle.IsValid() || !PipeToStockfish_Write)
     {
         UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: Cannot send command, Stockfish is not running or write pipe is invalid. Command: %s"), *Command);
         return;
@@ -234,7 +248,7 @@ void UStockfishManager::WriteCommandToPipe(const FString& Command)
     const int32 CommandLength = Converter.Length();
 
     // Write to the pipe
-    if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)AnsiCommand, CommandLength))
+    if (!FPlatformProcess::WritePipe(PipeToStockfish_Write, (uint8*)AnsiCommand, CommandLength))
     {
         UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: Failed to write to pipe. Command: %s"), *Command);
     }
