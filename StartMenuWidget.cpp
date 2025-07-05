@@ -5,7 +5,6 @@
 #include "ChessPlayerController.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Slider.h"
-#include "Components/EditableTextBox.h"
 
 void UStartMenuWidget::NativeConstruct()
 {

@@ -1,12 +1,12 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/EditableTextBox.h"
 #include "StartMenuWidget.generated.h"
 
 class UWidgetSwitcher;
 class UPanelWidget;
 class USlider;
-class UEditableTextBox;
 
 UCLASS()
 class RTX_CHESS_API UStartMenuWidget : public UUserWidget
