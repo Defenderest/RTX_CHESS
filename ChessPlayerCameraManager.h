@@ -28,17 +28,6 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (ClampMin = "0.1", UIMin = "0.1"))
     float CameraInterpolationSpeed = 5.0f;
 
-    // Скорость вращения камеры (в градусах в секунду)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
-    float RotationSpeed = 45.f;
-
-    // Минимальное смещение по вертикали (Pitch) от базового положения
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (UIMin = "-90.0", UIMax = "0.0"))
-    float MinPitchOffset = -25.0f;
-
-    // Максимальное смещение по вертикали (Pitch) от базового положения
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (UIMin = "0.0", UIMax = "90.0"))
-    float MaxPitchOffset = 25.0f;
 
 private:
     // Целевые параметры камеры, к которым будет происходить интерполяция

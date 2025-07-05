@@ -19,3 +19,18 @@ bool AGameCameraActor::GetCameraPerspectiveForColor(EPieceColor PlayerColor, FTr
     // Если актор не назначен, возвращаем false
     return false;
 }
+
+float AGameCameraActor::GetRotationSpeed() const
+{
+    return ManualRotationSpeed;
+}
+
+float AGameCameraActor::GetMinPitchOffset() const
+{
+    return MinPitchOffset;
+}
+
+float AGameCameraActor::GetMaxPitchOffset() const
+{
+    return MaxPitchOffset;
+}

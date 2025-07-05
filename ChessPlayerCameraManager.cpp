@@ -99,19 +99,39 @@ void AChessPlayerCameraManager::AddCameraRotationInput(FVector2D RotationInput)
         return;
     }
 
+    AGameCameraActor* GameCamera = nullptr;
+    if (APlayerController* PC = GetOwningPlayerController())
+    {
+        GameCamera = Cast<AGameCameraActor>(PC->GetViewTarget());
+    }
+    if (!GameCamera)
+    {
+        GameCamera = Cast<AGameCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AGameCameraActor::StaticClass()));
+    }
+
+    if (!GameCamera)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerCameraManager::AddCameraRotationInput: GameCameraActor not found. Cannot get rotation limits."));
+        return;
+    }
+
+    const float CurrentRotationSpeed = GameCamera->GetRotationSpeed();
+    const float CurrentMinPitchOffset = GameCamera->GetMinPitchOffset();
+    const float CurrentMaxPitchOffset = GameCamera->GetMaxPitchOffset();
+
     const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
 
     // RotationInput.X (A/D) -> Yaw (рыскание)
     // RotationInput.Y (W/S) -> Pitch (тангаж)
-    const float YawChange = RotationInput.X * RotationSpeed * DeltaSeconds;
+    const float YawChange = RotationInput.X * CurrentRotationSpeed * DeltaSeconds;
     // Инвертируем Y для привычного управления (W - вверх)
-    const float PitchChange = -RotationInput.Y * RotationSpeed * DeltaSeconds;
+    const float PitchChange = -RotationInput.Y * CurrentRotationSpeed * DeltaSeconds;
 
     CurrentRotationOffset.Yaw += YawChange;
     CurrentRotationOffset.Pitch += PitchChange;
 
     // Ограничиваем Pitch, чтобы не смотреть "под себя" или "в небо"
-    CurrentRotationOffset.Pitch = FMath::Clamp(CurrentRotationOffset.Pitch, MinPitchOffset, MaxPitchOffset);
+    CurrentRotationOffset.Pitch = FMath::Clamp(CurrentRotationOffset.Pitch, CurrentMinPitchOffset, CurrentMaxPitchOffset);
 
     // Оставляем Roll без изменений
     CurrentRotationOffset.Roll = 0;
