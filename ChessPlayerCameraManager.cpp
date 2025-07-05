@@ -3,6 +3,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameCameraActor.h"
 #include "GameFramework/PlayerController.h"
+#include "ChessPlayerController.h"
+#include "ChessGameMode.h"
 
 AChessPlayerCameraManager::AChessPlayerCameraManager()
 {
@@ -49,6 +51,22 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 
 void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspective)
 {
+    AChessPlayerController* ChessPC = Cast<AChessPlayerController>(GetOwningPlayerController());
+    if (ChessPC)
+    {
+        AChessGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AChessGameMode>() : nullptr;
+        // В режиме "Игрок против Бота" камера должна оставаться на перспективе человека,
+        // даже во время хода бота. Это предотвращает "тряску" камеры от переключения туда-сюда.
+        if (GameMode && GameMode->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
+        {
+            if (NewPerspective != ChessPC->GetPlayerColor())
+            {
+                // Не переключаем камеру с вида игрока-человека.
+                return;
+            }
+        }
+    }
+
     // Находим камеру в мире
     AGameCameraActor* GameCamera = nullptr;
     if (APlayerController* PC = GetOwningPlayerController())
