@@ -34,6 +34,7 @@ uint32 FStockfishReader::Run()
         FString Output = FPlatformProcess::ReadPipe(ReadPipe);
         if (!Output.IsEmpty())
         {
+            UE_LOG(LogTemp, Verbose, TEXT("FStockfishReader: Read chunk from pipe: \"%s\""), *Output.Replace(TEXT("\n"), TEXT("\\n")).Replace(TEXT("\r"), TEXT("\\r")));
             // Pass the data to the game thread for processing
             AsyncTask(ENamedThreads::GameThread, [this, Output]()
             {
@@ -119,8 +120,8 @@ void UStockfishManager::LaunchStockfish()
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory
-        WritePipe, // PipeWrite
-        ReadPipe  // PipeRead
+        ReadPipe,  // PipeWrite: The pipe for the child process's STDOUT
+        WritePipe  // PipeRead: The pipe for the child process's STDIN
     );
 
     if (!ProcessHandle.IsValid())
@@ -165,6 +166,7 @@ void UStockfishManager::Shutdown()
     }
 
     // 1. Send quit command to Stockfish to ensure a graceful exit
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Sending 'quit' command."));
     SendCommand(TEXT("quit"));
 
     // 2. Stop the reader thread
@@ -281,6 +283,8 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, in
     const int32 ClampedSkill = FMath::Clamp(SkillLevel, 0, 20);
     const int32 ClampedTime = FMath::Max(100, SearchTimeMsec); // Minimum 100ms
 
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::RequestBestMove: Using clamped Skill: %d, Time: %dms"), ClampedSkill, ClampedTime);
+
     SendCommand(FString::Printf(TEXT("setoption name Skill Level value %d"), ClampedSkill));
 
     if (FEN.Equals(TEXT("startpos"), ESearchCase::IgnoreCase))
@@ -297,6 +301,7 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, in
 
 void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 {
+    UE_LOG(LogTemp, Verbose, TEXT("UStockfishManager::HandleStockfishOutput: Received chunk: \"%s\""), *OutputChunk.Replace(TEXT("\n"), TEXT("\\n")).Replace(TEXT("\r"), TEXT("\\r")));
     // Append new data to the buffer
     OutputBuffer.Append(OutputChunk);
 
