@@ -44,12 +44,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Input")
     void SetInputModeForUI();
 
-    /** Starts hosting a LAN session with a specific name. */
-    void HostSession(const FString& SessionName, FName LevelName);
-
-    /** Finds and joins a LAN session with a specific name. */
-    void FindAndJoinSession(const FString& SessionName);
-
     /** [CLIENT] Shows pawn promotion menu. Called from server. */
     UFUNCTION(Client, Reliable)
     void Client_ShowPromotionMenu(APawnPiece* PawnForPromotion);
@@ -62,16 +56,6 @@ protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
-
-    // --- Network Callbacks ---
-    /** Callback for when session creation is complete. */
-    void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
-    /** Callback for when session destruction is complete. */
-    void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-    /** Callback for when session search is complete. */
-    void OnFindSessionsComplete(bool bWasSuccessful);
-    /** Callback for when joining a session is complete. */
-    void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
     void SetCamera();
 
@@ -115,34 +99,6 @@ protected:
     void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);
 
 private:
-    // --- Network Session Handling ---
-    FString CurrentLobbyName;
-    FName LevelNameToHost;
-    FString SessionNameToFind;
-    FString SessionNameToCreate;
-    int32 FindSessionRetryCount;
-    FTimerHandle FindSessionTimerHandle;
-
-    static const int32 MAX_FIND_SESSION_RETRIES = 3;
-
-    IOnlineSessionPtr SessionInterface;
-    TSharedPtr<FOnlineSessionSearch> SessionSearch;
-
-    FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
-    FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
-    FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
-    FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
-
-    FDelegateHandle OnCreateSessionCompleteDelegateHandle;
-    FDelegateHandle OnDestroySessionCompleteDelegateHandle;
-    FDelegateHandle OnFindSessionsCompleteDelegateHandle;
-    FDelegateHandle OnJoinSessionCompleteDelegateHandle;
-
-    void CreateSession(const FString& SessionName);
-    void FindSessions();
-    void JoinSession(const FOnlineSessionSearchResult& SearchResult);
-    // --- End Network Session Handling ---
-
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
 

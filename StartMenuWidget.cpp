@@ -3,6 +3,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "ChessGameMode.h"
 #include "ChessPlayerController.h"
+#include "ChessGameInstance.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Slider.h"
 
@@ -93,13 +94,13 @@ void UStartMenuWidget::OnOnlineGameClicked()
 
 void UStartMenuWidget::OnHostGameClicked()
 {
-    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
     {
         if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
         {
             const FString SessionName = SessionNameInput->GetText().ToString();
             HideMenu();
-            PlayerController->HostSession(SessionName, GameLevelName);
+            GameInstance->HostSession(SessionName, GameLevelName);
         }
         else
         {
@@ -111,13 +112,13 @@ void UStartMenuWidget::OnHostGameClicked()
 
 void UStartMenuWidget::OnJoinGameClicked()
 {
-    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
     {
         if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
         {
             const FString SessionName = SessionNameInput->GetText().ToString();
             HideMenu();
-            PlayerController->FindAndJoinSession(SessionName);
+            GameInstance->FindAndJoinSession(SessionName);
         }
         else
         {
