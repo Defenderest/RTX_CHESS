@@ -139,9 +139,9 @@ FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const
     const float HalfBoardHeight = (BoardSize.Y * TileSize) / 2.0f;
 
     // Вычисляем позицию в локальном пространстве доски.
-    // Мы смещаем начало координат в левый нижний угол сетки (-HalfBoardWidth, -HalfBoardHeight),
-    // а затем добавляем позицию клетки.
-    const float LocalX = (GridPosition.X * TileSize) + (TileSize / 2.0f) - HalfBoardWidth;
+    // Ось X инвертирована, чтобы соответствовать стандартной ориентации шахмат (файл 'a' слева).
+    // Мы смещаем начало координат в правый нижний угол для оси X.
+    const float LocalX = HalfBoardWidth - (GridPosition.X * TileSize) - (TileSize / 2.0f);
     const float LocalY = (GridPosition.Y * TileSize) + (TileSize / 2.0f) - HalfBoardHeight;
     const float LocalZ = PieceZOffsetOnBoard;
 
@@ -161,8 +161,8 @@ FIntPoint AChessBoard::WorldToGridPosition(const FVector& WorldPosition) const
     const float HalfBoardHeight = (BoardSize.Y * TileSize) / 2.0f;
 
     // Преобразуем локальные координаты в координаты сетки.
-    // Сначала смещаем локальную позицию так, чтобы (0,0) был в левом нижнем углу сетки.
-    int32 GridX = FMath::FloorToInt((LocalPosition.X + HalfBoardWidth) / TileSize);
+    // Ось X инвертирована, поэтому мы вычисляем ее обратным образом.
+    int32 GridX = FMath::FloorToInt((HalfBoardWidth - LocalPosition.X) / TileSize);
     int32 GridY = FMath::FloorToInt((LocalPosition.Y + HalfBoardHeight) / TileSize);
 
     // Ограничиваем значения в пределах доски.
