@@ -66,6 +66,7 @@ UStockfishManager::UStockfishManager()
     WritePipe = nullptr;
     ReaderThread = nullptr;
     ReaderTask = nullptr;
+    UciState = EUciState::NotConnected;
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager: Instance created."));
 }
 
@@ -149,7 +150,8 @@ void UStockfishManager::LaunchStockfish()
     }
 
     // 5. Initialize UCI protocol
-    SendCommand(TEXT("uci"));
+    UciState = EUciState::UciSent;
+    WriteCommandToPipe(TEXT("uci"));
 }
 
 void UStockfishManager::Shutdown()
@@ -211,18 +213,18 @@ void UStockfishManager::Shutdown()
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::Shutdown: Pipes closed. Shutdown complete."));
 }
 
-void UStockfishManager::SendCommand(const FString& Command)
+void UStockfishManager::WriteCommandToPipe(const FString& Command)
 {
     if (!ProcessHandle.IsValid() || !WritePipe)
     {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::SendCommand: Cannot send command, Stockfish is not running or write pipe is invalid. Command: %s"), *Command);
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: Cannot send command, Stockfish is not running or write pipe is invalid. Command: %s"), *Command);
         return;
     }
 
     // Add a newline character, as Stockfish expects commands to be terminated by it
     FString FullCommand = Command + TEXT("\n");
     
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::SendCommand: Sending command: '%s'"), *Command);
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Writing to pipe: '%s'"), *Command);
     
     // Convert FString to ANSI for the pipe
     FTCHARToUTF8 Converter(*FullCommand);
@@ -232,8 +234,37 @@ void UStockfishManager::SendCommand(const FString& Command)
     // Write to the pipe
     if (!FPlatformProcess::WritePipe(WritePipe, (uint8*)AnsiCommand, CommandLength))
     {
-        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::SendCommand: Failed to write to pipe. Command: %s"), *Command);
+        UE_LOG(LogTemp, Error, TEXT("UStockfishManager::WriteCommandToPipe: Failed to write to pipe. Command: %s"), *Command);
     }
+}
+
+void UStockfishManager::SendCommand(const FString& Command)
+{
+    if (UciState == EUciState::Ready)
+    {
+        UE_LOG(LogTemp, Log, TEXT("UStockfishManager: UCI ready, sending command immediately: '%s'"), *Command);
+        WriteCommandToPipe(Command);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("UStockfishManager: UCI not ready, queueing command: '%s'"), *Command);
+        CommandQueue.Add(Command);
+    }
+}
+
+void UStockfishManager::ProcessCommandQueue()
+{
+    if (CommandQueue.IsEmpty())
+    {
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager: Processing %d queued commands."), CommandQueue.Num());
+    for (const FString& Command : CommandQueue)
+    {
+        WriteCommandToPipe(Command);
+    }
+    CommandQueue.Empty();
 }
 
 void UStockfishManager::RequestBestMove(const FString& FEN, int32 SkillLevel, int32 SearchTimeMsec)
@@ -271,7 +302,6 @@ void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 
     // Process all complete lines (ending with \n) in the buffer
     int32 NewLineIndex;
-    // Use a loop to process multiple lines that might have been received in one chunk
     while (OutputBuffer.FindChar(TCHAR('\n'), NewLineIndex))
     {
         // Extract the line (without the newline character)
@@ -289,22 +319,37 @@ void UStockfishManager::HandleStockfishOutput(const FString& OutputChunk)
 
         UE_LOG(LogTemp, Log, TEXT("Stockfish Parsed Line: %s"), *Line);
 
-        if (Line.StartsWith(TEXT("bestmove")))
+        // State machine for UCI protocol
+        if (UciState == EUciState::UciSent)
         {
-            TArray<FString> Parts;
-            Line.ParseIntoArray(Parts, TEXT(" "), true);
-            if (Parts.Num() > 1)
+            if (Line.Equals(TEXT("uciok")))
             {
-                const FString BestMove = Parts[1];
-                UE_LOG(LogTemp, Log, TEXT("UStockfishManager::HandleStockfishOutput: Best move found: %s"), *BestMove);
-                
-                // Broadcast the result on the game thread
-                OnBestMoveReceived.Broadcast(BestMove);
+                UE_LOG(LogTemp, Log, TEXT("UStockfishManager: 'uciok' received. Engine is ready."));
+                UciState = EUciState::Ready;
+                ProcessCommandQueue();
             }
-            else
+            // Ignore other info lines while waiting for uciok
+        }
+        else if (UciState == EUciState::Ready)
+        {
+            if (Line.StartsWith(TEXT("bestmove")))
             {
-                UE_LOG(LogTemp, Warning, TEXT("UStockfishManager::HandleStockfishOutput: 'bestmove' line received but could not parse move: %s"), *Line);
+                TArray<FString> Parts;
+                Line.ParseIntoArray(Parts, TEXT(" "), true);
+                if (Parts.Num() > 1)
+                {
+                    const FString BestMove = Parts[1];
+                    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::HandleStockfishOutput: Best move found: %s"), *BestMove);
+                    
+                    // Broadcast the result on the game thread
+                    OnBestMoveReceived.Broadcast(BestMove);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("UStockfishManager::HandleStockfishOutput: 'bestmove' line received but could not parse move: %s"), *Line);
+                }
             }
+            // Here you could also parse "info" lines if needed for analysis
         }
     }
 }

@@ -14,6 +14,17 @@ class UStockfishManager;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBestMoveReceived, const FString&, BestMove);
 
 /**
+ * EUciState
+ * Represents the state of the UCI protocol connection with the Stockfish engine.
+ */
+enum class EUciState : uint8
+{
+    NotConnected,
+    UciSent,
+    Ready
+};
+
+/**
  * FStockfishReader
  * Reads output from the Stockfish process in a separate thread.
  */
@@ -73,11 +84,17 @@ public:
 
 private:
     // --- Internal Methods ---
+    void WriteCommandToPipe(const FString& Command);
+    void ProcessCommandQueue();
     
-    void HandleStockfishOutput(const FString& Output);
+    void HandleStockfishOutput(const FString& OutputChunk);
 
     // Buffer for incomplete lines from the Stockfish process
     FString OutputBuffer;
+
+    // UCI protocol state management
+    EUciState UciState;
+    TArray<FString> CommandQueue;
 
     // --- Process and Thread Management ---
     
