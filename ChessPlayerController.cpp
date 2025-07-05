@@ -9,7 +9,7 @@
 #include "GameCameraActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "StartMenuWidget.h"
-#include "UI/PromotionMenuWidget.h"
+#include "PromotionMenuWidget.h"
 #include "PawnPiece.h"
 #include "Blueprint/UserWidget.h"
 #include "ChessGameState.h"

@@ -271,6 +271,52 @@ void AChessGameMode::EndTurn()
 // Функции HandlePieceClicked и HandleSquareClicked удалены, так как логика выбора и перемещения
 // теперь полностью обрабатывается в AChessPlayerController.
 
+void AChessGameMode::CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType)
+{
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!PawnToPromote || !CurrentGS || !GameBoard)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessGameMode::CompletePawnPromotion: Invalid state for promotion."));
+        return;
+    }
+
+    if (CurrentGS->GetGamePhase() != EGamePhase::AwaitingPromotion || CurrentGS->GetPawnToPromote() != PawnToPromote)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::CompletePawnPromotion: Received promotion request in wrong game phase or for wrong pawn."));
+        return;
+    }
+
+    EPieceColor Color = PawnToPromote->GetPieceColor();
+    FIntPoint GridPosition = PawnToPromote->GetBoardPosition();
+
+    UE_LOG(LogTemp, Log, TEXT("Promoting pawn at (%d, %d) to %s"), GridPosition.X, GridPosition.Y, *UEnum::GetValueAsString(PromoteToType));
+
+    // Удаляем старую пешку
+    CurrentGS->RemovePieceFromState(PawnToPromote);
+    PawnToPromote->Destroy();
+    
+    // Спавним новую фигуру
+    AChessPiece* NewPiece = SpawnPieceAtPosition(PromoteToType, Color, GridPosition);
+    if(NewPiece)
+    {
+        NewPiece->NotifyMoveCompleted(); // Новая фигура считается "сходившей"
+    }
+
+    // Сбрасываем состояние превращения
+    CurrentGS->SetPawnToPromote(nullptr);
+
+    // После превращения, игра может закончиться (мат новой фигурой)
+    // поэтому сначала ставим InProgress, потом проверяем конец игры.
+    CurrentGS->SetGamePhase(EGamePhase::InProgress);
+    CheckGameEndConditions();
+
+    // Если после превращения игра не закончилась, передаем ход
+    if(CurrentGS->GetGamePhase() == EGamePhase::InProgress || CurrentGS->GetGamePhase() == EGamePhase::Check)
+    {
+        EndTurn();
+    }
+}
+
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
     UE_LOG(LogTemp, Log, TEXT("--- AttemptMove START ---"));
@@ -454,7 +500,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     if (bIsPawnTwoStep)
     {
-        APawnPiece* MovedPawn = Cast<APawnPiece>(PieceToMove);
         if (MovedPawn)
         {
             int32 Direction = (MovedPawn->GetPieceColor() == EPieceColor::White) ? 1 : -1;

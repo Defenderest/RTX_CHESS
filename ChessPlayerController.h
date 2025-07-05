@@ -11,6 +11,8 @@ class UInputAction;
 class AChessGameMode;
 class UStartMenuWidget;
 class AChessPiece;
+class APawnPiece;
+class UPromotionMenuWidget;
 
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
@@ -40,6 +42,14 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Input")
     void SetInputModeForUI();
 
+    /** [CLIENT] Shows pawn promotion menu. Called from server. */
+    UFUNCTION(Client, Reliable)
+    void Client_ShowPromotionMenu(APawnPiece* PawnForPromotion);
+
+    /** [SERVER] Called from client to finalize pawn promotion. */
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
+
 protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
@@ -52,6 +62,9 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
     TSubclassOf<UStartMenuWidget> StartMenuWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UPromotionMenuWidget> PromotionMenuWidgetClass;
 
     // Enhanced Input. Назначьте эти ассеты в вашем Blueprint Player Controller.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
@@ -76,6 +89,13 @@ protected:
 private:
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
+
+    UPROPERTY()
+    UPromotionMenuWidget* PromotionMenuWidgetInstance;
+    
+    /** The pawn that is waiting to be promoted. Set on client when promotion menu is shown. */
+    UPROPERTY()
+    APawnPiece* PawnAwaitingPromotion;
 
     UPROPERTY()
     AChessPiece* SelectedPiece;
