@@ -22,7 +22,10 @@ protected:
     void OnStartPlayerVsBotClicked();
 
     UFUNCTION(BlueprintCallable, Category = "UI")
-    void OnStartOnlineGameClicked();
+    void OnHostOnlineGameClicked();
+
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void OnFindAndJoinOnlineGameClicked();
 
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnExitClicked();

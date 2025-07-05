@@ -15,6 +15,9 @@
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
 #include "ChessPlayerCameraManager.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -45,6 +48,17 @@ void AChessPlayerController::BeginPlay()
     }
 
     SetCamera();
+
+    if (IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get())
+    {
+        SessionInterface = Subsystem->GetSessionInterface();
+        if (SessionInterface.IsValid())
+        {
+            OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnCreateSessionComplete);
+            OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnFindSessionsComplete);
+            OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnJoinSessionComplete);
+        }
+    }
 
     ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass()));
     if (!ChessBoard)
@@ -481,5 +495,121 @@ void AChessPlayerController::Server_CompletePawnPromotion_Implementation(APawnPi
     if (GameMode)
     {
         GameMode->CompletePawnPromotion(PawnToPromote, PromoteToType);
+    }
+}
+
+void AChessPlayerController::HostSession()
+{
+    if (!SessionInterface.IsValid())
+    {
+        return;
+    }
+
+    auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
+    if (ExistingSession != nullptr)
+    {
+        SessionInterface->DestroySession(NAME_GameSession);
+    }
+
+    SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+
+    TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
+    SessionSettings->bIsLANMatch = true;
+    SessionSettings->NumPublicConnections = 2;
+    SessionSettings->bShouldAdvertise = true;
+    SessionSettings->bUsesPresence = false;
+    SessionSettings->bAllowJoinInProgress = true;
+
+    UE_LOG(LogTemp, Log, TEXT("Creating LAN session..."));
+    SessionInterface->CreateSession(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
+}
+
+void AChessPlayerController::FindAndJoinSession()
+{
+    FindSessions();
+}
+
+void AChessPlayerController::FindSessions()
+{
+    if (!SessionInterface.IsValid())
+    {
+        return;
+    }
+    
+    SessionSearch = MakeShareable(new FOnlineSessionSearch());
+    SessionSearch->bIsLanQuery = true;
+    SessionSearch->MaxSearchResults = 10;
+    // Ищем любые сессии, не используя специфичные ключевые слова
+    SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, FString(), EOnlineComparisonOp::NotEquals);
+
+    SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
+
+    UE_LOG(LogTemp, Log, TEXT("Finding LAN sessions..."));
+    SessionInterface->FindSessions(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
+}
+
+void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& SearchResult)
+{
+    if (!SessionInterface.IsValid())
+    {
+        return;
+    }
+    SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+    UE_LOG(LogTemp, Log, TEXT("Joining session..."));
+    SessionInterface->JoinSession(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), NAME_GameSession, SearchResult);
+}
+
+
+void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+    if (bWasSuccessful)
+    {
+        UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Traveling to map as listen server..."), *SessionName.ToString());
+        GetWorld()->ServerTravel(TEXT("/Game/Maps/Cigar_room?listen"), true);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to create session."));
+    }
+}
+
+void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
+{
+    if (bWasSuccessful && SessionSearch.IsValid())
+    {
+        if (SessionSearch->SearchResults.Num() > 0)
+        {
+            UE_LOG(LogTemp, Log, TEXT("Found %d sessions. Joining the first one."), SessionSearch->SearchResults.Num());
+            JoinSession(SessionSearch->SearchResults[0]);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Could not find any sessions to join."));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Session search failed."));
+    }
+}
+
+void AChessPlayerController::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+    if (Result == EOnJoinSessionCompleteResult::Success && SessionInterface.IsValid())
+    {
+        FString ConnectString;
+        if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
+        {
+            UE_LOG(LogTemp, Log, TEXT("Successfully joined session '%s'. Traveling to: %s"), *SessionName.ToString(), *ConnectString);
+            ClientTravel(ConnectString, ETravelType::TT_Absolute);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Could not get connect string for session '%s'."), *SessionName.ToString());
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to join session '%s'. Error: %d"), *SessionName.ToString(), static_cast<int32>(Result));
     }
 }

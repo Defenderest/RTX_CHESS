@@ -126,6 +126,13 @@ void AChessGameMode::PostLogin(APlayerController* NewPlayer)
             {
                 ChessController->SetPlayerColor(EPieceColor::Black);
                 UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player 2 joined. Assigned color: Black."));
+
+                AChessGameState* CurrentGS = GetCurrentGameState();
+                if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
+                {
+                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Two players present. Starting PvP game."));
+                    StartNewGame();
+                }
             }
             else
             {

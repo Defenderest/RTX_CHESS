@@ -70,10 +70,22 @@ void UStartMenuWidget::OnBackToMainMenuClicked()
     }
 }
 
-void UStartMenuWidget::OnStartOnlineGameClicked()
+void UStartMenuWidget::OnHostOnlineGameClicked()
 {
-    // TODO: Implement online game logic
-    UE_LOG(LogTemp, Warning, TEXT("Online game functionality is not implemented yet."));
+    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    {
+        HideMenu();
+        PlayerController->HostSession();
+    }
+}
+
+void UStartMenuWidget::OnFindAndJoinOnlineGameClicked()
+{
+    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    {
+        HideMenu();
+        PlayerController->FindAndJoinSession();
+    }
 }
 
 void UStartMenuWidget::OnExitClicked()

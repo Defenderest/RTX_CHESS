@@ -1,8 +1,11 @@
 #pragma once
 
+#pragma once
+
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "ChessPiece.h" // Включаем для доступа к EPieceColor
+#include "Interfaces/OnlineSessionInterface.h"
 #include "ChessPlayerController.generated.h"
 
 // Forward declarations
@@ -42,6 +45,14 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Input")
     void SetInputModeForUI();
 
+    /** Starts hosting a LAN session. */
+    UFUNCTION(BlueprintCallable, Category = "Network")
+    void HostSession();
+
+    /** Finds and joins the first available LAN session. */
+    UFUNCTION(BlueprintCallable, Category = "Network")
+    void FindAndJoinSession();
+
     /** [CLIENT] Shows pawn promotion menu. Called from server. */
     UFUNCTION(Client, Reliable)
     void Client_ShowPromotionMenu(APawnPiece* PawnForPromotion);
@@ -54,6 +65,14 @@ protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
+
+    // --- Network Callbacks ---
+    /** Callback for when session creation is complete. */
+    void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+    /** Callback for when session search is complete. */
+    void OnFindSessionsComplete(bool bWasSuccessful);
+    /** Callback for when joining a session is complete. */
+    void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
     void SetCamera();
 
@@ -97,6 +116,18 @@ protected:
     void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);
 
 private:
+    // --- Network Session Handling ---
+    IOnlineSessionPtr SessionInterface;
+    TSharedPtr<class FOnlineSessionSearch> SessionSearch;
+
+    FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
+    FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
+    FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
+    
+    void FindSessions();
+    void JoinSession(const struct FOnlineSessionSearchResult& SearchResult);
+    // --- End Network Session Handling ---
+
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
 
