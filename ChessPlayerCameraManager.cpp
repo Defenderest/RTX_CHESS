@@ -21,31 +21,30 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 {
     Super::UpdateViewTarget(OutVT, DeltaTime);
 
-    const FVector FinalTargetLocation = TargetCameraLocation;
-    const FRotator FinalTargetRotation = TargetCameraRotation + CurrentRotationOffset;
-
+    // Шаг 1: Обработка смены перспективы (интерполяция к базовой позиции)
     if (bShouldInterpolateCamera)
     {
-        // Плавно интерполируем положение, поворот и FOV камеры к целевым значениям,
-        // изменяя непосредственно структуру OutVT.POV.
-        OutVT.POV.Location = FMath::VInterpTo(OutVT.POV.Location, FinalTargetLocation, DeltaTime, CameraInterpolationSpeed);
-        OutVT.POV.Rotation = FMath::RInterpTo(OutVT.POV.Rotation, FinalTargetRotation, DeltaTime, CameraInterpolationSpeed);
+        // Интерполируем к БАЗОВЫМ целевым параметрам, без смещения от игрока.
+        OutVT.POV.Location = FMath::VInterpTo(OutVT.POV.Location, TargetCameraLocation, DeltaTime, CameraInterpolationSpeed);
+        OutVT.POV.Rotation = FMath::RInterpTo(OutVT.POV.Rotation, TargetCameraRotation, DeltaTime, CameraInterpolationSpeed);
         OutVT.POV.FOV = FMath::FInterpTo(OutVT.POV.FOV, TargetCameraFOV, DeltaTime, CameraInterpolationSpeed);
 
-        // Проверяем, достигла ли камера цели (с небольшой погрешностью)
-        if (OutVT.POV.Location.Equals(FinalTargetLocation, 1.0f) && OutVT.POV.Rotation.Equals(FinalTargetRotation, 1.0f))
+        // Проверяем, достигла ли камера базовой цели.
+        if (OutVT.POV.Location.Equals(TargetCameraLocation, 1.0f) && OutVT.POV.Rotation.Equals(TargetCameraRotation, 1.0f))
         {
             bShouldInterpolateCamera = false; // Останавливаем интерполяцию
         }
     }
     else
     {
-        // Если интерполяция не требуется, просто жестко устанавливаем целевые параметры,
-        // чтобы избежать "дрейфа" камеры из-за неточностей вычислений.
-        OutVT.POV.Location = FinalTargetLocation;
-        OutVT.POV.Rotation = FinalTargetRotation;
+        // Если интерполяция не требуется, жестко устанавливаем базовые параметры.
+        OutVT.POV.Location = TargetCameraLocation;
+        OutVT.POV.Rotation = TargetCameraRotation;
         OutVT.POV.FOV = TargetCameraFOV;
     }
+
+    // Шаг 2: ВСЕГДА применяем смещение вращения от игрока поверх текущего поворота камеры.
+    OutVT.POV.Rotation += CurrentRotationOffset;
 }
 
 void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspective)
