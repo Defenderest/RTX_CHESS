@@ -498,12 +498,14 @@ void AChessPlayerController::Server_CompletePawnPromotion_Implementation(APawnPi
     }
 }
 
-void AChessPlayerController::HostSession(const FString& SessionName)
+void AChessPlayerController::HostSession(const FString& SessionName, FName LevelName)
 {
     if (!SessionInterface.IsValid() || SessionName.IsEmpty())
     {
         return;
     }
+
+    LevelNameToHost = LevelName;
 
     // Использовать NAME_GameSession в качестве локального имени сессии - это нормально.
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
@@ -572,8 +574,9 @@ void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWa
 {
     if (bWasSuccessful)
     {
-        UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Traveling to map as listen server..."), *SessionName.ToString());
-        GetWorld()->ServerTravel(TEXT("/Game/Maps/Cigar_room?listen"), true);
+        UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
+        const FString URL = LevelNameToHost.ToString() + TEXT("?listen");
+        GetWorld()->ServerTravel(URL, true);
     }
     else
     {

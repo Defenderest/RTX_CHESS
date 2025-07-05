@@ -45,7 +45,7 @@ public:
     void SetInputModeForUI();
 
     /** Starts hosting a LAN session with a specific name. */
-    void HostSession(const FString& SessionName);
+    void HostSession(const FString& SessionName, FName LevelName);
 
     /** Finds and joins a LAN session with a specific name. */
     void FindAndJoinSession(const FString& SessionName);
@@ -114,6 +114,8 @@ protected:
 
 private:
     // --- Network Session Handling ---
+    FName LevelNameToHost;
+
     IOnlineSessionPtr SessionInterface;
     TSharedPtr<FOnlineSessionSearch> SessionSearch;
 

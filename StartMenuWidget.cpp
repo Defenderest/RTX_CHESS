@@ -10,7 +10,7 @@ void UStartMenuWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    GameLevelName = "Cigar_room";
+    GameLevelName = TEXT("/Game/Maps/Cigar_room");
 
     // Альтернативный способ получения виджета: поиск по имени.
     // Этот метод не требует привязки через "Is Variable" или BindWidget.
@@ -99,7 +99,7 @@ void UStartMenuWidget::OnHostGameClicked()
         {
             const FString SessionName = SessionNameInput->GetText().ToString();
             HideMenu();
-            PlayerController->HostSession(SessionName);
+            PlayerController->HostSession(SessionName, GameLevelName);
         }
         else
         {
