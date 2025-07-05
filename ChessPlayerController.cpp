@@ -55,6 +55,7 @@ void AChessPlayerController::BeginPlay()
         if (SessionInterface.IsValid())
         {
             OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnCreateSessionComplete);
+            OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnDestroySessionComplete);
             OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnFindSessionsComplete);
             OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &AChessPlayerController::OnJoinSessionComplete);
         }
@@ -512,30 +513,20 @@ void AChessPlayerController::HostSession(const FString& SessionName, FName Level
     }
 
     LevelNameToHost = LevelName;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Caching LevelNameToHost: %s"), *LevelNameToHost.ToString());
+    SessionNameToCreate = SessionName;
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Caching LevelNameToHost: %s and SessionNameToCreate: %s"), *LevelNameToHost.ToString(), *SessionNameToCreate);
 
-    // Использовать NAME_GameSession в качестве локального имени сессии - это нормально.
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr)
     {
         UE_LOG(LogTemp, Log, TEXT("[HostSession] Found an existing session. Destroying it..."));
+        SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
         SessionInterface->DestroySession(NAME_GameSession);
     }
-
-    SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
-
-    TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-    SessionSettings->bIsLANMatch = true;
-    SessionSettings->NumPublicConnections = 2;
-    SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = false;
-    SessionSettings->bAllowJoinInProgress = true;
-    // Устанавливаем наше кастомное свойство с именем комнаты
-    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
-
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Creating LAN session with name: %s for player %d"), *SessionName, GetLocalPlayer()->GetControllerId());
-    SessionInterface->CreateSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, *SessionSettings);
+    else
+    {
+        CreateSession(SessionNameToCreate);
+    }
 }
 
 void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
@@ -583,6 +574,25 @@ void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& Searc
     SessionInterface->JoinSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, SearchResult);
 }
 
+void AChessPlayerController::CreateSession(const FString& SessionName)
+{
+    if (!SessionInterface.IsValid()) return;
+
+    SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+
+    TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
+    SessionSettings->bIsLANMatch = true;
+    SessionSettings->NumPublicConnections = 2;
+    SessionSettings->bShouldAdvertise = true;
+    SessionSettings->bUsesPresence = false;
+    SessionSettings->bAllowJoinInProgress = true;
+    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
+
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Creating LAN session with name: %s for player %d"), *SessionName, GetLocalPlayer()->GetControllerId());
+    SessionInterface->CreateSession(GetLocalPlayer()->GetControllerId(), NAME_GameSession, *SessionSettings);
+}
+
 
 void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
@@ -596,6 +606,20 @@ void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWa
     else
     {
         UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to create session."));
+    }
+}
+
+void AChessPlayerController::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+{
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnDestroySessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
+    if (bWasSuccessful)
+    {
+        // Теперь, когда старая сессия удалена, создаем новую.
+        CreateSession(SessionNameToCreate);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to destroy session '%s'."), *SessionName.ToString());
     }
 }
 

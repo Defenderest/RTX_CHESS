@@ -66,6 +66,8 @@ protected:
     // --- Network Callbacks ---
     /** Callback for when session creation is complete. */
     void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+    /** Callback for when session destruction is complete. */
+    void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
     /** Callback for when session search is complete. */
     void OnFindSessionsComplete(bool bWasSuccessful);
     /** Callback for when joining a session is complete. */
@@ -116,14 +118,17 @@ private:
     // --- Network Session Handling ---
     FName LevelNameToHost;
     FString SessionNameToFind;
+    FString SessionNameToCreate;
 
     IOnlineSessionPtr SessionInterface;
     TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
     FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
+    FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
-    
+
+    void CreateSession(const FString& SessionName);
     void FindSessions();
     void JoinSession(const FOnlineSessionSearchResult& SearchResult);
     // --- End Network Session Handling ---
