@@ -5,6 +5,7 @@
 #include "ChessPlayerController.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Slider.h"
+#include "Components/EditableTextBox.h"
 
 void UStartMenuWidget::NativeConstruct()
 {
@@ -70,21 +71,51 @@ void UStartMenuWidget::OnBackToMainMenuClicked()
     }
 }
 
-void UStartMenuWidget::OnHostOnlineGameClicked()
+void UStartMenuWidget::OnOnlineGameClicked()
 {
-    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    if (MainMenuSwitcher && OnlineMenuPanel)
     {
-        HideMenu();
-        PlayerController->HostSession();
+        MainMenuSwitcher->SetActiveWidget(OnlineMenuPanel);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("MainMenuSwitcher or OnlineMenuPanel is not bound in StartMenuWidget Blueprint!"));
     }
 }
 
-void UStartMenuWidget::OnFindAndJoinOnlineGameClicked()
+void UStartMenuWidget::OnHostGameClicked()
 {
     if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
     {
-        HideMenu();
-        PlayerController->FindAndJoinSession();
+        if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
+        {
+            const FString SessionName = SessionNameInput->GetText().ToString();
+            HideMenu();
+            PlayerController->HostSession(SessionName);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Session name is empty. Cannot host game."));
+            // При желании можно показать пользователю сообщение в UI
+        }
+    }
+}
+
+void UStartMenuWidget::OnJoinGameClicked()
+{
+    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    {
+        if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
+        {
+            const FString SessionName = SessionNameInput->GetText().ToString();
+            HideMenu();
+            PlayerController->FindAndJoinSession(SessionName);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Session name is empty. Cannot join game."));
+            // При желании можно показать пользователю сообщение в UI
+        }
     }
 }
 

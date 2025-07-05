@@ -498,13 +498,14 @@ void AChessPlayerController::Server_CompletePawnPromotion_Implementation(APawnPi
     }
 }
 
-void AChessPlayerController::HostSession()
+void AChessPlayerController::HostSession(const FString& SessionName)
 {
-    if (!SessionInterface.IsValid())
+    if (!SessionInterface.IsValid() || SessionName.IsEmpty())
     {
         return;
     }
 
+    // Использовать NAME_GameSession в качестве локального имени сессии - это нормально.
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr)
     {
@@ -519,17 +520,24 @@ void AChessPlayerController::HostSession()
     SessionSettings->bShouldAdvertise = true;
     SessionSettings->bUsesPresence = false;
     SessionSettings->bAllowJoinInProgress = true;
+    // Устанавливаем наше кастомное свойство с именем комнаты
+    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("Creating LAN session..."));
+
+    UE_LOG(LogTemp, Log, TEXT("Creating LAN session with name: %s"), *SessionName);
     SessionInterface->CreateSession(*GetLocalPlayer()->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
 }
 
-void AChessPlayerController::FindAndJoinSession()
+void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
 {
-    FindSessions();
+    if (SessionName.IsEmpty())
+    {
+        return;
+    }
+    FindSessions(SessionName);
 }
 
-void AChessPlayerController::FindSessions()
+void AChessPlayerController::FindSessions(const FString& SessionName)
 {
     if (!SessionInterface.IsValid())
     {
@@ -539,11 +547,12 @@ void AChessPlayerController::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 10;
-    // Ищем любые сессии, не используя специфичные ключевые слова
+    // Ищем по нашему кастомному свойству с именем комнаты
+    SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineComparisonOp::Equals);
 
     SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
-    UE_LOG(LogTemp, Log, TEXT("Finding LAN sessions..."));
+    UE_LOG(LogTemp, Log, TEXT("Finding LAN sessions with name: %s"), *SessionName);
     SessionInterface->FindSessions(*GetLocalPlayer()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
 }
 

@@ -46,13 +46,11 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Input")
     void SetInputModeForUI();
 
-    /** Starts hosting a LAN session. */
-    UFUNCTION(BlueprintCallable, Category = "Network")
-    void HostSession();
+    /** Starts hosting a LAN session with a specific name. */
+    void HostSession(const FString& SessionName);
 
-    /** Finds and joins the first available LAN session. */
-    UFUNCTION(BlueprintCallable, Category = "Network")
-    void FindAndJoinSession();
+    /** Finds and joins a LAN session with a specific name. */
+    void FindAndJoinSession(const FString& SessionName);
 
     /** [CLIENT] Shows pawn promotion menu. Called from server. */
     UFUNCTION(Client, Reliable)
