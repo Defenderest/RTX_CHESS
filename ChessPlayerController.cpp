@@ -187,15 +187,11 @@ void AChessPlayerController::ShowStartMenu()
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
     const FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-    if (LookAxisVector.Y != 0.f)
+    
+    // Получаем Camera Manager и вызываем его функцию вращения
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
     {
-        AddPitchInput(LookAxisVector.Y);
-    }
-
-    if (LookAxisVector.X != 0.f)
-    {
-        AddYawInput(LookAxisVector.X);
+        CamManager->AddCameraRotationInput(LookAxisVector);
     }
 }
 
