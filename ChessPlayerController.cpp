@@ -15,6 +15,7 @@
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
 #include "ChessPlayerCameraManager.h"
+#include "Engine/TimerManager.h"
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
@@ -538,7 +539,12 @@ void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
     }
     SessionNameToFind = SessionName;
     UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession called. Caching SessionNameToFind: %s"), *SessionNameToFind);
-    FindSessions();
+    
+    // Добавляем небольшую задержку перед поиском. Это решает проблемы с таймингом,
+    // когда клиент начинает искать сессию до того, как хост успел ее полностью зарегистрировать.
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 1.0s before starting session search..."));
+    FTimerHandle UnusedHandle;
+    GetWorld()->GetTimerManager().SetTimer(UnusedHandle, this, &AChessPlayerController::FindSessions, 1.0f, false);
 }
 
 void AChessPlayerController::FindSessions()
