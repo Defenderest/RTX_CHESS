@@ -10,7 +10,7 @@ void UStartMenuWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    GameLevelName = TEXT("/Game/Maps/Cigar_room");
+    GameLevelName = TEXT("/Game/Cigar_room/Maps/Cigar_room");
 
     // Альтернативный способ получения виджета: поиск по имени.
     // Этот метод не требует привязки через "Is Variable" или BindWidget.
