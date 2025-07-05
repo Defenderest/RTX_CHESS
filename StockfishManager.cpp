@@ -144,6 +144,15 @@ void UStockfishManager::LaunchStockfish()
         PipeToStockfish_Read = PipeToStockfish_Write = PipeFromStockfish_Read = PipeFromStockfish_Write = nullptr;
         return;
     }
+    
+    // The parent process should now close the pipe ends that are used by the child process.
+    // This is crucial for ensuring proper communication and preventing resource leaks.
+    FPlatformProcess::ClosePipe(PipeToStockfish_Read, nullptr);
+    FPlatformProcess::ClosePipe(nullptr, PipeFromStockfish_Write);
+    // Null out the pointers to prevent them from being used or closed again in Shutdown().
+    PipeToStockfish_Read = nullptr;
+    PipeFromStockfish_Write = nullptr;
+
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
 
     // 4. Create and start the reader thread to read from Stockfish's stdout
