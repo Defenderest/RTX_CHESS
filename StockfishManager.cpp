@@ -120,8 +120,8 @@ void UStockfishManager::LaunchStockfish()
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory
-        ReadPipe,  // PipeWrite: The pipe for the child process's STDOUT
-        WritePipe  // PipeRead: The pipe for the child process's STDIN
+        WritePipe, // PipeWrite: This is the pipe we WRITE to, which becomes the child process's STDIN.
+        ReadPipe   // PipeRead: This is the pipe we READ from, which is the child process's STDOUT.
     );
 
     if (!ProcessHandle.IsValid())
