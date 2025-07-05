@@ -521,7 +521,7 @@ void AChessPlayerController::HostSession(const FString& SessionName)
     SessionSettings->bUsesPresence = false;
     SessionSettings->bAllowJoinInProgress = true;
     // Устанавливаем наше кастомное свойство с именем комнаты
-    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineComparisonOp::Equals);
+    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 
     UE_LOG(LogTemp, Log, TEXT("Creating LAN session with name: %s"), *SessionName);
