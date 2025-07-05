@@ -80,7 +80,12 @@ protected:
 
     EGameModeType CurrentGameMode;
 
+    int32 BotSkillLevel;
+
     void MakeBotMove();
+
+    UFUNCTION()
+    void HandleBotMoveReceived(const FString& BestMove);
 
     // Классы фигур для спавна. Устанавливаются в Blueprint или C++ конструкторе.
     UPROPERTY(EditDefaultsOnly, Category = "Chess Setup")

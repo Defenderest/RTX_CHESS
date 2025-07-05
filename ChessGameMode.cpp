@@ -20,6 +20,7 @@ AChessGameMode::AChessGameMode()
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     NumberOfPlayers = 0;
+    BotSkillLevel = 20; // Уровень сложности по умолчанию
 }
 
 void AChessGameMode::BeginPlay()
@@ -63,9 +64,8 @@ void AChessGameMode::BeginPlay()
                 FString SkillLevelValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("SkillLevel"));
                 if (!SkillLevelValue.IsEmpty())
                 {
-                    const int32 SkillLevel = FCString::Atoi(*SkillLevelValue);
-                    StockfishManager->SetSkillLevel(SkillLevel);
-                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), SkillLevel);
+                    BotSkillLevel = FCString::Atoi(*SkillLevelValue);
+                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), BotSkillLevel);
                 }
                 else
                 {
@@ -90,8 +90,9 @@ void AChessGameMode::StartBotGame()
 
     if (StockfishManager)
     {
-        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Attempting to start Stockfish engine..."));
-        StockfishManager->StartEngine();
+        UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Attempting to launch Stockfish engine..."));
+        StockfishManager->LaunchStockfish();
+        StockfishManager->OnBestMoveReceived.AddDynamic(this, &AChessGameMode::HandleBotMoveReceived);
     }
     else
     {
@@ -143,28 +144,54 @@ void AChessGameMode::MakeBotMove()
     {
         UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Requesting bot move."));
         FString FEN = CurrentGS->GetFEN();
-        FString BestMove = StockfishManager->GetBestMove(FEN);
+        // Запрашиваем ход, результат придет асинхронно в HandleBotMoveReceived
+        StockfishManager->RequestBestMove(FEN, BotSkillLevel, 1000); 
+    }
+}
 
-        if (!BestMove.IsEmpty())
+void AChessGameMode::HandleBotMoveReceived(const FString& BestMove)
+{
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!CurrentGS)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ChessGameMode::HandleBotMoveReceived: GameState is null."));
+        return;
+    }
+
+    // Убедимся, что все еще ход бота, прежде чем делать ход
+    if (CurrentGS->GetCurrentTurnColor() != EPieceColor::Black)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ChessGameMode::HandleBotMoveReceived: Received bot move, but it's not Black's turn anymore. Ignoring move."));
+        return;
+    }
+
+    if (!BestMove.IsEmpty())
+    {
+        UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Bot suggests move: %s"), *BestMove);
+        // Базовая проверка формата строки хода "e2e4"
+        if (BestMove.Len() < 4)
         {
-            UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Bot suggests move: %s"), *BestMove);
-            FIntPoint StartPos((BestMove[0] - 'a'), (BestMove[1] - '1'));
-            FIntPoint EndPos((BestMove[2] - 'a'), (BestMove[3] - '1'));
+            UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move is too short: %s"), *BestMove);
+            return;
+        }
 
-            AChessPiece* PieceToMove = CurrentGS->GetPieceAtGridPosition(StartPos);
-            if (PieceToMove)
-            {
-                AttemptMove(PieceToMove, EndPos, nullptr);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move involves a non-existent piece at %s. FEN was: %s"), *StartPos.ToString(), *FEN);
-            }
+        FIntPoint StartPos((BestMove[0] - 'a'), (BestMove[1] - '1'));
+        FIntPoint EndPos((BestMove[2] - 'a'), (BestMove[3] - '1'));
+
+        AChessPiece* PieceToMove = CurrentGS->GetPieceAtGridPosition(StartPos);
+        if (PieceToMove)
+        {
+            AttemptMove(PieceToMove, EndPos, nullptr);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("ChessGameMode: Bot did not return a valid move."));
+            FString FEN = CurrentGS->GetFEN();
+            UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Bot's suggested move involves a non-existent piece at %s. FEN was: %s"), *StartPos.ToString(), *FEN);
         }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ChessGameMode: Bot did not return a valid move."));
     }
 }
 
