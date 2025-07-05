@@ -5,25 +5,6 @@
 #include "ChessPiece.h" // Включаем для доступа к EPieceColor
 #include "ChessPlayerCameraManager.generated.h"
 
-// Структура для хранения настроек камеры для одной пе��спективы
-USTRUCT(BlueprintType)
-struct FCameraSetup
-{
-    GENERATED_BODY()
-
-    // Смещение камеры относительно центра доски
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Setup")
-    FVector LocationOffset = FVector(0.f, -1200.f, 1000.f);
-
-    // Поворот камеры
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Setup")
-    FRotator Rotation = FRotator(-45.f, 0.f, 0.f);
-
-    // Поле зрения камеры
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Setup")
-    float FOV = 90.f;
-};
-
 UCLASS()
 class RTX_CHESS_API AChessPlayerCameraManager : public APlayerCameraManager
 {
@@ -43,14 +24,6 @@ public:
     void AddCameraRotationInput(FVector2D RotationInput);
 
 protected:
-    // Настройки камеры для перспективы белого игрока
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
-    FCameraSetup WhitePlayerCameraSetup;
-
-    // Настройки камеры для перспективы черного игрока
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
-    FCameraSetup BlackPlayerCameraSetup;
-
     // Скорость интерполяции камеры при смене перспективы
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (ClampMin = "0.1", UIMin = "0.1"))
     float CameraInterpolationSpeed = 5.0f;

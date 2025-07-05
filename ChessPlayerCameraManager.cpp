@@ -1,18 +1,11 @@
 #include "ChessPlayerCameraManager.h"
 #include "ChessBoard.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameCameraActor.h"
+#include "GameFramework/PlayerController.h"
 
 AChessPlayerCameraManager::AChessPlayerCameraManager()
 {
-    // Устанавливаем стандартные значения по умолчанию, если они не переопределены в Blueprint
-    WhitePlayerCameraSetup.LocationOffset = FVector(0.f, -1200.f, 1000.f);
-    WhitePlayerCameraSetup.Rotation = FRotator(-45.f, 0.f, 0.f);
-    WhitePlayerCameraSetup.FOV = 90.f;
-
-    BlackPlayerCameraSetup.LocationOffset = FVector(0.f, 1200.f, 1000.f);
-    BlackPlayerCameraSetup.Rotation = FRotator(-45.f, 180.f, 0.f);
-    BlackPlayerCameraSetup.FOV = 90.f;
-
     CurrentRotationOffset = FRotator::ZeroRotator;
 }
 
@@ -57,6 +50,26 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 
 void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspective)
 {
+    // Находим камеру в мире
+    AGameCameraActor* GameCamera = nullptr;
+    if (APlayerController* PC = GetOwningPlayerController())
+    {
+        GameCamera = Cast<AGameCameraActor>(PC->GetViewTarget());
+    }
+    
+    // Если камера не установлена как ViewTarget, ищем ее в мире как запасной вариант
+    if (!GameCamera)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerCameraManager: GameCameraActor is not the current view target. Searching in world..."));
+        GameCamera = Cast<AGameCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AGameCameraActor::StaticClass()));
+    }
+
+    if (!GameCamera)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerCameraManager: GameCameraActor not found in the world. Cannot get camera setups."));
+        return;
+    }
+
     // Находим шахматную доску на сцене
     AActor* ChessBoardActor = UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass());
     if (!ChessBoardActor)
@@ -66,7 +79,7 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
     }
 
     FVector BoardCenter = ChessBoardActor->GetActorLocation();
-    const FCameraSetup& TargetSetup = (NewPerspective == EPieceColor::White) ? WhitePlayerCameraSetup : BlackPlayerCameraSetup;
+    const FCameraSetup& TargetSetup = GameCamera->GetCameraSetupForColor(NewPerspective);
 
     // Устанавливаем целевые параметры камеры
     TargetCameraLocation = BoardCenter + TargetSetup.LocationOffset;
