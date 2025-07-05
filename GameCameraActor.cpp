@@ -2,15 +2,20 @@
 
 AGameCameraActor::AGameCameraActor()
 {
-    // WhitePlayerCameraSetup использует значения по умолчанию из структуры FCameraSetup
-
-    // Переопределяем значения для перспективы черных
-    BlackPlayerCameraSetup.LocationOffset = FVector(0.f, 1200.f, 1000.f);
-    BlackPlayerCameraSetup.Rotation = FRotator(-45.f, 180.f, 0.f);
-    BlackPlayerCameraSetup.FOV = 90.f;
+    // Конструктор теперь пуст, так как настройки задаются через ссылки на акторы.
 }
 
-const FCameraSetup& AGameCameraActor::GetCameraSetupForColor(EPieceColor PlayerColor) const
+bool AGameCameraActor::GetCameraPerspectiveForColor(EPieceColor PlayerColor, FTransform& OutTransform, float& OutFOV) const
 {
-    return (PlayerColor == EPieceColor::White) ? WhitePlayerCameraSetup : BlackPlayerCameraSetup;
+    AActor* PerspectiveActor = (PlayerColor == EPieceColor::White) ? WhitePerspectiveActor : BlackPerspectiveActor;
+    
+    if (PerspectiveActor)
+    {
+        OutTransform = PerspectiveActor->GetActorTransform();
+        OutFOV = (PlayerColor == EPieceColor::White) ? WhitePlayerFOV : BlackPlayerFOV;
+        return true;
+    }
+
+    // Если актор не назначен, возвращаем false
+    return false;
 }

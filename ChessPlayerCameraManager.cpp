@@ -69,27 +69,27 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
         return;
     }
 
-    // Находим шахматную доску на сцене
-    AActor* ChessBoardActor = UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass());
-    if (!ChessBoardActor)
+    // Получаем целевые transform и FOV из GameCameraActor
+    FTransform TargetTransform;
+    float NewFOV;
+    if (GameCamera->GetCameraPerspectiveForColor(NewPerspective, TargetTransform, NewFOV))
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerCameraManager: ChessBoard not found in the world. Cannot set camera target."));
-        return;
+        // Устанавливаем целевые параметры камеры напрямую из transform'а актора-цели
+        TargetCameraLocation = TargetTransform.GetLocation();
+        TargetCameraRotation = TargetTransform.GetRotation().Rotator();
+        TargetCameraFOV = NewFOV;
+
+        // Сбрасываем смещение вращения при смене перспективы
+        CurrentRotationOffset = FRotator::ZeroRotator;
+
+        // Включаем флаг интерполяции, чтобы UpdateViewTarget начал перемещение
+        bShouldInterpolateCamera = true;
     }
-
-    FVector BoardCenter = ChessBoardActor->GetActorLocation();
-    const FCameraSetup& TargetSetup = GameCamera->GetCameraSetupForColor(NewPerspective);
-
-    // Устанавливаем целевые параметры камеры
-    TargetCameraLocation = BoardCenter + TargetSetup.LocationOffset;
-    TargetCameraRotation = TargetSetup.Rotation;
-    TargetCameraFOV = TargetSetup.FOV;
-
-    // Сбрасываем смещение вращения при смене перспективы
-    CurrentRotationOffset = FRotator::ZeroRotator;
-
-    // Включаем флаг интерполяции, чтобы UpdateViewTarget начал перемещение
-    bShouldInterpolateCamera = true;
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerCameraManager: Perspective actor for color %s is not set in GameCameraActor. Cannot switch perspective."),
+            (NewPerspective == EPieceColor::White ? TEXT("White") : TEXT("Black")));
+    }
 }
 
 void AChessPlayerCameraManager::AddCameraRotationInput(FVector2D RotationInput)
