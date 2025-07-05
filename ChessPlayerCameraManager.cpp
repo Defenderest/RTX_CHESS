@@ -13,7 +13,7 @@ AChessPlayerCameraManager::AChessPlayerCameraManager()
     BlackPlayerCameraSetup.Rotation = FRotator(-45.f, 180.f, 0.f);
     BlackPlayerCameraSetup.FOV = 90.f;
 
-    CurrentPanOffset = FVector::ZeroVector;
+    CurrentRotationOffset = FRotator::ZeroRotator;
 }
 
 void AChessPlayerCameraManager::BeginPlay()
@@ -28,19 +28,19 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 {
     Super::UpdateViewTarget(OutVT, DeltaTime);
 
-    // Рассчитываем конечную точку с учетом панорамирования
-    const FVector FinalTargetLocation = TargetCameraLocation + CurrentPanOffset;
+    const FVector FinalTargetLocation = TargetCameraLocation;
+    const FRotator FinalTargetRotation = TargetCameraRotation + CurrentRotationOffset;
 
     if (bShouldInterpolateCamera)
     {
         // Плавно интерполируем положение, поворот и FOV камеры к целевым значениям,
         // изменяя непосредственно структуру OutVT.POV.
         OutVT.POV.Location = FMath::VInterpTo(OutVT.POV.Location, FinalTargetLocation, DeltaTime, CameraInterpolationSpeed);
-        OutVT.POV.Rotation = FMath::RInterpTo(OutVT.POV.Rotation, TargetCameraRotation, DeltaTime, CameraInterpolationSpeed);
+        OutVT.POV.Rotation = FMath::RInterpTo(OutVT.POV.Rotation, FinalTargetRotation, DeltaTime, CameraInterpolationSpeed);
         OutVT.POV.FOV = FMath::FInterpTo(OutVT.POV.FOV, TargetCameraFOV, DeltaTime, CameraInterpolationSpeed);
 
         // Проверяем, достигла ли камера цели (с небольшой погрешностью)
-        if (OutVT.POV.Location.Equals(FinalTargetLocation, 1.0f) && OutVT.POV.Rotation.Equals(TargetCameraRotation, 1.0f))
+        if (OutVT.POV.Location.Equals(FinalTargetLocation, 1.0f) && OutVT.POV.Rotation.Equals(FinalTargetRotation, 1.0f))
         {
             bShouldInterpolateCamera = false; // Останавливаем интерполяцию
         }
@@ -50,7 +50,7 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
         // Если интерполяция не требуется, просто жестко устанавливаем целевые параметры,
         // чтобы избежать "дрейфа" камеры из-за неточностей вычислений.
         OutVT.POV.Location = FinalTargetLocation;
-        OutVT.POV.Rotation = TargetCameraRotation;
+        OutVT.POV.Rotation = FinalTargetRotation;
         OutVT.POV.FOV = TargetCameraFOV;
     }
 }
@@ -73,33 +73,35 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
     TargetCameraRotation = TargetSetup.Rotation;
     TargetCameraFOV = TargetSetup.FOV;
 
-    // Сбрасываем смещение панорамирования при смене перспективы
-    CurrentPanOffset = FVector::ZeroVector;
+    // Сбрасываем смещение вращения при смене перспективы
+    CurrentRotationOffset = FRotator::ZeroRotator;
 
     // Включаем флаг интерполяции, чтобы UpdateViewTarget начал перемещение
     bShouldInterpolateCamera = true;
 }
 
-void AChessPlayerCameraManager::AddCameraPanInput(FVector2D PanInput)
+void AChessPlayerCameraManager::AddCameraRotationInput(FVector2D RotationInput)
 {
-    if (PanInput.IsNearlyZero() || GetWorld() == nullptr)
+    if (RotationInput.IsNearlyZero() || GetWorld() == nullptr)
     {
         return;
     }
-    
-    const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
-    
-    // Используем простые мировые оси для панорамирования в стиле RTS.
-    // Это более предсказуемо для вида сверху.
-    const FVector RightVector = FVector::YAxisVector;
-    const FVector ForwardVector = FVector::XAxisVector;
-    
-    // Рассчитываем смещение на основе ввода, скорости и времени
-    // PanInput.X (A/D) двигает по оси Y (вправо/влево)
-    // PanInput.Y (W/S) двигает по оси X (вперед/назад)
-    FVector PanDelta = (ForwardVector * PanInput.Y + RightVector * PanInput.X) * PanSpeed * DeltaSeconds;
 
-    // Применяем смещение и ограничиваем его максимальной дистанцией от начальной точки
-    CurrentPanOffset = (CurrentPanOffset + PanDelta).GetClampedToMaxSize(MaxPanDistance);
+    const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
+
+    // RotationInput.X (A/D) -> Yaw (рыскание)
+    // RotationInput.Y (W/S) -> Pitch (тангаж)
+    const float YawChange = RotationInput.X * RotationSpeed * DeltaSeconds;
+    // Инвертируем Y для привычного управления (W - вверх)
+    const float PitchChange = -RotationInput.Y * RotationSpeed * DeltaSeconds;
+
+    CurrentRotationOffset.Yaw += YawChange;
+    CurrentRotationOffset.Pitch += PitchChange;
+
+    // Ограничиваем Pitch, чтобы не смотреть "под себя" или "в небо"
+    CurrentRotationOffset.Pitch = FMath::Clamp(CurrentRotationOffset.Pitch, MinPitchOffset, MaxPitchOffset);
+
+    // Оставляем Roll без изменений
+    CurrentRotationOffset.Roll = 0;
 }
 

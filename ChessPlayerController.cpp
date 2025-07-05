@@ -203,10 +203,10 @@ void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 {
     const FVector2D MoveVector = Value.Get<FVector2D>();
     
-    // Получаем Camera Manager и вызываем его функцию панорамирования
+    // Получаем Camera Manager и вызываем его функцию вращения
     if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
     {
-        CamManager->AddCameraPanInput(MoveVector);
+        CamManager->AddCameraRotationInput(MoveVector);
     }
 }
 
