@@ -351,7 +351,8 @@ void UStockfishManager::WriteCommandToPipe(const FString& Command)
     FString FullCommand = Command + TEXT("\n");
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Full command with newline: '%s'"), *FullCommand.Replace(TEXT("\n"), TEXT("\\n")));
 
-    bool bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, FullCommand);
+    FTCHARToUTF8 Converter(*FullCommand);
+    bool bWriteSuccess = FPlatformProcess::WritePipe(PipeToStockfish_Write, (const uint8*)Converter.Get(), Converter.Length());
 
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::WriteCommandToPipe: Write result: %s"), bWriteSuccess ? TEXT("SUCCESS") : TEXT("FAILED"));
 
