@@ -57,6 +57,10 @@ protected:
 
     void SetCamera();
 
+    /** Handles player's choice from promotion menu. */
+    UFUNCTION()
+    void HandlePromotionSelection(EPieceType SelectedType);
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Player Controller")
     EPieceColor PlayerColor;
 
