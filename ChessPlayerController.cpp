@@ -14,6 +14,7 @@
 #include "Blueprint/UserWidget.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
+#include "ChessPlayerCameraManager.h"
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -93,6 +94,15 @@ void AChessPlayerController::SetupInputComponent()
         else
         {
             UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: LookAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+        }
+
+        if (MoveCameraAction)
+        {
+            EnhancedInput->BindAction(MoveCameraAction, ETriggerEvent::Triggered, this, &AChessPlayerController::HandleCameraMove);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: MoveCameraAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
         }
     }
 }
@@ -186,6 +196,17 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
     if (LookAxisVector.X != 0.f)
     {
         AddYawInput(LookAxisVector.X);
+    }
+}
+
+void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
+{
+    const FVector2D MoveVector = Value.Get<FVector2D>();
+    
+    // Получаем Camera Manager и вызываем его функцию панорамирования
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    {
+        CamManager->AddCameraPanInput(MoveVector);
     }
 }
 

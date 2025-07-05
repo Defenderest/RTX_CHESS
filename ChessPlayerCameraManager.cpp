@@ -12,6 +12,8 @@ AChessPlayerCameraManager::AChessPlayerCameraManager()
     BlackPlayerCameraSetup.LocationOffset = FVector(0.f, 1200.f, 1000.f);
     BlackPlayerCameraSetup.Rotation = FRotator(-45.f, 180.f, 0.f);
     BlackPlayerCameraSetup.FOV = 90.f;
+
+    CurrentPanOffset = FVector::ZeroVector;
 }
 
 void AChessPlayerCameraManager::BeginPlay()
@@ -68,7 +70,33 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
     TargetCameraRotation = TargetSetup.Rotation;
     TargetCameraFOV = TargetSetup.FOV;
 
+    // Сбрасываем смещение панорамирования при смене перспективы
+    CurrentPanOffset = FVector::ZeroVector;
+
     // Включаем флаг интерполяции, чтобы UpdateViewTarget начал перемещение
     bShouldInterpolateCamera = true;
+}
+
+void AChessPlayerCameraManager::AddCameraPanInput(FVector2D PanInput)
+{
+    if (PanInput.IsNearlyZero() || GetWorld() == nullptr)
+    {
+        return;
+    }
+    
+    const float DeltaSeconds = GetWorld()->GetDeltaSeconds();
+    
+    // Используем простые мировые оси для панорамирования в стиле RTS.
+    // Это более предсказуемо для вида сверху.
+    const FVector RightVector = FVector::YAxisVector;
+    const FVector ForwardVector = FVector::XAxisVector;
+    
+    // Рассчитываем смещение на основе ввода, скорости и времени
+    // PanInput.X (A/D) двигает по оси Y (вправо/влево)
+    // PanInput.Y (W/S) двигает по оси X (вперед/назад)
+    FVector PanDelta = (ForwardVector * PanInput.Y + RightVector * PanInput.X) * PanSpeed * DeltaSeconds;
+
+    // Применяем смещение и ограничиваем его максимальной дистанцией от начальной точки
+    CurrentPanOffset = (CurrentPanOffset + PanDelta).GetClampedToMaxSize(MaxPanDistance);
 }
 

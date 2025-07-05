@@ -39,6 +39,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Camera")
     void SwitchToPlayerPerspective(EPieceColor NewPerspective);
 
+    /** Добавляет смещение к камере для панорамирования. Вызывается из PlayerController. */
+    void AddCameraPanInput(FVector2D PanInput);
+
 protected:
     // Настройки камеры для перспективы белого игрока
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
@@ -52,11 +55,22 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (ClampMin = "0.1", UIMin = "0.1"))
     float CameraInterpolationSpeed = 5.0f;
 
+    // Скорость панорамирования камеры
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
+    float PanSpeed = 500.0f;
+
+    // Максимальное расстояние панорамирования от центральной точки
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera")
+    float MaxPanDistance = 1000.0f;
+
 private:
     // Целевые параметры камеры, к которым будет происходить интерполяция
     FVector TargetCameraLocation;
     FRotator TargetCameraRotation;
     float TargetCameraFOV;
+
+    // Текущее смещение камеры из-за панорамирования
+    FVector CurrentPanOffset;
 
     // Флаг, указывающий, нужно ли интерполировать камеру
     bool bShouldInterpolateCamera = false;

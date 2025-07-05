@@ -80,11 +80,17 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputAction* LookAction; // Для вращения камеры
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* MoveCameraAction; // Для перемещения камеры
+
     /** Handles the start of a click/drag. */
     void OnClickStarted();
 
     /** Handles camera look. */
     void HandleLook(const struct FInputActionValue& Value);
+
+    /** Handles camera movement. */
+    void HandleCameraMove(const struct FInputActionValue& Value);
 
     /** [SERVER] Attempts to move a piece. Called from client, runs on server. */
     UFUNCTION(Server, Reliable, WithValidation)
