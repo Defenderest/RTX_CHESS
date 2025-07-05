@@ -213,11 +213,10 @@ AChessGameMode* AChessPlayerController::GetChessGameMode() const
 
 void AChessPlayerController::SetInputModeForGame()
 {
-    FInputModeGameAndUI InputMode;
-    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-    InputMode.SetHideCursorDuringCapture(false);
+    FInputModeGameOnly InputMode;
     SetInputMode(InputMode);
-    bShowMouseCursor = true;
+    // Скрываем курсор мыши в игровом режиме, чтобы все движения напрямую управляли камерой.
+    bShowMouseCursor = false;
     bIsInputModeSetForGame = true;
 }
 
