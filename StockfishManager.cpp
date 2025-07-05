@@ -130,7 +130,8 @@ void UStockfishManager::LaunchStockfish()
         WritePipe = nullptr;
         return;
     }
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), FPlatformProcess::GetProcId(ProcessHandle));
+    const uint32 ProcessId = FPlatformProcess::GetProcId(ProcessHandle);
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
 
     // 4. Create and start the reader thread
     ReaderTask = new FStockfishReader(ReadPipe, this);
