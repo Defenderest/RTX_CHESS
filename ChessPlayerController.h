@@ -123,7 +123,7 @@ private:
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
     
-    void FindSessions();
+    void FindSessions(const FString& SessionName);
     void JoinSession(const FOnlineSessionSearchResult& SearchResult);
     // --- End Network Session Handling ---
 
