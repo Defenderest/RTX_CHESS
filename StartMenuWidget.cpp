@@ -11,6 +11,15 @@ void UStartMenuWidget::NativeConstruct()
     Super::NativeConstruct();
 
     GameLevelName = "Cigar_room";
+
+    // Альтернативный способ получения виджета: поиск по имени.
+    // Этот метод не требует привязки через "Is Variable" или BindWidget.
+    SessionNameInput = Cast<UEditableTextBox>(GetWidgetFromName(TEXT("SessionNameInput")));
+    if (!SessionNameInput)
+    {
+        // Это не критическая ошибка, а предупреждение для разработчика.
+        UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти EditableTextBox с именем 'SessionNameInput'. Убедитесь, что виджет с таким именем существует на панели OnlineMenuPanel."));
+    }
 }
 
 void UStartMenuWidget::OnStartPlayerVsPlayerClicked()

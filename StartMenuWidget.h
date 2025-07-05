@@ -74,13 +74,13 @@ protected:
      *  3. В поле для имени переменной введите `OnlineMenuPanel`.
      *  4. Нажмите Enter. Теперь эта панель привязана к переменной C++ `OnlineMenuPanel`.
      *
-     *  --- ШАГ 3: Создание поля для ввода имени сессии ---
+     *  --- ШАГ 3: Создание поля для ввода имени сессии (НОВЫЙ МЕТОД) ---
      *  1. В панели "Palette" найдите `Editable Text Box` и перетащите его на вашу `OnlineMenuPanel_Canvas`.
      *  2. Разместите его в удобном месте. На панели "Details" можно задать текст по умолчанию в разделе "Content" -> "Text". Например, "Название комнаты".
      *  3. Выделите этот `Editable Text Box`.
-     *  4. На панели "Details" установите галочку "Is Variable".
-     *  5. В поле для имени переменной введите `SessionNameInput`.
-     *  6. Нажмите Enter. Теперь поле ввода привязано к переменной C++ `SessionNameInput`.
+     *  4. На панели "Details" (в самом верху) найдите поле для имени виджета.
+     *  5. Введите в это поле точное имя `SessionNameInput` и нажмите Enter.
+     *  6. Галочку "Is Variable" ставить НЕ НУЖНО. Поиск виджета произойдет автоматически по этому имени.
      *
      *  --- ШАГ 4: Создание кнопок ---
      *  Для каждой кнопки выполните следующие действия:
@@ -108,8 +108,7 @@ protected:
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UPanelWidget> OnlineMenuPanel;
 
-    /** Поле для ввода имени комнаты. */
-    UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+    /** Поле для ввода имени комнаты. Находится в NativeConstruct по имени. */
     TObjectPtr<UEditableTextBox> SessionNameInput;
 
     UPROPERTY(meta = (BindWidget))
