@@ -579,9 +579,10 @@ void AChessPlayerController::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20;
-    SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals); // Искать presence-сессии
+    // Мы больше не добавляем никаких фильтров в поиск. Ищем ВСЕ LAN сессии.
+    // Фильтрация по имени комнаты будет происходить на клиенте в OnFindSessionsComplete.
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d"), SessionSearch->bIsLanQuery);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. No query filters."), SessionSearch->bIsLanQuery);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
@@ -611,7 +612,7 @@ void AChessPlayerController::CreateSession(const FString& SessionName)
     SessionSettings->bIsLANMatch = true;
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = true; // Важно для поиска через SEARCH_PRESENCE
+    SessionSettings->bUsesPresence = false; // Для LAN-игр это не требуется и может вызывать проблемы
     SessionSettings->bAllowJoinInProgress = true;
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
