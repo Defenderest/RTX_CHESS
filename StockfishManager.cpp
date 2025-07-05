@@ -127,8 +127,8 @@ void UStockfishManager::LaunchStockfish()
         *StockfishPath,
         nullptr, // No parameters
         false,   // bLaunchDetached
-        false,   // bLaunchHidden
-        true,    // bLaunchReallyHidden -> this should hide the window
+        false,   // bLaunchHidden (set to false to see console for debugging)
+        false,   // bLaunchReallyHidden (set to false)
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory

@@ -237,7 +237,7 @@ AChessGameState* AChessGameMode::GetCurrentGameState() const
 
 UStockfishManager* AChessGameMode::GetStockfishManager() const
 {
-    return StockfishManager;
+    return StockfishManager.Get();
 }
 
 EGameModeType AChessGameMode::GetCurrentGameModeType() const
