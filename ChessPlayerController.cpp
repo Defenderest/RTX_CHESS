@@ -19,6 +19,7 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
+#include "GameFramework/PlayerState.h"
 
 AChessPlayerController::AChessPlayerController()
 {
@@ -149,6 +150,13 @@ void AChessPlayerController::Tick(float DeltaTime)
 
         FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
         GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
+
+        if (!CurrentLobbyName.IsEmpty())
+        {
+            const FString PlayerName = PlayerState ? PlayerState->GetPlayerName() : TEXT("Loading...");
+            const FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+            GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::Cyan, FString::Printf(TEXT("Lobby: %s  |  Player: %s  |  Color: %s"), *CurrentLobbyName, *PlayerName, *MyColorStr));
+        }
 
         // --- Stockfish Debug Info ---
         AChessGameMode* GameMode = GetChessGameMode();
@@ -607,6 +615,7 @@ void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWa
     UE_LOG(LogTemp, Log, TEXT("[HostSession] OnCreateSessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
     if (bWasSuccessful)
     {
+        CurrentLobbyName = SessionNameToCreate;
         UE_LOG(LogTemp, Log, TEXT("[HostSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
         const FString URL = LevelNameToHost.ToString() + TEXT("?listen");
         GetWorld()->ServerTravel(URL, true);
@@ -679,6 +688,7 @@ void AChessPlayerController::OnJoinSessionComplete(FName SessionName, EOnJoinSes
 
     if (Result == EOnJoinSessionCompleteResult::Success && SessionInterface.IsValid())
     {
+        CurrentLobbyName = SessionNameToFind;
         FString ConnectString;
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {

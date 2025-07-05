@@ -116,6 +116,7 @@ protected:
 
 private:
     // --- Network Session Handling ---
+    FString CurrentLobbyName;
     FName LevelNameToHost;
     FString SessionNameToFind;
     FString SessionNameToCreate;
