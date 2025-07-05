@@ -186,23 +186,31 @@ void AChessPlayerController::ShowStartMenu()
 
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
-    const FVector2D LookAxisVector = Value.Get<FVector2D>();
-    
-    // Получаем Camera Manager и вызываем его функцию вращения
-    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    // Вращаем камеру, только если зажата правая кнопка мыши
+    if (IsInputKeyDown(EKeys::RightMouseButton))
     {
-        CamManager->AddCameraRotationInput(LookAxisVector);
+        const FVector2D LookAxisVector = Value.Get<FVector2D>();
+    
+        // Получаем Camera Manager и вызываем его функцию вращения
+        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+        {
+            CamManager->AddCameraRotationInput(LookAxisVector);
+        }
     }
 }
 
 void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 {
-    const FVector2D MoveVector = Value.Get<FVector2D>();
-    
-    // Получаем Camera Manager и вызываем его функцию вращения
-    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    // Вращаем камеру, только если зажата правая кнопка мыши
+    if (IsInputKeyDown(EKeys::RightMouseButton))
     {
-        CamManager->AddCameraRotationInput(MoveVector);
+        const FVector2D MoveVector = Value.Get<FVector2D>();
+    
+        // Получаем Camera Manager и вызываем его функцию вращения
+        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+        {
+            CamManager->AddCameraRotationInput(MoveVector);
+        }
     }
 }
 
@@ -213,10 +221,11 @@ AChessGameMode* AChessPlayerController::GetChessGameMode() const
 
 void AChessPlayerController::SetInputModeForGame()
 {
-    FInputModeGameOnly InputMode;
+    FInputModeGameAndUI InputMode;
+    InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    InputMode.SetHideCursorDuringCapture(false);
     SetInputMode(InputMode);
-    // Скрываем курсор мыши в игровом режиме, чтобы все движения напрямую управляли камерой.
-    bShowMouseCursor = false;
+    bShowMouseCursor = true;
     bIsInputModeSetForGame = true;
 }
 
