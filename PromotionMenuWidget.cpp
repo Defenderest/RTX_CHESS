@@ -1,4 +1,4 @@
-#include "UI/PromotionMenuWidget.h"
+#include "PromotionMenuWidget.h"
 
 void UPromotionMenuWidget::OnQueenSelected()
 {
