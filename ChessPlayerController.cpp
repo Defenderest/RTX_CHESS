@@ -536,10 +536,11 @@ void AChessPlayerController::FindAndJoinSession(const FString& SessionName)
     {
         return;
     }
-    FindSessions(SessionName);
+    SessionNameToFind = SessionName;
+    FindSessions();
 }
 
-void AChessPlayerController::FindSessions(const FString& SessionName)
+void AChessPlayerController::FindSessions()
 {
     if (!SessionInterface.IsValid())
     {
@@ -549,12 +550,12 @@ void AChessPlayerController::FindSessions(const FString& SessionName)
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 10;
-    // Ищем по нашему кастомному свойству с именем комнаты
-    SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineComparisonOp::Equals);
+    // Мы больше не фильтруем поиск здесь, а получаем все LAN сессии.
+    // Фильтрация будет происходить в коллбэке OnFindSessionsComplete.
 
     SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
-    UE_LOG(LogTemp, Log, TEXT("Finding LAN sessions with name: %s"), *SessionName);
+    UE_LOG(LogTemp, Log, TEXT("Finding all LAN sessions..."));
     SessionInterface->FindSessions(*GetLocalPlayer()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
 }
 
@@ -590,12 +591,26 @@ void AChessPlayerController::OnFindSessionsComplete(bool bWasSuccessful)
     {
         if (SessionSearch->SearchResults.Num() > 0)
         {
-            UE_LOG(LogTemp, Log, TEXT("Found %d sessions. Joining the first one."), SessionSearch->SearchResults.Num());
-            JoinSession(SessionSearch->SearchResults[0]);
+            // Перебираем все найденные сессии, чтобы найти ту, которая соответствует нашему имени комнаты
+            for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
+            {
+                FString RoomName;
+                if (SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName))
+                {
+                    if (RoomName == SessionNameToFind)
+                    {
+                        UE_LOG(LogTemp, Log, TEXT("Found matching session: '%s'. Joining..."), *RoomName);
+                        JoinSession(SearchResult);
+                        return; // Сессия найдена и мы к ней присоединяемся, выходим из функции
+                    }
+                }
+            }
+            // Если цикл завершился, сессия с нужным именем не найдена
+            UE_LOG(LogTemp, Warning, TEXT("Found %d sessions, but none matched the name '%s'."), SessionSearch->SearchResults.Num(), *SessionNameToFind);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("Could not find any sessions to join."));
+            UE_LOG(LogTemp, Warning, TEXT("Could not find any LAN sessions."));
         }
     }
     else

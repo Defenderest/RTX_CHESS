@@ -115,6 +115,7 @@ protected:
 private:
     // --- Network Session Handling ---
     FName LevelNameToHost;
+    FString SessionNameToFind;
 
     IOnlineSessionPtr SessionInterface;
     TSharedPtr<FOnlineSessionSearch> SessionSearch;
@@ -123,7 +124,7 @@ private:
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
     
-    void FindSessions(const FString& SessionName);
+    void FindSessions();
     void JoinSession(const FOnlineSessionSearchResult& SearchResult);
     // --- End Network Session Handling ---
 
