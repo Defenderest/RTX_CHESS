@@ -122,7 +122,7 @@ void UStockfishManager::LaunchStockfish()
     // 3. Launch the process
     // We pass the ends of the pipes that the child process will use.
     uint32 ProcessId = 0;
-    // The first pipe argument becomes the process's STDIN, the second becomes its STDOUT.
+    // FPlatformProcess::CreateProc expects: (..., PipeWrite (stdout), PipeRead (stdin), ...)
     ProcessHandle = FPlatformProcess::CreateProc(
         *StockfishPath,
         nullptr, // No parameters
@@ -132,8 +132,8 @@ void UStockfishManager::LaunchStockfish()
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory
-        PipeToStockfish_Read,     // This becomes the child process's STDIN
-        PipeFromStockfish_Write // This becomes the child process's STDOUT
+        PipeFromStockfish_Write, // Child process's STDOUT is the WRITE end of our "from stockfish" pipe
+        PipeToStockfish_Read     // Child process's STDIN is the READ end of our "to stockfish" pipe
     );
 
     if (!ProcessHandle.IsValid())
