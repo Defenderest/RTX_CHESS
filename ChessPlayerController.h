@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "ChessPiece.h" // Включаем для доступа к EPieceColor
 #include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #include "ChessPlayerController.generated.h"
 
 // Forward declarations
@@ -118,14 +119,14 @@ protected:
 private:
     // --- Network Session Handling ---
     IOnlineSessionPtr SessionInterface;
-    TSharedPtr<class FOnlineSessionSearch> SessionSearch;
+    TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
     FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
     
     void FindSessions();
-    void JoinSession(const struct FOnlineSessionSearchResult& SearchResult);
+    void JoinSession(const FOnlineSessionSearchResult& SearchResult);
     // --- End Network Session Handling ---
 
     UPROPERTY()

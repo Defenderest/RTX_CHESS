@@ -521,7 +521,7 @@ void AChessPlayerController::HostSession()
     SessionSettings->bAllowJoinInProgress = true;
 
     UE_LOG(LogTemp, Log, TEXT("Creating LAN session..."));
-    SessionInterface->CreateSession(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
+    SessionInterface->CreateSession(*GetLocalPlayer()->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
 }
 
 void AChessPlayerController::FindAndJoinSession()
@@ -540,12 +540,11 @@ void AChessPlayerController::FindSessions()
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 10;
     // Ищем любые сессии, не используя специфичные ключевые слова
-    SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, FString(), EOnlineComparisonOp::NotEquals);
 
     SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 
     UE_LOG(LogTemp, Log, TEXT("Finding LAN sessions..."));
-    SessionInterface->FindSessions(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
+    SessionInterface->FindSessions(*GetLocalPlayer()->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
 }
 
 void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& SearchResult)
@@ -556,7 +555,7 @@ void AChessPlayerController::JoinSession(const FOnlineSessionSearchResult& Searc
     }
     SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
     UE_LOG(LogTemp, Log, TEXT("Joining session..."));
-    SessionInterface->JoinSession(*GetFirstLocalPlayerFromController()->GetPreferredUniqueNetId(), NAME_GameSession, SearchResult);
+    SessionInterface->JoinSession(*GetLocalPlayer()->GetPreferredUniqueNetId(), NAME_GameSession, SearchResult);
 }
 
 
@@ -601,7 +600,7 @@ void AChessPlayerController::OnJoinSessionComplete(FName SessionName, EOnJoinSes
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {
             UE_LOG(LogTemp, Log, TEXT("Successfully joined session '%s'. Traveling to: %s"), *SessionName.ToString(), *ConnectString);
-            ClientTravel(ConnectString, ETravelType::TT_Absolute);
+            ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
         }
         else
         {
