@@ -637,6 +637,11 @@ void AChessPlayerController::OnCreateSessionComplete(FName SessionName, bool bWa
     {
         UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to create session."));
     }
+
+    if (SessionInterface.IsValid())
+    {
+        SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+    }
 }
 
 void AChessPlayerController::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
