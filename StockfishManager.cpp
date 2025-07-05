@@ -108,13 +108,14 @@ void UStockfishManager::LaunchStockfish()
 
     // 3. Launch the process
     // We pass an empty string for parameters. Use CREATE_NO_WINDOW to hide the console.
+    uint32 ProcessId = 0;
     ProcessHandle = FPlatformProcess::CreateProc(
         *StockfishPath,
         nullptr, // No parameters
         false,   // bLaunchDetached
         false,   // bLaunchHidden
         true,    // bLaunchReallyHidden -> this should hide the window
-        nullptr, // OutProcessID
+        &ProcessId, // OutProcessID
         0,       // PriorityModifier
         nullptr, // OptionalWorkingDirectory
         WritePipe, // PipeWrite
@@ -130,7 +131,6 @@ void UStockfishManager::LaunchStockfish()
         WritePipe = nullptr;
         return;
     }
-    const uint32 ProcessId = FPlatformProcess::GetProcId(ProcessHandle);
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
 
     // 4. Create and start the reader thread
