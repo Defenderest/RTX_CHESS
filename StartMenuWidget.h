@@ -6,6 +6,7 @@
 class UWidgetSwitcher;
 class UPanelWidget;
 class USlider;
+class UEditableTextBox;
 
 UCLASS()
 class RTX_CHESS_API UStartMenuWidget : public UUserWidget
@@ -108,8 +109,8 @@ protected:
     TObjectPtr<UPanelWidget> OnlineMenuPanel;
 
     /** Поле для ввода имени комнаты. */
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<class UEditableTextBox> SessionNameInput;
+    UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+    TObjectPtr<UEditableTextBox> SessionNameInput;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<USlider> SkillLevelSlider;
