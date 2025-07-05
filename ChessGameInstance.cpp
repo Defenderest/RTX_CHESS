@@ -4,6 +4,22 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 
+// Helper function to convert EOnJoinSessionCompleteResult::Type to FString
+FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
+{
+    switch (Result)
+    {
+    case EOnJoinSessionCompleteResult::Success: return TEXT("Success");
+    case EOnJoinSessionCompleteResult::SessionIsFull: return TEXT("Session is full");
+    case EOnJoinSessionCompleteResult::SessionDoesNotExist: return TEXT("Session does not exist");
+    case EOnJoinSessionCompleteResult::CouldNotRetrieveAddress: return TEXT("Could not retrieve address");
+    case EOnJoinSessionCompleteResult::AlreadyInSession: return TEXT("Already in session");
+    case EOnJoinSessionCompleteResult::UnknownError:
+    default:
+        return TEXT("Unknown error");
+    }
+}
+
 const int32 UChessGameInstance::MAX_FIND_SESSION_RETRIES;
 
 UChessGameInstance::UChessGameInstance()
@@ -14,16 +30,27 @@ UChessGameInstance::UChessGameInstance()
 void UChessGameInstance::Init()
 {
 	Super::Init();
-	if (IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get())
+	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+	if (Subsystem)
 	{
+		UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
 		SessionInterface = Subsystem->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
+			UE_LOG(LogTemp, Log, TEXT("[Init] SessionInterface is valid. Binding delegates."));
 			OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnCreateSessionComplete);
 			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
 			OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
 			OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
 		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get SessionInterface from Subsystem: %s"), *Subsystem->GetSubsystemName().ToString());
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get OnlineSubsystem. Online functionality will be disabled."));
 	}
 }
 
@@ -215,7 +242,7 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
                 FString RoomName;
                 if (SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName))
                 {
-                    UE_LOG(LogTemp, Log, TEXT("[HostSession] Checking session with RoomName: '%s' against desired '%s'"), *RoomName, *SessionNameToFind);
+                    UE_LOG(LogTemp, Log, TEXT("[HostSession] Checking session: RoomName='%s' (desired: '%s'), Owner='%s', Ping=%dms"), *RoomName, *SessionNameToFind, *SearchResult.Session.OwningUserName, SearchResult.PingInMs);
                     if (RoomName == SessionNameToFind)
                     {
                         UE_LOG(LogTemp, Log, TEXT("[HostSession] !!! Found matching session: '%s'. Joining..."), *RoomName);
@@ -227,7 +254,7 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("[HostSession] Found a session without ROOM_NAME_KEY. Owner: %s"), *SearchResult.GetSessionIdStr());
+                    UE_LOG(LogTemp, Warning, TEXT("[HostSession] Found a session without ROOM_NAME_KEY. Owner: %s, Ping=%dms"), *SearchResult.GetSessionIdStr(), SearchResult.PingInMs);
                 }
             }
         }
@@ -260,7 +287,7 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 
 void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnJoinSessionComplete called. SessionName: %s, Result: %d"), *SessionName.ToString(), static_cast<int32>(Result));
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnJoinSessionComplete called. SessionName: %s, Result: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
 
     if (Result == EOnJoinSessionCompleteResult::Success && SessionInterface.IsValid())
     {
@@ -281,7 +308,7 @@ void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Error code: %d"), *SessionName.ToString(), static_cast<int32>(Result));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Reason: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
     }
     
     if (SessionInterface.IsValid())
