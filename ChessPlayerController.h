@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "ChessPiece.h" // Включаем для доступа к EPieceColor
