@@ -76,7 +76,7 @@ protected:
     // Теперь AChessPlayerController отслеживает выбранную фигуру для операции drag-and-drop.
 
     UPROPERTY()
-    UStockfishManager* StockfishManager;
+    TObjectPtr<UStockfishManager> StockfishManager;
 
     EGameModeType CurrentGameMode;
 
