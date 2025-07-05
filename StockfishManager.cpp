@@ -129,8 +129,8 @@ void UStockfishManager::LaunchStockfish()
         *StockfishPath,
         nullptr, // No parameters
         false,   // bLaunchDetached
-        true,    // bLaunchHidden
-        true,    // bLaunchReallyHidden
+        false,   // bLaunchHidden (set to false to see console for debugging)
+        false,   // bLaunchReallyHidden (set to false to see console for debugging)
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         *StockfishDir, // OptionalWorkingDirectory
@@ -157,6 +157,17 @@ void UStockfishManager::LaunchStockfish()
     PipeFromStockfish_Write = nullptr;
 
     UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Stockfish process launched successfully. PID: %u"), ProcessId);
+
+    // Add a small delay and check if the process is still running. This helps diagnose immediate crashes.
+    FPlatformProcess::Sleep(0.2f);
+    if (!FPlatformProcess::IsProcRunning(ProcessHandle))
+    {
+        uint32 ReturnCode;
+        FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode);
+        UE_LOG(LogTemp, Error, TEXT("Stockfish process terminated immediately after launch! Exit Code: %u. This usually means it could not find its required data files (e.g., .nnue files). Check working directory and file permissions."), ReturnCode);
+        Shutdown();
+        return;
+    }
 
     // 4. Create and start the reader thread to read from Stockfish's stdout
     ReaderTask = new FStockfishReader(PipeFromStockfish_Read, this);
