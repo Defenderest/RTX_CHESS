@@ -21,8 +21,6 @@
 #include "OnlineSessionSettings.h"
 #include "GameFramework/PlayerState.h"
 
-const int32 AChessPlayerController::MAX_FIND_SESSION_RETRIES;
-
 AChessPlayerController::AChessPlayerController()
 {
     bAutoManageActiveCameraTarget = false;

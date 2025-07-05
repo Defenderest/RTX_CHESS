@@ -109,6 +109,7 @@ protected:
     TObjectPtr<UPanelWidget> OnlineMenuPanel;
 
     /** Поле для ввода имени комнаты. Находится в NativeConstruct по имени. */
+    UPROPERTY()
     TObjectPtr<UEditableTextBox> SessionNameInput;
 
     UPROPERTY(meta = (BindWidget))
