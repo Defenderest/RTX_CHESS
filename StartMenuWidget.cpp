@@ -128,12 +128,9 @@ void UStartMenuWidget::HideMenu()
 {
     this->RemoveFromParent();
 
-    if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
     {
-        PlayerController->bShowMouseCursor = true; // Показываем курсор
-        FInputModeGameAndUI InputMode;
-        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock); // Не блокировать мышь в окне
-        InputMode.SetHideCursorDuringCapture(false); // Не прятать курсор при вращении камеры
-        PlayerController->SetInputMode(InputMode);
+        PlayerController->SetInputModeForGame();
+        PlayerController->bShowMouseCursor = true;
     }
 }
