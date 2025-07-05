@@ -181,7 +181,42 @@ void AChessGameMode::HandleBotMoveReceived(const FString& BestMove)
         AChessPiece* PieceToMove = CurrentGS->GetPieceAtGridPosition(StartPos);
         if (PieceToMove)
         {
-            AttemptMove(PieceToMove, EndPos, nullptr);
+            // Attempt the move. For a pawn promotion, this will return true and set the state to AwaitingPromotion.
+            const bool bMoveSuccessful = AttemptMove(PieceToMove, EndPos, nullptr);
+
+            // If the move was a promotion, we need to complete it immediately for the bot.
+            if (bMoveSuccessful && CurrentGS->GetGamePhase() == EGamePhase::AwaitingPromotion)
+            {
+                APawnPiece* PawnToPromote = CurrentGS->GetPawnToPromote();
+                // Ensure the pawn is the one we think it is.
+                if (PawnToPromote && PawnToPromote == PieceToMove)
+                {
+                    EPieceType PromoteToType = EPieceType::Queen; // Default to Queen
+                    if (BestMove.Len() == 5)
+                    {
+                        const TCHAR PromoteChar = FChar::ToLower(BestMove[4]);
+                        switch (PromoteChar)
+                        {
+                            case 'q': PromoteToType = EPieceType::Queen; break;
+                            case 'r': PromoteToType = EPieceType::Rook; break;
+                            case 'b': PromoteToType = EPieceType::Bishop; break;
+                            case 'n': PromoteToType = EPieceType::Knight; break;
+                            default: UE_LOG(LogTemp, Warning, TEXT("Invalid promotion character in move '%s'. Defaulting to Queen."), *BestMove);
+                        }
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning, TEXT("Pawn promotion detected, but move string '%s' does not specify piece. Defaulting to Queen."), *BestMove);
+                    }
+
+                    UE_LOG(LogTemp, Log, TEXT("ChessGameMode: Bot is promoting pawn to %s."), *UEnum::GetValueAsString(PromoteToType));
+                    CompletePawnPromotion(PawnToPromote, PromoteToType);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Error, TEXT("ChessGameMode: Mismatch in pawn promotion state. Bot move will likely fail."));
+                }
+            }
         }
         else
         {
