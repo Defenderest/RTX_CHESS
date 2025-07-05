@@ -93,10 +93,11 @@ void UStockfishManager::LaunchStockfish()
 
     // 1. Define the path to the executable and its directory
     // Note: The user mentioned Content/Binaries, but Binaries/Win64 is the standard location for packaged executables.
-    const FString StockfishPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe"));
+    const FString StockfishPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/Win64/stockfish.exe")));
     const FString StockfishDir = FPaths::GetPath(StockfishPath);
     
-    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Checking for executable at: %s"), *StockfishPath);
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Using absolute executable path: %s"), *StockfishPath);
+    UE_LOG(LogTemp, Log, TEXT("UStockfishManager::LaunchStockfish: Setting working directory to: %s"), *StockfishDir);
     if (!FPaths::FileExists(StockfishPath))
     {
         UE_LOG(LogTemp, Error, TEXT("UStockfishManager::LaunchStockfish: stockfish.exe not found at path: %s. Please ensure it is present."), *StockfishPath);
@@ -128,8 +129,8 @@ void UStockfishManager::LaunchStockfish()
         *StockfishPath,
         nullptr, // No parameters
         false,   // bLaunchDetached
-        false,   // bLaunchHidden (set to false to see console for debugging)
-        false,   // bLaunchReallyHidden (set to false)
+        true,    // bLaunchHidden
+        true,    // bLaunchReallyHidden
         &ProcessId, // OutProcessID
         0,       // PriorityModifier
         *StockfishDir, // OptionalWorkingDirectory
