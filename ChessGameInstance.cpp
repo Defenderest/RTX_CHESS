@@ -141,8 +141,9 @@ void UChessGameInstance::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20;
+    SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, false, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. SEARCH_PRESENCE=false."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 	UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle bound."));
@@ -194,6 +195,7 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
     SessionSettings->bUsesPresence = false;
+    SessionSettings->bUseLobbiesIfAvailable = false;
     SessionSettings->bAllowJoinInProgress = true;
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
     UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
