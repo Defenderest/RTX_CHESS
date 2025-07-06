@@ -174,7 +174,7 @@ void AChessPlayerController::SetCamera()
 
 void AChessPlayerController::ShowStartMenu()
 {
-    if (StartMenuWidgetClass)
+    if (IsLocalController() && StartMenuWidgetClass)
     {
         if (!StartMenuWidgetInstance)
         {

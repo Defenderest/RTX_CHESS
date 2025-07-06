@@ -1,7 +1,9 @@
 #include "GameCameraActor.h"
+#include "Net/UnrealNetwork.h"
 
 AGameCameraActor::AGameCameraActor()
 {
+    bReplicates = true;
     // Конструктор теперь пуст, так как настройки задаются через ссылки на акторы.
 }
 
@@ -33,4 +35,11 @@ float AGameCameraActor::GetMinPitchOffset() const
 float AGameCameraActor::GetMaxPitchOffset() const
 {
     return MaxPitchOffset;
+}
+
+void AGameCameraActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AGameCameraActor, WhitePerspectiveActor);
+    DOREPLIFETIME(AGameCameraActor, BlackPerspectiveActor);
 }

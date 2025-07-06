@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Camera/CameraActor.h"
 #include "ChessPiece.h" // Для EPieceColor
+#include "Net/UnrealNetwork.h"
 #include "GameCameraActor.generated.h"
 
 /**
@@ -26,11 +27,13 @@ public:
     float GetMaxPitchOffset() const;
 
 protected:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
     /**
      * Actor, чье положение и поворот будут использоваться для камеры белого игрока.
      * Вы можете использовать пустой Actor (Empty Actor) или Target Point.
      */
-    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Chess Camera|Perspectives")
+    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Replicated, Category = "Chess Camera|Perspectives")
     AActor* WhitePerspectiveActor;
 
     /** Поле зрения (FOV) для камеры белого игрока. */
@@ -41,7 +44,7 @@ protected:
      * Actor, чье положение и поворот будут использоваться для камеры черного игрока.
      * Вы можете использовать пустой Actor (Empty Actor) или Target Point.
      */
-    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Chess Camera|Perspectives")
+    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Replicated, Category = "Chess Camera|Perspectives")
     AActor* BlackPerspectiveActor;
 
     /** Поле зрения (FOV) для камеры черного игрока. */
