@@ -332,15 +332,6 @@ void AChessGameMode::EndTurn()
         CurrentGS->Server_SwitchTurn();
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Turn ended. Now %s's turn."), (CurrentGS->GetCurrentTurnColor() == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         
-        // Переключаем камеру на перспективу текущего игрока
-        if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-        {
-            if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PC->PlayerCameraManager))
-            {
-                CamManager->SwitchToPlayerPerspective(CurrentGS->GetCurrentTurnColor());
-            }
-        }
-
         CheckGameEndConditions();
 
         if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)

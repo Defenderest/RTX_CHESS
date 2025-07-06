@@ -42,8 +42,15 @@ AChessPiece::AChessPiece()
 void AChessPiece::BeginPlay()
 {
     Super::BeginPlay();
-    // Отладочный лог был перенесен в GameMode для большей точности,
-    // так как BeginPlay может вызываться до полной инициализации фигуры.
+
+    // Мы должны установить материал на клиенте при его создании.
+    // OnRep_PieceProperties не гарантирует срабатывание для фигур,
+    // чей цвет совпадает со значением по умолчанию (белый).
+    // BeginPlay на клиенте вызывается после получения начальных реплицируемых свойств.
+    if (GetNetMode() == NM_Client)
+    {
+        SetupMaterial();
+    }
 }
 
 void AChessPiece::Tick(float DeltaTime)
