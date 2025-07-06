@@ -96,35 +96,34 @@ void UStartMenuWidget::OnHostGameClicked()
 {
     if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
     {
-        if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
-        {
-            const FString SessionName = SessionNameInput->GetText().ToString();
-            HideMenu();
-            GameInstance->HostSession(SessionName, GameLevelName);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Session name is empty. Cannot host game."));
-            // При желании можно показать пользователю сообщение в UI
-        }
+        // Имя сессии жестко закодировано, так как поле ввода теперь используется для IP-адреса клиента.
+        const FString SessionName = TEXT("ChessGameSession");
+        HideMenu();
+        GameInstance->HostSession(SessionName, GameLevelName);
     }
 }
 
 void UStartMenuWidget::OnJoinGameClicked()
 {
-    if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
+    if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
     {
-        if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
+        const FString IpAddress = SessionNameInput->GetText().ToString();
+        HideMenu();
+
+        if (APlayerController* PlayerController = GetOwningPlayer())
         {
-            const FString SessionName = SessionNameInput->GetText().ToString();
-            HideMenu();
-            GameInstance->FindAndJoinSession(SessionName);
+            UE_LOG(LogTemp, Log, TEXT("Attempting to join game by IP: %s"), *IpAddress);
+            PlayerController->ClientTravel(IpAddress, ETravelType::TRAVEL_Absolute);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("Session name is empty. Cannot join game."));
-            // При желании можно показать пользователю сообщение в UI
+             UE_LOG(LogTemp, Error, TEXT("Could not get PlayerController to join by IP."));
         }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("IP address field is empty. Cannot join game."));
+        // При желании можно показать пользователю сообщение в UI
     }
 }
 
