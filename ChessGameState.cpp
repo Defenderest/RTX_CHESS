@@ -399,19 +399,13 @@ FString AChessGameState::GetFEN() const
     FString FEN = "";
     const int32 BoardSize = 8; // FEN стандартно для доски 8x8
 
-    AChessBoard* Board = GetWorld() ? Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass())) : nullptr;
-    if (!Board)
-    {
-        UE_LOG(LogTemp, Error, TEXT("AChessGameState::GetFEN: AChessBoard actor not found. Cannot generate FEN."));
-        return "";
-    }
-
+    // The FEN string must be generated from the authoritative game state, not the visual board.
     for (int32 y = BoardSize - 1; y >= 0; --y)
     {
         int32 emptySquares = 0;
         for (int32 x = 0; x < BoardSize; ++x)
         {
-            AChessPiece* piece = Board->GetPieceAtGridPosition(FIntPoint(x, y));
+            AChessPiece* piece = GetPieceAtGridPosition(FIntPoint(x, y));
             if (piece)
             {
                 if (emptySquares > 0)
