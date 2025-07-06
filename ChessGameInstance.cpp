@@ -32,7 +32,7 @@ UChessGameInstance::UChessGameInstance()
 void UChessGameInstance::Init()
 {
 	Super::Init();
-	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get("Photon");
+	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
 	if (Subsystem)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
@@ -52,7 +52,7 @@ void UChessGameInstance::Init()
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get Photon OnlineSubsystem. Online functionality will be disabled."));
+		UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get OnlineSubsystem. Online functionality will be disabled."));
 	}
 }
 
@@ -148,11 +148,11 @@ void UChessGameInstance::FindSessions()
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] --- Starting session search (Attempt %d/%d) ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
 
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
-    SessionSearch->bIsLanQuery = false; // This is NOT a LAN game
+    SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 1; // We are looking for a specific session
-    SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, SessionNameToFind, EOnlineComparisonOp::Equals);
+    SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionNameToFind, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for keyword='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for ROOM_NAME_KEY='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnFindSessionsComplete delegate handle bound."));
@@ -200,14 +200,14 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
     OnCreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 
     TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-    SessionSettings->bIsLANMatch = false;
+    SessionSettings->bIsLANMatch = true;
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
     SessionSettings->bUsesPresence = false;
     SessionSettings->bUseLobbiesIfAvailable = false;
     SessionSettings->bAllowJoinInProgress = true;
-    SessionSettings->Set(SEARCH_KEYWORDS, SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
-    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured. SEARCH_KEYWORDS = %s"), *SessionName);
+    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
 	
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if(LocalPlayer)
@@ -277,10 +277,11 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
         bool bFoundMatch = false;
         if (SessionSearch->SearchResults.Num() > 0)
         {
-            // We only care about the first result for this simple implementation
             const FOnlineSessionSearchResult& SearchResult = SessionSearch->SearchResults[0];
+            FString RoomName;
+            SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName);
             
-            UE_LOG(LogTemp, Log, TEXT("[NetworkSession] >>> Found a matching session! Owner: '%s'. Joining..."), *SearchResult.Session.OwningUserName);
+            UE_LOG(LogTemp, Log, TEXT("[NetworkSession] >>> Found a matching session via query! RoomName: '%s', Owner: '%s'. Joining..."), *RoomName, *SearchResult.Session.OwningUserName);
             
             bIsFindingSessions = false; // Search process is complete.
             GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
