@@ -1,4 +1,28 @@
 #include "PromotionMenuWidget.h"
+#include "RotatingPieceWidget.h"
+
+void UPromotionMenuWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	// Initialize all our display widgets with the correct meshes and materials.
+	if (QueenDisplayWidget)
+	{
+		QueenDisplayWidget->InitializePiece(QueenMesh, PieceMaterial);
+	}
+	if (RookDisplayWidget)
+	{
+		RookDisplayWidget->InitializePiece(RookMesh, PieceMaterial);
+	}
+	if (BishopDisplayWidget)
+	{
+		BishopDisplayWidget->InitializePiece(BishopMesh, PieceMaterial);
+	}
+	if (KnightDisplayWidget)
+	{
+		KnightDisplayWidget->InitializePiece(KnightMesh, PieceMaterial);
+	}
+}
 
 void UPromotionMenuWidget::OnQueenSelected()
 {
