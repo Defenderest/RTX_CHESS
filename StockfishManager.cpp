@@ -19,20 +19,28 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
 		return;
 	}
 
-	// The API documentation states depth should be < 16. We'll clamp it to be safe.
-	const int32 ClampedDepth = FMath::Clamp(Depth, 1, 15);
-	
-	FString URL = FString::Printf(TEXT("%s?fen=%s&depth=%d"), *ApiEndpoint, *FGenericPlatformHttp::UrlEncode(FEN), ClampedDepth);
-	
-	UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending request to URL: %s"), *URL);
+	// According to the API docs, depth max is 18. Clamp it to be safe.
+	const int32 ClampedDepth = FMath::Clamp(Depth, 1, 18);
+
+	// Create JSON request body
+	TSharedPtr<FJsonObject> RequestJson = MakeShareable(new FJsonObject);
+	RequestJson->SetStringField(TEXT("fen"), FEN);
+	RequestJson->SetNumberField(TEXT("depth"), ClampedDepth);
+
+	FString RequestBody;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+	FJsonSerializer::Serialize(RequestJson.ToSharedRef(), Writer);
+
+	UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending POST request to URL: %s with body: %s"), *ApiEndpoint, *RequestBody);
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
-	Request->SetURL(URL);
-	Request->SetVerb(TEXT("GET"));
+	Request->SetURL(ApiEndpoint);
+	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("User-Agent"), TEXT("X-UnrealEngine-Agent"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	Request->SetContentAsString(RequestBody);
 	Request->OnProcessRequestComplete().BindUObject(this, &UStockfishManager::OnBestMoveResponseReceived);
-	
+
 	if (!Request->ProcessRequest())
 	{
 		UE_LOG(LogTemp, Error, TEXT("StockfishManager::RequestBestMove: Failed to start HTTP request."));
@@ -43,65 +51,47 @@ void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHtt
 {
 	if (!bWasSuccessful || !Response.IsValid())
 	{
-		UE_LOG(LogTemp, Error, TEXT("Stockfish API request failed or response was invalid."));
+		UE_LOG(LogTemp, Error, TEXT("Chess-API request failed or response was invalid."));
 		return;
 	}
 
 	if (Response->GetResponseCode() != 200)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Stockfish API request failed with response code %d: %s"), Response->GetResponseCode(), *Response->GetContentAsString());
+		UE_LOG(LogTemp, Error, TEXT("Chess-API request failed with response code %d: %s"), Response->GetResponseCode(), *Response->GetContentAsString());
 		return;
 	}
-	
+    	
 	const FString ResponseString = Response->GetContentAsString();
-	UE_LOG(LogTemp, Log, TEXT("Stockfish API Response: %s"), *ResponseString);
+	UE_LOG(LogTemp, Log, TEXT("Chess-API Response: %s"), *ResponseString);
 
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseString);
 
 	if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
 	{
-		bool bSuccess = false;
-		if (JsonObject->TryGetBoolField(TEXT("success"), bSuccess) && bSuccess)
+		// The new API response contains the move directly in the "move" field.
+		FString BestMoveString;
+		if (JsonObject->TryGetStringField(TEXT("move"), BestMoveString) && !BestMoveString.IsEmpty())
 		{
-			FString BestMoveString;
-			if (JsonObject->TryGetStringField(TEXT("bestmove"), BestMoveString))
-			{
-				// The API returns "bestmove e2e4 ponder e7e5", we only need "e2e4"
-				TArray<FString> Parts;
-				BestMoveString.ParseIntoArray(Parts, TEXT(" "), true);
-
-				if (Parts.Num() > 1 && Parts[0].Equals(TEXT("bestmove"), ESearchCase::IgnoreCase))
-				{
-					const FString Move = Parts[1];
-					UE_LOG(LogTemp, Log, TEXT("Stockfish API - Best move parsed: %s"), *Move);
-					OnBestMoveReceived.Broadcast(Move);
-				}
-				else
-				{
-					UE_LOG(LogTemp, Warning, TEXT("Could not parse best move from API response field 'bestmove': %s"), *BestMoveString);
-				}
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Stockfish API response was successful, but 'bestmove' field was not found."));
-			}
+			UE_LOG(LogTemp, Log, TEXT("Chess-API - Best move parsed: %s"), *BestMoveString);
+			OnBestMoveReceived.Broadcast(BestMoveString);
 		}
 		else
 		{
+			// Check for an error message if the "move" field is missing.
 			FString ErrorMessage;
-			if (JsonObject->TryGetStringField(TEXT("error"), ErrorMessage))
+			if (JsonObject->TryGetStringField(TEXT("text"), ErrorMessage))
 			{
-				UE_LOG(LogTemp, Error, TEXT("Stockfish API error: %s"), *ErrorMessage);
+				 UE_LOG(LogTemp, Error, TEXT("Chess-API error: %s"), *ErrorMessage);
 			}
 			else
 			{
-				UE_LOG(LogTemp, Error, TEXT("Stockfish API request was not successful, but no error message was provided."));
+				UE_LOG(LogTemp, Warning, TEXT("Chess-API response did not contain a 'move' field or it was empty."));
 			}
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Stockfish API. Response: %s"), *ResponseString);
+		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Chess-API. Response: %s"), *ResponseString);
 	}
 }

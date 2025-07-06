@@ -40,5 +40,5 @@ private:
     void OnBestMoveResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
     // --- Properties ---
-    const FString ApiEndpoint = TEXT("https://stockfish.online/api/s/v2.php");
+    const FString ApiEndpoint = TEXT("https://chess-api.com/v1");
 };
