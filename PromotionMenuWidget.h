@@ -6,9 +6,8 @@
 #include "PromotionMenuWidget.generated.h"
 
 // Forward declarations
-class URotatingPieceWidget;
-class UStaticMesh;
-class UMaterialInterface;
+class UImage;
+class UTexture2D;
 
 // Делегат, который будет вызван, когда игрок выберет фигуру для превращения
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPromotionPieceSelected, EPieceType, SelectedPieceType);
@@ -44,28 +43,26 @@ protected:
 	void OnKnightSelected();
 
 	// --- WIDGETS TO BIND ---
-	// The user must place RotatingPieceWidget instances in the Blueprint and name them accordingly.
+	// The user must place Image widgets in the Blueprint and name them accordingly.
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	URotatingPieceWidget* QueenDisplayWidget;
+	UImage* QueenDisplayImage;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	URotatingPieceWidget* RookDisplayWidget;
+	UImage* RookDisplayImage;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	URotatingPieceWidget* BishopDisplayWidget;
+	UImage* BishopDisplayImage;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
-	URotatingPieceWidget* KnightDisplayWidget;
+	UImage* KnightDisplayImage;
 
 	// --- CONTENT TO SET IN BLUEPRINT ---
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
-	UStaticMesh* QueenMesh;
+	UTexture2D* QueenTexture;
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
-	UStaticMesh* RookMesh;
+	UTexture2D* RookTexture;
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
-	UStaticMesh* BishopMesh;
+	UTexture2D* BishopTexture;
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
-	UStaticMesh* KnightMesh;
-	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
-	UMaterialInterface* PieceMaterial;
+	UTexture2D* KnightTexture;
 };

@@ -1,26 +1,27 @@
 #include "PromotionMenuWidget.h"
-#include "RotatingPieceWidget.h"
+#include "Components/Image.h"
+#include "Engine/Texture2D.h"
 
 void UPromotionMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	// Initialize all our display widgets with the correct meshes and materials.
-	if (QueenDisplayWidget)
+	// Initialize all our display images with the correct textures.
+	if (QueenDisplayImage && QueenTexture)
 	{
-		QueenDisplayWidget->InitializePiece(QueenMesh, PieceMaterial);
+		QueenDisplayImage->SetBrushFromTexture(QueenTexture);
 	}
-	if (RookDisplayWidget)
+	if (RookDisplayImage && RookTexture)
 	{
-		RookDisplayWidget->InitializePiece(RookMesh, PieceMaterial);
+		RookDisplayImage->SetBrushFromTexture(RookTexture);
 	}
-	if (BishopDisplayWidget)
+	if (BishopDisplayImage && BishopTexture)
 	{
-		BishopDisplayWidget->InitializePiece(BishopMesh, PieceMaterial);
+		BishopDisplayImage->SetBrushFromTexture(BishopTexture);
 	}
-	if (KnightDisplayWidget)
+	if (KnightDisplayImage && KnightTexture)
 	{
-		KnightDisplayWidget->InitializePiece(KnightMesh, PieceMaterial);
+		KnightDisplayImage->SetBrushFromTexture(KnightTexture);
 	}
 }
 
