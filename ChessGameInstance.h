@@ -43,6 +43,7 @@ private:
     FString SessionNameToCreate;
     int32 FindSessionRetryCount;
     FTimerHandle FindSessionTimerHandle;
+    bool bIsFindingSessions;
 
     static const int32 MAX_FIND_SESSION_RETRIES = 3;
 	

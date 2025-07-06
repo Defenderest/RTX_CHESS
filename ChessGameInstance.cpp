@@ -25,6 +25,7 @@ const int32 UChessGameInstance::MAX_FIND_SESSION_RETRIES;
 UChessGameInstance::UChessGameInstance()
 {
 	FindSessionRetryCount = 0;
+	bIsFindingSessions = false;
 }
 
 void UChessGameInstance::Init()
@@ -88,6 +89,8 @@ void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName
 
 void UChessGameInstance::FindAndJoinSession(const FString& SessionName)
 {
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession triggered for session: '%s'"), *SessionName);
+
     if (!SessionInterface.IsValid())
     {
         UE_LOG(LogTemp, Error, TEXT("[HostSession] FindAndJoinSession ABORTED: SessionInterface is not valid."));
@@ -95,49 +98,67 @@ void UChessGameInstance::FindAndJoinSession(const FString& SessionName)
     }
     if (SessionName.IsEmpty())
     {
-        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession called with empty SessionName."));
+        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession ABORTED: SessionName is empty."));
+        return;
+    }
+
+    if (bIsFindingSessions)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession IGNORED: A session search is already in progress."));
+        return;
+    }
+
+    auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
+    if (ExistingSession != nullptr && ExistingSession->SessionState == EOnlineSessionState::InProgress)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession ABORTED: Already in an active session ('%s')."), *ExistingSession->SessionName.ToString());
         return;
     }
 
     SessionNameToFind = SessionName;
     FindSessionRetryCount = 0;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession called. Will search for '%s'. Resetting retry count."), *SessionNameToFind);
+    bIsFindingSessions = true;
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Starting search for session '%s'. Retry count reset."), *SessionNameToFind);
 
     GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
     
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 1.5s before starting first session search..."));
-    GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &UChessGameInstance::FindSessions, 1.5f, false);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 3.0s before starting first session search..."));
+    GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &UChessGameInstance::FindSessions, 3.0f, false);
 }
 
 void UChessGameInstance::FindSessions()
 {
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions failed: SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions ABORTED: SessionInterface is not valid."));
+        bIsFindingSessions = false; // Reset state since we can't proceed
         return;
     }
     
     FindSessionRetryCount++;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting session search attempt %d of %d... ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting session search (Attempt %d/%d) ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
 
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20;
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. No query filters."), SessionSearch->bIsLanQuery);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
+	UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle bound."));
 
     // GameInstance does not have a local player directly. We get it from the world.
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if (LocalPlayer)
     {
-	    UE_LOG(LogTemp, Log, TEXT("[HostSession] Finding all LAN sessions for player %d..."), LocalPlayer->GetControllerId());
+	    UE_LOG(LogTemp, Log, TEXT("[HostSession] Issuing FindSessions call for player %d..."), LocalPlayer->GetControllerId());
 	    SessionInterface->FindSessions(LocalPlayer->GetControllerId(), SessionSearch.ToSharedRef());
     }
     else
     {
-	    UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions failed: Cannot get LocalPlayer."));
+	    UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions FAILED: Cannot get LocalPlayer."));
+        bIsFindingSessions = false; // Reset state
+        SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle); // Clean up delegate
     }
 }
 
@@ -228,11 +249,11 @@ void UChessGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSu
 
 void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete called. Success: %d"), bWasSuccessful);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete received. bWasSuccessful: %d"), bWasSuccessful);
 
     if (bWasSuccessful && SessionSearch.IsValid())
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found %d raw search results."), SessionSearch->SearchResults.Num());
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] Search was successful. Found %d total sessions."), SessionSearch->SearchResults.Num());
         
         bool bFoundMatch = false;
         if (SessionSearch->SearchResults.Num() > 0)
@@ -242,10 +263,11 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
                 FString RoomName;
                 if (SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName))
                 {
-                    UE_LOG(LogTemp, Log, TEXT("[HostSession] Checking session: RoomName='%s' (desired: '%s'), Owner='%s', Ping=%dms"), *RoomName, *SessionNameToFind, *SearchResult.Session.OwningUserName, SearchResult.PingInMs);
+                    UE_LOG(LogTemp, Log, TEXT("[HostSession]   - Checking session: RoomName='%s' | Desired: '%s' | Owner: '%s' | Ping: %dms"), *RoomName, *SessionNameToFind, *SearchResult.Session.OwningUserName, SearchResult.PingInMs);
                     if (RoomName == SessionNameToFind)
                     {
-                        UE_LOG(LogTemp, Log, TEXT("[HostSession] !!! Found matching session: '%s'. Joining..."), *RoomName);
+                        UE_LOG(LogTemp, Log, TEXT("[HostSession] >>> Found a matching session! RoomName: '%s'."), *RoomName);
+                        bIsFindingSessions = false; // Search process is complete.
                         GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
                         JoinSession(SearchResult);
                         bFoundMatch = true;
@@ -254,34 +276,39 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("[HostSession] Found a session without ROOM_NAME_KEY. Owner: %s, Ping=%dms"), *SearchResult.GetSessionIdStr(), SearchResult.PingInMs);
+                    UE_LOG(LogTemp, Warning, TEXT("[HostSession]   - Found a session without ROOM_NAME_KEY. SessionId: %s"), *SearchResult.GetSessionIdStr());
                 }
             }
         }
         
         if (!bFoundMatch)
         {
+            UE_LOG(LogTemp, Warning, TEXT("[HostSession] No matching session found in the results."));
             if (FindSessionRetryCount < MAX_FIND_SESSION_RETRIES)
             {
-                UE_LOG(LogTemp, Warning, TEXT("[HostSession] No matching session found. Retrying in 2.0s..."));
+                UE_LOG(LogTemp, Log, TEXT("[HostSession] Will retry search in 2.0 seconds..."));
+                // bIsFindingSessions remains true for the retry
                 GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &UChessGameInstance::FindSessions, 2.0f, false);
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("[HostSession] All %d search attempts failed. Could not find a session named '%s'. Giving up."), MAX_FIND_SESSION_RETRIES, *SessionNameToFind);
+                UE_LOG(LogTemp, Error, TEXT("[HostSession] All %d search attempts failed. Could not find session '%s'. Giving up."), MAX_FIND_SESSION_RETRIES, *SessionNameToFind);
+                bIsFindingSessions = false; // Search process is complete.
                 GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
             }
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Session search failed on attempt %d. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), FindSessionRetryCount, bWasSuccessful, SessionSearch.IsValid());
+        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions RPC call failed. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), bWasSuccessful, SessionSearch.IsValid());
+        bIsFindingSessions = false; // Search process is complete.
         GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
     }
     
     if (SessionInterface.IsValid())
     {
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle);
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle cleared."));
     }
 }
 
@@ -294,11 +321,16 @@ void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
         FString ConnectString;
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {
-            UE_LOG(LogTemp, Log, TEXT("[HostSession] Successfully joined session '%s'. Traveling to: %s"), *SessionName.ToString(), *ConnectString);
+            UE_LOG(LogTemp, Log, TEXT("[HostSession] Join successful. Resolved connect string: %s"), *ConnectString);
+            UE_LOG(LogTemp, Log, TEXT("[HostSession] Traveling to host..."));
             APlayerController* PlayerController = GetFirstLocalPlayerController();
             if (PlayerController)
             {
             	PlayerController->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("[HostSession] ClientTravel FAILED: Could not get PlayerController."));
             }
         }
         else
