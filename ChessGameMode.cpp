@@ -99,6 +99,15 @@ void AChessGameMode::StartBotGame()
     }
     
     SetupBoardAndGameState();
+
+    // Оповещаем игрока о начале игры
+    if (APlayerController* PC_Raw = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+    {
+        if (AChessPlayerController* PC = Cast<AChessPlayerController>(PC_Raw))
+        {
+            PC->Client_GameStarted();
+        }
+    }
 }
 
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
@@ -274,6 +283,15 @@ void AChessGameMode::StartNewGame()
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
     SetupBoardAndGameState();
+
+    // Оповещаем всех игроков о начале игры
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+        {
+            PC->Client_GameStarted();
+        }
+    }
 }
 
 void AChessGameMode::SetupBoardAndGameState()

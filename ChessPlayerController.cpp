@@ -1,4 +1,5 @@
 #include "ChessPlayerController.h"
+#include "Net/UnrealNetwork.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
@@ -242,9 +243,52 @@ void AChessPlayerController::SetInputModeForUI()
     bIsInputModeSetForGame = false;
 }
 
+void AChessPlayerController::Client_GameStarted_Implementation()
+{
+    if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
+    {
+        StartMenuWidgetInstance->RemoveFromParent();
+        StartMenuWidgetInstance = nullptr; // Очищаем указатель
+    }
+    SetInputModeForGame();
+    
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Match has started! Good luck."));
+    }
+}
+
+void AChessPlayerController::OnRep_PlayerColor()
+{
+    // Эта функция вызывается на клиенте, когда свойство PlayerColor реплицируется с сервера.
+    FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, FString::Printf(TEXT("The server has assigned you the color: %s"), *MyColorStr));
+    }
+    
+    // Переключаем камеру на правильную перспективу
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    {
+        CamManager->SwitchToPlayerPerspective(PlayerColor);
+    }
+}
+
+void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChessPlayerController, PlayerColor);
+}
+
 void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)
 {
     PlayerColor = NewColor;
+
+    // OnRep не вызывается на сервере автоматически, поэтому вызываем вручную для хоста.
+    if (GetNetMode() != NM_Client)
+    {
+        OnRep_PlayerColor();
+    }
 }
 
 EPieceColor AChessPlayerController::GetPlayerColor() const

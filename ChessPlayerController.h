@@ -5,6 +5,7 @@
 #include "ChessPiece.h" // Включаем для доступа к EPieceColor
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
+#include "Net/UnrealNetwork.h"
 #include "ChessPlayerController.generated.h"
 
 // Forward declarations
@@ -48,6 +49,10 @@ public:
     UFUNCTION(Client, Reliable)
     void Client_ShowPromotionMenu(APawnPiece* PawnForPromotion);
 
+    /** [CLIENT] Called from GameMode when the game officially starts. Hides menus, sets input mode. */
+    UFUNCTION(Client, Reliable)
+    void Client_GameStarted();
+
     /** [SERVER] Called from client to finalize pawn promotion. */
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
@@ -56,6 +61,7 @@ protected:
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     void SetCamera();
 
@@ -63,7 +69,11 @@ protected:
     UFUNCTION()
     void HandlePromotionSelection(EPieceType SelectedType);
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Player Controller")
+    /** [CLIENT] Called when PlayerColor is replicated. */
+    UFUNCTION()
+    void OnRep_PlayerColor();
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_PlayerColor, Category = "Chess Player Controller")
     EPieceColor PlayerColor;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
