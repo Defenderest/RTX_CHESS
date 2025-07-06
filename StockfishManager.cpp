@@ -9,6 +9,9 @@
 UStockfishManager::UStockfishManager()
 {
 	// Nothing to do in the constructor for the API-based approach
+
+	// Временный вызов для отладки API. Будет отправлен при создании объекта.
+	TestRequestWithKnownFEN();
 }
 
 void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
