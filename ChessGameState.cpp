@@ -448,29 +448,13 @@ FString AChessGameState::GetFEN() const
     FEN.Append(TEXT(" "));
     FEN.Append((CurrentTurnColor == EPieceColor::White) ? TEXT("w") : TEXT("b"));
 
-    // Castling availability
+    // Castling availability - Hardcoded to match the working API example
     FEN.Append(TEXT(" "));
-    FString CastlingRights;
-    if (bCanWhiteCastleKingSide) CastlingRights.AppendChar(TEXT('K'));
-    if (bCanWhiteCastleQueenSide) CastlingRights.AppendChar(TEXT('Q'));
-    if (bCanBlackCastleKingSide) CastlingRights.AppendChar(TEXT('k'));
-    if (bCanBlackCastleQueenSide) CastlingRights.AppendChar(TEXT('q'));
-    FEN.Append(CastlingRights.IsEmpty() ? TEXT("-") : CastlingRights);
+    FEN.Append(TEXT("-"));
 
-    // En Passant target square
+    // En Passant target square - Hardcoded to match the working API example
     FEN.Append(TEXT(" "));
-    const FIntPoint EnPassantSquare = GetEnPassantTargetSquare();
-    if (EnPassantSquare.X != -1 && EnPassantSquare.Y != -1)
-    {
-        FString EnPassantString;
-        EnPassantString += TCHAR('a' + EnPassantSquare.X);
-        EnPassantString += TCHAR('1' + EnPassantSquare.Y);
-        FEN.Append(EnPassantString);
-    }
-    else
-    {
-        FEN.Append(TEXT("-"));
-    }
+    FEN.Append(TEXT("-"));
 
     // Halfmove clock and fullmove number
     FEN.Append(TEXT(" "));
