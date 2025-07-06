@@ -3,10 +3,17 @@
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "Engine/StaticMesh.h" // Для UStaticMesh
 #include "Materials/MaterialInterface.h" // Для UMaterialInterface
+#include "Net/UnrealNetwork.h" // Для репликации
+#include "Kismet/GameplayStatics.h" // Для GetActorOfClass
 
 AChessPiece::AChessPiece()
 {
     PrimaryActorTick.bCanEverTick = true; // Включаем Tick для анимации движения
+
+    // Включаем репликацию для этого актора.
+    bReplicates = true;
+    // Фигуры всегда важны, отключаем отсечение по расстоянию.
+    bAlwaysRelevant = true;
 
     // Создаем компонент меша и делаем его корневым компонентом.
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
@@ -90,31 +97,8 @@ void AChessPiece::InitializePiece(EPieceColor InColor, EPieceType InType, FIntPo
     BoardPosition = InBoardPosition;
     bHasMoved = false; // Сбрасываем флаг при инициализации/рестарте
 
-    // Устанавливаем материал в зависимости от цвета и создаем динамический инстанс для подсветки
-    if (PieceMeshComponent)
-    {
-        UMaterialInterface* BaseMaterial = nullptr;
-        if (PieceColor == EPieceColor::White && WhiteMaterial)
-        {
-            BaseMaterial = WhiteMaterial;
-        }
-        else if (PieceColor == EPieceColor::Black && BlackMaterial)
-        {
-            BaseMaterial = BlackMaterial;
-        }
-
-        if (BaseMaterial)
-        {
-            DynamicMaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-            PieceMeshComponent->SetMaterial(0, DynamicMaterialInstance);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPiece::InitializePiece: Base material not set for %s %s. Cannot create dynamic material instance."),
-                (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-                *UEnum::GetValueAsString(TypeOfPiece));
-        }
-    }
+    // Устанавливаем материал
+    SetupMaterial();
 
     UE_LOG(LogTemp, Log, TEXT("AChessPiece: Initialized %s %s at (%d, %d)"),
            (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
@@ -209,4 +193,56 @@ void AChessPiece::NotifyMoveCompleted_Implementation()
 bool AChessPiece::HasMoved() const
 {
     return bHasMoved;
+}
+
+void AChessPiece::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChessPiece, PieceColor);
+    DOREPLIFETIME(AChessPiece, TypeOfPiece);
+    DOREPLIFETIME(AChessPiece, BoardPosition);
+    DOREPLIFETIME(AChessPiece, bHasMoved);
+}
+
+void AChessPiece::OnRep_PieceProperties()
+{
+    // Эта функция вызывается на клиентах, когда реплицируются PieceColor или TypeOfPiece.
+    SetupMaterial();
+}
+
+void AChessPiece::OnRep_BoardPosition()
+{
+    // Эта функция вызывается на клиентах, когда реплицируется BoardPosition.
+    // Мы должны визуально переместить фигуру в новое место.
+    if (AChessBoard* Board = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass())))
+    {
+        const FVector TargetLocation = Board->GridToWorldPosition(BoardPosition);
+        AnimateMoveTo(TargetLocation);
+    }
+}
+
+void AChessPiece::SetupMaterial()
+{
+    // Предотвращаем повторное создание материала, если он уже есть
+    if (DynamicMaterialInstance)
+    {
+        return;
+    }
+
+    if (PieceMeshComponent)
+    {
+        UMaterialInterface* BaseMaterial = (PieceColor == EPieceColor::White) ? WhiteMaterial : BlackMaterial;
+
+        if (BaseMaterial)
+        {
+            DynamicMaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+            PieceMeshComponent->SetMaterial(0, DynamicMaterialInstance);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPiece::SetupMaterial: Base material not set for %s %s. Cannot create dynamic material instance."),
+                (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
+                *UEnum::GetValueAsString(TypeOfPiece));
+        }
+    }
 }

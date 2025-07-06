@@ -282,12 +282,18 @@ void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)
 {
-    PlayerColor = NewColor;
-
-    // OnRep не вызывается на сервере автоматически, поэтому вызываем вручную для хоста.
-    if (GetNetMode() != NM_Client)
+    // Эта функция должна вызываться только на сервере (в GameMode).
+    if (HasAuthority())
     {
-        OnRep_PlayerColor();
+        PlayerColor = NewColor;
+
+        // OnRep-функции не вызываются на сервере, поэтому мы вызываем ее вручную
+        // для локального контроллера сервера (хоста в listen-server игре).
+        // Мы не должны вызывать ее для прокси-контроллера клиента на сервере.
+        if (IsLocalController())
+        {
+            OnRep_PlayerColor();
+        }
     }
 }
 

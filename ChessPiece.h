@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Math/IntPoint.h"
 #include "Components/StaticMeshComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "ChessPiece.generated.h"
 
 // Forward declarations
@@ -42,19 +43,32 @@ class RTX_CHESS_API AChessPiece : public AActor
 public:
     AChessPiece();
 
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 protected:
     virtual void BeginPlay() override;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
+    /** [CLIENT] Called when piece properties are replicated to set up material. */
+    UFUNCTION()
+    void OnRep_PieceProperties();
+
+    /** [CLIENT] Called when board position is replicated to animate the move. */
+    UFUNCTION()
+    void OnRep_BoardPosition();
+
+    /** Helper to set up the piece material based on color. */
+    void SetupMaterial();
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_PieceProperties, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     EPieceColor PieceColor;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_PieceProperties, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     EPieceType TypeOfPiece;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_BoardPosition, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     FIntPoint BoardPosition;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated, Category = "Chess Piece", meta = (AllowPrivateAccess = "true"))
     bool bHasMoved;
 
     // --- Movement Animation ---
