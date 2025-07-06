@@ -19,13 +19,12 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
 		return;
 	}
 
-	// According to the API docs, depth max is 18. Clamp it to be safe.
-	const int32 ClampedDepth = FMath::Clamp(Depth, 1, 18);
+	// According to the API documentation, the request body should only contain the 'fen' key.
+	// The 'Depth' function parameter is ignored for this API.
 
 	// Create JSON request body
 	TSharedPtr<FJsonObject> RequestJson = MakeShareable(new FJsonObject);
 	RequestJson->SetStringField(TEXT("fen"), FEN);
-	RequestJson->SetNumberField(TEXT("depth"), ClampedDepth);
 
 	FString RequestBody;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
