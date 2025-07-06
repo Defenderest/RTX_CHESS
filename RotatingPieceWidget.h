@@ -14,8 +14,14 @@ class RTX_CHESS_API URotatingPieceWidget : public UUserWidget
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Rotating Piece")
-	void InitializePiece(UTexture2D* PieceTexture);
+	void SetPieceTexture(UTexture2D* NewPieceTexture);
 
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	TObjectPtr<UImage> PieceImage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance", meta = (DisplayName = "Default Piece Texture"))
+	TObjectPtr<UTexture2D> DefaultPieceTexture;
+
+protected:
+	virtual void NativeConstruct() override;
 };
