@@ -22,7 +22,6 @@ public:
 	void FindAndJoinSession(const FString& SessionName);
 
 protected:
-	// --- Network Session Handling ---
 	IOnlineSessionPtr SessionInterface;
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
