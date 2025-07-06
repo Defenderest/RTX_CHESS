@@ -29,6 +29,12 @@ public:
      */
     UFUNCTION(BlueprintCallable, Category = "Stockfish|Communication", meta = (DisplayName = "Request Best Move (FEN)"))
     void RequestBestMove(const FString& FEN, int32 Depth = 10);
+
+    /**
+     * Sends a test request with a known FEN string from the API documentation.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Stockfish|Testing", meta = (DisplayName = "Test API with Known FEN"))
+    void TestRequestWithKnownFEN();
     
     // --- Blueprint Assignable Delegate ---
 

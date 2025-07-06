@@ -46,6 +46,13 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
 	}
 }
 
+void UStockfishManager::TestRequestWithKnownFEN()
+{
+    const FString TestFEN = TEXT("8/1P1R4/n1r2B2/3Pp3/1k4P1/6K1/Bppr1P2/2q5 w - - 0 1");
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending test request with known FEN: %s"), *TestFEN);
+    RequestBestMove(TestFEN, 10); // Depth is ignored by the current implementation, but we provide a default.
+}
+
 void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
 	if (!bWasSuccessful || !Response.IsValid())
