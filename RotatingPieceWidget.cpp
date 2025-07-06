@@ -14,7 +14,7 @@ void URotatingPieceWidget::NativeConstruct()
     // We create a new world for our viewport.
     if (!IsValid(ViewportWorld))
     {
-        ViewportWorld = UWorld::CreateWorld(EWorldType::Type::UI, false);
+        ViewportWorld = UWorld::CreateWorld(EWorldType::Inactive, false);
     }
     
     if (Viewport && IsValid(ViewportWorld))
