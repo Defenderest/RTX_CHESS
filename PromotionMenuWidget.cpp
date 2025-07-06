@@ -7,6 +7,11 @@ void UPromotionMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	if (BackgroundBorder)
+	{
+		BackgroundBorder->Background.DrawAs = ESlateBrushDrawType::Box;
+	}
+
 	// Initialize all our display images with the correct textures and size.
 	if (QueenDisplayImage && QueenTexture)
 	{
