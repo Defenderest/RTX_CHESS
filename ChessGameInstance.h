@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Interfaces/OnlineSessionInterface.h"
-#include "Interfaces/OnlineIdentityInterface.h"
 #include "ChessGameInstance.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSessionCreatedDelegate, bool, bWasSuccessful);
@@ -29,13 +28,9 @@ public:
 
 protected:
 	IOnlineSessionPtr SessionInterface;
-	IOnlineIdentityPtr IdentityInterface;
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;
-	
-	void Login();
 
 	// --- Callbacks ---
-	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnFindSessionsComplete(bool bWasSuccessful);
@@ -59,13 +54,11 @@ private:
     static const int32 MAX_FIND_SESSION_RETRIES = 3;
 	
 	// --- Delegate Handles ---
-    FOnLoginCompleteDelegate OnLoginCompleteDelegate;
     FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
     FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
 
-    FDelegateHandle OnLoginCompleteDelegateHandle;
     FDelegateHandle OnCreateSessionCompleteDelegateHandle;
     FDelegateHandle OnDestroySessionCompleteDelegateHandle;
     FDelegateHandle OnFindSessionsCompleteDelegateHandle;

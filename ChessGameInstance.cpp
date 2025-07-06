@@ -31,87 +31,34 @@ UChessGameInstance::UChessGameInstance()
 
 void UChessGameInstance::Init()
 {
-    Super::Init();
-    IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get("EOS");
-    if (Subsystem)
-    {
-        UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
-        SessionInterface = Subsystem->GetSessionInterface();
-        IdentityInterface = Subsystem->GetIdentityInterface();
-
-        if (SessionInterface.IsValid() && IdentityInterface.IsValid())
-        {
-            UE_LOG(LogTemp, Log, TEXT("[Init] Session and Identity interfaces are valid. Binding delegates."));
-            OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnCreateSessionComplete);
-            OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
-            OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
-            OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
-            OnLoginCompleteDelegate = FOnLoginCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnLoginComplete);
-
-            Login();
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get Session or Identity Interface from Subsystem: %s"), *Subsystem->GetSubsystemName().ToString());
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get EOS OnlineSubsystem. Online functionality will be disabled."));
-    }
+	Super::Init();
+	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get("Photon");
+	if (Subsystem)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
+		SessionInterface = Subsystem->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			UE_LOG(LogTemp, Log, TEXT("[Init] SessionInterface is valid. Binding delegates."));
+			OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnCreateSessionComplete);
+			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
+			OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
+			OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get SessionInterface from Subsystem: %s"), *Subsystem->GetSubsystemName().ToString());
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get Photon OnlineSubsystem. Online functionality will be disabled."));
+	}
 }
 
-void UChessGameInstance::Login()
-{
-    if (!IdentityInterface.IsValid())
-    {
-        UE_LOG(LogTemp, Error, TEXT("[Login] IdentityInterface is not valid."));
-        return;
-    }
-
-    if (IdentityInterface->GetLoginStatus(0) == ELoginStatus::LoggedIn)
-    {
-        UE_LOG(LogTemp, Log, TEXT("[Login] Already logged in as '%s'."), *IdentityInterface->GetPlayerNickname(0));
-        return;
-    }
-
-    OnLoginCompleteDelegateHandle = IdentityInterface->AddOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegate);
-    
-    // Для тестирования используется AccountPortal. Откроется браузер для входа в учетную запись Epic.
-    // Убедитесь, что ваш DefaultEngine.ini настроен для этого.
-    FOnlineAccountCredentials Credentials;
-    Credentials.Type = TEXT("accountportal"); 
-
-    UE_LOG(LogTemp, Log, TEXT("[Login] Attempting to log in via Account Portal..."));
-    IdentityInterface->Login(0, Credentials);
-}
-
-void UChessGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
-{
-    UE_LOG(LogTemp, Log, TEXT("[Login] OnLoginComplete. Success: %d, User: %s, Error: %s"), bWasSuccessful, *UserId.ToString(), *Error);
-    
-    if (IdentityInterface.IsValid())
-    {
-        IdentityInterface->ClearOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegateHandle);
-    }
-
-    if(bWasSuccessful)
-    {
-        UE_LOG(LogTemp, Log, TEXT("[Login] Successfully logged in as %s"), *IdentityInterface->GetPlayerNickname(0));
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[Login] Login failed. Error: %s"), *Error);
-    }
-}
 
 void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName)
 {
-    if (!IdentityInterface.IsValid() || IdentityInterface->GetLoginStatus(0) != ELoginStatus::LoggedIn)
-    {
-        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] HostSession ABORTED: Not logged into an online subsystem."));
-        return;
-    }
     if (!SessionInterface.IsValid())
     {
         UE_LOG(LogTemp, Error, TEXT("[NetworkSession] HostSession ABORTED: SessionInterface is not valid."));
@@ -146,12 +93,6 @@ void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName
 void UChessGameInstance::FindAndJoinSession(const FString& SessionName)
 {
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] FindAndJoinSession triggered for session: '%s'"), *SessionName);
-
-    if (!IdentityInterface.IsValid() || IdentityInterface->GetLoginStatus(0) != ELoginStatus::LoggedIn)
-    {
-        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindAndJoinSession ABORTED: Not logged into an online subsystem."));
-        return;
-    }
 
     if (bIsHost)
     {
@@ -259,11 +200,11 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
     OnCreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 
     TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-    SessionSettings->bIsLANMatch = false; // This is not a LAN match
+    SessionSettings->bIsLANMatch = false;
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = true; // Required for some platforms
-    SessionSettings->bUseLobbiesIfAvailable = true; // Use EOS Lobbies
+    SessionSettings->bUsesPresence = false;
+    SessionSettings->bUseLobbiesIfAvailable = false;
     SessionSettings->bAllowJoinInProgress = true;
     SessionSettings->Set(SEARCH_KEYWORDS, SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured. SEARCH_KEYWORDS = %s"), *SessionName);
