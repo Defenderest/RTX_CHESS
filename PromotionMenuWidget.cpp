@@ -1,10 +1,17 @@
 #include "PromotionMenuWidget.h"
 #include "Components/Image.h"
 #include "Engine/Texture2D.h"
+#include "Components/Border.h"
 
 void UPromotionMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	if (BackgroundBorder)
+	{
+		BackgroundBorder->Brush.DrawAs = ESlateBrushDrawType::RoundedBox;
+		BackgroundBorder->Brush.CornerRadii = FVector4(CornerRadius, CornerRadius, CornerRadius, CornerRadius);
+	}
 
 	// Initialize all our display images with the correct textures and size.
 	if (QueenDisplayImage && QueenTexture)

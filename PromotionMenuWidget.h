@@ -72,4 +72,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content", meta = (DisplayName = "Image Size"))
 	FVector2D ImageSize = FVector2D(64.f, 64.f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content", meta = (DisplayName = "Corner Radius"))
+	float CornerRadius = 16.f;
 };
