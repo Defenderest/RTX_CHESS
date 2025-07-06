@@ -8,10 +8,21 @@
 
 UStockfishManager::UStockfishManager()
 {
-	// Nothing to do in the constructor for the API-based approach
+	// Initialize a simple opening book to provide move variety in the early game.
+	// Key: FEN board state (only the piece placement part)
+	// Value: Array of possible moves in UCI format
 
-	// Временный вызов для отладки API. Будет отправлен при создании объекта.
-	TestRequestWithKnownFEN();
+	// Initial position (start of game)
+	OpeningBook.Add(TEXT("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"), 
+		{ TEXT("e2e4"), TEXT("d2d4"), TEXT("c2c4"), TEXT("g1f3") });
+
+	// After 1. e4
+	OpeningBook.Add(TEXT("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"),
+		{ TEXT("c7c5"), TEXT("e7e5"), TEXT("e7e6"), TEXT("c7c6"), TEXT("g8f6") });
+
+	// After 1. d4
+	OpeningBook.Add(TEXT("rnbqkbnr/pppppppp/8/8/3P4/8/PPPPPPPP/RNBQKBNR"),
+		{ TEXT("g8f6"), TEXT("d7d5") });
 }
 
 void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
@@ -22,12 +33,41 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth)
 		return;
 	}
 
-	// According to the API documentation, the request body should only contain the 'fen' key.
-	// The 'Depth' function parameter is ignored for this API.
+	// --- Opening Move Variability ---
+	TArray<FString> FenParts;
+	FEN.ParseIntoArray(FenParts, TEXT(" "), true);
+	if (FenParts.Num() > 0)
+	{
+		const FString& BoardState = FenParts[0];
+		if (OpeningBook.Contains(BoardState))
+		{
+			UE_LOG(LogTemp, Log, TEXT("StockfishManager: Position found in opening book. Using for variability."));
+			const TArray<FString>& PossibleMoves = OpeningBook.FindChecked(BoardState);
+			const FString ChosenMove = PossibleMoves[FMath::RandRange(0, PossibleMoves.Num() - 1)];
+
+			// Use a timer to broadcast the result on the next frame to avoid potential re-entrancy issues.
+			FTimerHandle DummyTimerHandle;
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimer(DummyTimerHandle, [this, ChosenMove]()
+				{
+					UE_LOG(LogTemp, Log, TEXT("StockfishManager: Opening move chosen: %s"), *ChosenMove);
+					OnBestMoveReceived.Broadcast(ChosenMove);
+				}, 0.1f, false);
+				return; // Skip API call for this move
+			}
+			else
+			{
+                UE_LOG(LogTemp, Warning, TEXT("StockfishManager: GetWorld() returned null. Cannot use timer for opening move. Falling back to API call."));
+			}
+		}
+	}
+	// --- End Opening Move Variability ---
 
 	// Create JSON request body
 	TSharedPtr<FJsonObject> RequestJson = MakeShareable(new FJsonObject);
 	RequestJson->SetStringField(TEXT("fen"), FEN);
+	RequestJson->SetNumberField(TEXT("depth"), Depth);
 
 	FString RequestBody;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);

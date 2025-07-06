@@ -45,6 +45,9 @@ private:
     // --- Internal Methods ---
     void OnBestMoveResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
+    // --- Opening Book for Variability ---
+    TMap<FString, TArray<FString>> OpeningBook;
+
     // --- Properties ---
     const FString ApiEndpoint = TEXT("https://chess-api.com/v1");
 };
