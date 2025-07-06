@@ -9,6 +9,7 @@
 class UImage;
 class UTexture2D;
 class UBorder;
+class UBackgroundBlur;
 
 // Делегат, который будет вызван, когда игрок выберет фигуру для превращения
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPromotionPieceSelected, EPieceType, SelectedPieceType);
@@ -46,6 +47,9 @@ protected:
 	// --- WIDGETS TO BIND ---
 	// The user must place Image widgets in the Blueprint and name them accordingly.
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
+	UBackgroundBlur* BackgroundBlur;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	UBorder* BackgroundBorder;
 	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
@@ -72,4 +76,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content", meta = (DisplayName = "Image Size"))
 	FVector2D ImageSize = FVector2D(64.f, 64.f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content", meta = (DisplayName = "Blur Strength"))
+	float BlurStrength = 5.0f;
 };

@@ -2,10 +2,16 @@
 #include "Components/Image.h"
 #include "Engine/Texture2D.h"
 #include "Components/Border.h"
+#include "Components/BackgroundBlur.h"
 
 void UPromotionMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	if (BackgroundBlur)
+	{
+		BackgroundBlur->SetBlurStrength(BlurStrength);
+	}
 
 	if (BackgroundBorder)
 	{
