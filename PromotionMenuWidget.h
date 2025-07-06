@@ -65,4 +65,7 @@ protected:
 	UTexture2D* BishopTexture;
 	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content")
 	UTexture2D* KnightTexture;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Promotion Content", meta = (DisplayName = "Image Size"))
+	FVector2D ImageSize = FVector2D(64.f, 64.f);
 };
