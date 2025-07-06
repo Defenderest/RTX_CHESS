@@ -3,6 +3,8 @@
 #include "OnlineSessionSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 
 // Helper function to convert EOnJoinSessionCompleteResult::Type to FString
 FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
@@ -231,6 +233,25 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
     if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
+
+        // --- Get and display local IP address ---
+        bool bCanBindAll = false;
+        TSharedPtr<FInternetAddr> IpAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
+        if (IpAddr.IsValid())
+        {
+            FString MyIP = IpAddr->ToString(false);
+            if (GEngine)
+            {
+                // The default Unreal port is 7777.
+                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Your IP is: %s:7777"), *MyIP));
+                UE_LOG(LogTemp, Log, TEXT("Server IP Address: %s:7777"), *MyIP);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Could not determine local IP address."));
+        }
+
         GetWorld()->ServerTravel(LevelNameToHost.ToString() + TEXT("?listen"));
     }
     else
