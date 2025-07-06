@@ -7,12 +7,6 @@ void UPromotionMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (BackgroundBorder)
-	{
-		BackgroundBorder->Background.DrawAs = ESlateBrushDrawType::RoundedBox;
-		BackgroundBorder->Background.CornerRadii = FVector4(CornerRadius, CornerRadius, CornerRadius, CornerRadius);
-	}
-
 	// Initialize all our display images with the correct textures and size.
 	if (QueenDisplayImage && QueenTexture)
 	{
