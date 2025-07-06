@@ -140,10 +140,10 @@ void UChessGameInstance::FindSessions()
 
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
-    SessionSearch->MaxSearchResults = 20;
-    SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCE")), false, EOnlineComparisonOp::Equals);
+    SessionSearch->MaxSearchResults = 1; // We are looking for a specific session
+    SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionNameToFind, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. PRESENCE=false."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for ROOM_NAME_KEY='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 	UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle bound."));
@@ -255,37 +255,26 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 
     if (bWasSuccessful && SessionSearch.IsValid())
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Search was successful. Found %d total sessions."), SessionSearch->SearchResults.Num());
+        UE_LOG(LogTemp, Log, TEXT("[HostSession] Search query completed. Found %d matching sessions."), SessionSearch->SearchResults.Num());
         
         bool bFoundMatch = false;
         if (SessionSearch->SearchResults.Num() > 0)
         {
-            for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
-            {
-                FString RoomName;
-                if (SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName))
-                {
-                    UE_LOG(LogTemp, Log, TEXT("[HostSession]   - Checking session: RoomName='%s' | Desired: '%s' | Owner: '%s' | Ping: %dms"), *RoomName, *SessionNameToFind, *SearchResult.Session.OwningUserName, SearchResult.PingInMs);
-                    if (RoomName == SessionNameToFind)
-                    {
-                        UE_LOG(LogTemp, Log, TEXT("[HostSession] >>> Found a matching session! RoomName: '%s'."), *RoomName);
-                        bIsFindingSessions = false; // Search process is complete.
-                        GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
-                        JoinSession(SearchResult);
-                        bFoundMatch = true;
-                        break;
-                    }
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("[HostSession]   - Found a session without ROOM_NAME_KEY. SessionId: %s"), *SearchResult.GetSessionIdStr());
-                }
-            }
+            const FOnlineSessionSearchResult& SearchResult = SessionSearch->SearchResults[0];
+            FString RoomName;
+            SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName);
+            
+            UE_LOG(LogTemp, Log, TEXT("[HostSession] >>> Found a matching session via query! RoomName: '%s', Owner: '%s'. Joining..."), *RoomName, *SearchResult.Session.OwningUserName);
+            
+            bIsFindingSessions = false; // Search process is complete.
+            GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
+            JoinSession(SearchResult);
+            bFoundMatch = true;
         }
         
         if (!bFoundMatch)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[HostSession] No matching session found in the results."));
+            UE_LOG(LogTemp, Warning, TEXT("[HostSession] No session found matching the name '%s'."), *SessionNameToFind);
             if (FindSessionRetryCount < MAX_FIND_SESSION_RETRIES)
             {
                 UE_LOG(LogTemp, Log, TEXT("[HostSession] Will retry search in 2.0 seconds..."));
