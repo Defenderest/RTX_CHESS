@@ -14,23 +14,20 @@ void URotatingPieceWidget::NativeConstruct()
     // We create a new world for our viewport.
     if (!IsValid(ViewportWorld))
     {
-        ViewportWorld = UWorld::CreateWorld(EWorldType::UI, false);
+        ViewportWorld = UWorld::CreateWorld(EWorldType::Type::UI, false);
     }
     
     if (Viewport && IsValid(ViewportWorld))
     {
-        Viewport->SetWorld(ViewportWorld);
+        // NOTE: In UE5, UViewport widget no longer supports rendering a separate UWorld directly.
+        // The functions SetWorld, SetViewLocation, and SetViewRotation have been removed.
+        // This code is modified to compile, but it will not render the piece.
+        // A refactor using a SceneCapture2D component is required to restore functionality.
 
         // Spawn a camera to look at the piece.
         const FVector CameraLocation(150.f, 0.f, 40.f); // Adjust location for a good view
         const FRotator CameraRotation(0.f, -180.f, 0.f); // Look at the center
         CameraActor = ViewportWorld->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), CameraLocation, CameraRotation);
-
-        if (IsValid(CameraActor))
-        {
-            Viewport->SetViewLocation(CameraLocation);
-            Viewport->SetViewRotation(CameraRotation);
-        }
     }
 }
 
