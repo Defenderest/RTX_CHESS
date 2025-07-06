@@ -440,39 +440,43 @@ FString AChessGameState::GetFEN() const
         }
         if (y > 0)
         {
-            FEN += "/";
+            FEN += TEXT("/");
         }
     }
 
     // Active color
-    FEN += " ";
-    FEN += (CurrentTurnColor == EPieceColor::White) ? "w" : "b";
+    FEN.Append(TEXT(" "));
+    FEN.Append((CurrentTurnColor == EPieceColor::White) ? TEXT("w") : TEXT("b"));
 
     // Castling availability
-    FString CastlingRights = "";
-    if (bCanWhiteCastleKingSide) CastlingRights += "K";
-    if (bCanWhiteCastleQueenSide) CastlingRights += "Q";
-    if (bCanBlackCastleKingSide) CastlingRights += "k";
-    if (bCanBlackCastleQueenSide) CastlingRights += "q";
-    FEN += " " + (CastlingRights.IsEmpty() ? "-" : CastlingRights);
+    FEN.Append(TEXT(" "));
+    FString CastlingRights;
+    if (bCanWhiteCastleKingSide) CastlingRights.AppendChar(TEXT('K'));
+    if (bCanWhiteCastleQueenSide) CastlingRights.AppendChar(TEXT('Q'));
+    if (bCanBlackCastleKingSide) CastlingRights.AppendChar(TEXT('k'));
+    if (bCanBlackCastleQueenSide) CastlingRights.AppendChar(TEXT('q'));
+    FEN.Append(CastlingRights.IsEmpty() ? TEXT("-") : CastlingRights);
 
     // En Passant target square
+    FEN.Append(TEXT(" "));
     const FIntPoint EnPassantSquare = GetEnPassantTargetSquare();
     if (EnPassantSquare.X != -1 && EnPassantSquare.Y != -1)
     {
         FString EnPassantString;
         EnPassantString += TCHAR('a' + EnPassantSquare.X);
         EnPassantString += TCHAR('1' + EnPassantSquare.Y);
-        FEN += " " + EnPassantString;
+        FEN.Append(EnPassantString);
     }
     else
     {
-        FEN += " -";
+        FEN.Append(TEXT("-"));
     }
 
     // Halfmove clock and fullmove number
-    FEN += " " + FString::FromInt(HalfmoveClock);
-    FEN += " " + FString::FromInt(FullmoveNumber);
+    FEN.Append(TEXT(" "));
+    FEN.Append(FString::FromInt(HalfmoveClock));
+    FEN.Append(TEXT(" "));
+    FEN.Append(FString::FromInt(FullmoveNumber));
 
     UE_LOG(LogTemp, Log, TEXT("AChessGameState::GetFEN: Generated FEN: %s"), *FEN);
 
