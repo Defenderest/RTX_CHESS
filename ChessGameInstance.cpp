@@ -31,106 +31,166 @@ UChessGameInstance::UChessGameInstance()
 
 void UChessGameInstance::Init()
 {
-	Super::Init();
-	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
-	if (Subsystem)
-	{
-		UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
-		SessionInterface = Subsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
-		{
-			UE_LOG(LogTemp, Log, TEXT("[Init] SessionInterface is valid. Binding delegates."));
-			OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnCreateSessionComplete);
-			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
-			OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
-			OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get SessionInterface from Subsystem: %s"), *Subsystem->GetSubsystemName().ToString());
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get OnlineSubsystem. Online functionality will be disabled."));
-	}
+    Super::Init();
+    IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get("EOS");
+    if (Subsystem)
+    {
+        UE_LOG(LogTemp, Log, TEXT("[Init] Found OnlineSubsystem: %s"), *Subsystem->GetSubsystemName().ToString());
+        SessionInterface = Subsystem->GetSessionInterface();
+        IdentityInterface = Subsystem->GetIdentityInterface();
+
+        if (SessionInterface.IsValid() && IdentityInterface.IsValid())
+        {
+            UE_LOG(LogTemp, Log, TEXT("[Init] Session and Identity interfaces are valid. Binding delegates."));
+            OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnCreateSessionComplete);
+            OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
+            OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
+            OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
+            OnLoginCompleteDelegate = FOnLoginCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnLoginComplete);
+
+            Login();
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get Session or Identity Interface from Subsystem: %s"), *Subsystem->GetSubsystemName().ToString());
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Init] Failed to get EOS OnlineSubsystem. Online functionality will be disabled."));
+    }
+}
+
+void UChessGameInstance::Login()
+{
+    if (!IdentityInterface.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Login] IdentityInterface is not valid."));
+        return;
+    }
+
+    if (IdentityInterface->GetLoginStatus(0) == ELoginStatus::LoggedIn)
+    {
+        UE_LOG(LogTemp, Log, TEXT("[Login] Already logged in as '%s'."), *IdentityInterface->GetPlayerNickname(0));
+        return;
+    }
+
+    OnLoginCompleteDelegateHandle = IdentityInterface->AddOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegate);
+    
+    // Для тестирования используется AccountPortal. Откроется браузер для входа в учетную запись Epic.
+    // Убедитесь, что ваш DefaultEngine.ini настроен для этого.
+    FOnlineAccountCredentials Credentials;
+    Credentials.Type = TEXT("accountportal"); 
+
+    UE_LOG(LogTemp, Log, TEXT("[Login] Attempting to log in via Account Portal..."));
+    IdentityInterface->Login(0, Credentials);
+}
+
+void UChessGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
+{
+    UE_LOG(LogTemp, Log, TEXT("[Login] OnLoginComplete. Success: %d, User: %s, Error: %s"), bWasSuccessful, *UserId.ToString(), *Error);
+    
+    if (IdentityInterface.IsValid())
+    {
+        IdentityInterface->ClearOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegateHandle);
+    }
+
+    if(bWasSuccessful)
+    {
+        UE_LOG(LogTemp, Log, TEXT("[Login] Successfully logged in as %s"), *IdentityInterface->GetPlayerNickname(0));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Login] Login failed. Error: %s"), *Error);
+    }
 }
 
 void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName)
 {
+    if (!IdentityInterface.IsValid() || IdentityInterface->GetLoginStatus(0) != ELoginStatus::LoggedIn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] HostSession ABORTED: Not logged into an online subsystem."));
+        return;
+    }
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] HostSession ABORTED: SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] HostSession ABORTED: SessionInterface is not valid."));
         return;
     }
     if (SessionName.IsEmpty())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] HostSession ABORTED: SessionName is empty."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] HostSession ABORTED: SessionName is empty."));
         return;
     }
 
     LevelNameToHost = LevelName;
     SessionNameToCreate = SessionName;
     bIsHost = true; // Mark this instance as the host
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting Host Process ---"));
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Caching LevelNameToHost: %s and SessionNameToCreate: %s"), *LevelNameToHost.ToString(), *SessionNameToCreate);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] --- Starting Host Process ---"));
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Caching LevelNameToHost: %s and SessionNameToCreate: %s"), *LevelNameToHost.ToString(), *SessionNameToCreate);
 
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr)
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Found an existing session named '%s'. Destroying it before creating a new one..."), *ExistingSession->SessionName.ToString());
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Found an existing session named '%s'. Destroying it before creating a new one..."), *ExistingSession->SessionName.ToString());
         OnDestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
         SessionInterface->DestroySession(NAME_GameSession);
     }
     else
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] No existing session found. Proceeding to create a new one."));
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] No existing session found. Proceeding to create a new one."));
         CreateSession(SessionNameToCreate);
     }
 }
 
 void UChessGameInstance::FindAndJoinSession(const FString& SessionName)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession triggered for session: '%s'"), *SessionName);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] FindAndJoinSession triggered for session: '%s'"), *SessionName);
+
+    if (!IdentityInterface.IsValid() || IdentityInterface->GetLoginStatus(0) != ELoginStatus::LoggedIn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindAndJoinSession ABORTED: Not logged into an online subsystem."));
+        return;
+    }
 
     if (bIsHost)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession IGNORED: This client is the host and cannot join another session."));
+        UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] FindAndJoinSession IGNORED: This client is the host and cannot join another session."));
         return;
     }
 
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindAndJoinSession ABORTED: SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindAndJoinSession ABORTED: SessionInterface is not valid."));
         return;
     }
     if (SessionName.IsEmpty())
     {
-        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession ABORTED: SessionName is empty."));
+        UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] FindAndJoinSession ABORTED: SessionName is empty."));
         return;
     }
 
     if (bIsFindingSessions)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession IGNORED: A session search is already in progress."));
+        UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] FindAndJoinSession IGNORED: A session search is already in progress."));
         return;
     }
 
     auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession != nullptr && ExistingSession->SessionState == EOnlineSessionState::InProgress)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession ABORTED: Already in an active session ('%s')."), *ExistingSession->SessionName.ToString());
+        UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] FindAndJoinSession ABORTED: Already in an active session ('%s')."), *ExistingSession->SessionName.ToString());
         return;
     }
 
     SessionNameToFind = SessionName;
     FindSessionRetryCount = 0;
     bIsFindingSessions = true;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Starting search for session '%s'. Retry count reset."), *SessionNameToFind);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Starting search for session '%s'. Retry count reset."), *SessionNameToFind);
 
     GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
     
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] Waiting 3.0s before starting first session search..."));
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Waiting 3.0s before starting first session search..."));
     GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &UChessGameInstance::FindSessions, 3.0f, false);
 }
 
@@ -138,34 +198,34 @@ void UChessGameInstance::FindSessions()
 {
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions ABORTED: SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindSessions ABORTED: SessionInterface is not valid."));
         bIsFindingSessions = false; // Reset state since we can't proceed
         return;
     }
     
     FindSessionRetryCount++;
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting session search (Attempt %d/%d) ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] --- Starting session search (Attempt %d/%d) ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
 
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
-    SessionSearch->bIsLanQuery = true;
+    SessionSearch->bIsLanQuery = false; // This is NOT a LAN game
     SessionSearch->MaxSearchResults = 1; // We are looking for a specific session
-    SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionNameToFind, EOnlineComparisonOp::Equals);
+    SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, SessionNameToFind, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for ROOM_NAME_KEY='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for keyword='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
-	UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle bound."));
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnFindSessionsComplete delegate handle bound."));
 
     // GameInstance does not have a local player directly. We get it from the world.
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if (LocalPlayer)
     {
-	    UE_LOG(LogTemp, Log, TEXT("[HostSession] Issuing FindSessions call for player %d..."), LocalPlayer->GetControllerId());
-	    SessionInterface->FindSessions(LocalPlayer->GetControllerId(), SessionSearch.ToSharedRef());
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Issuing FindSessions call for player %d..."), LocalPlayer->GetControllerId());
+        SessionInterface->FindSessions(LocalPlayer->GetControllerId(), SessionSearch.ToSharedRef());
     }
     else
     {
-	    UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions FAILED: Cannot get LocalPlayer."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindSessions FAILED: Cannot get LocalPlayer."));
         bIsFindingSessions = false; // Reset state
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle); // Clean up delegate
     }
@@ -175,7 +235,7 @@ void UChessGameInstance::JoinSession(const FOnlineSessionSearchResult& SearchRes
 {
     if (!SessionInterface.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] JoinSession failed: SessionInterface is not valid."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] JoinSession failed: SessionInterface is not valid."));
         return;
     }
     OnJoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
@@ -183,12 +243,12 @@ void UChessGameInstance::JoinSession(const FOnlineSessionSearchResult& SearchRes
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if (LocalPlayer)
     {
-	    UE_LOG(LogTemp, Log, TEXT("[HostSession] Player %d joining session..."), LocalPlayer->GetControllerId());
-	    SessionInterface->JoinSession(LocalPlayer->GetControllerId(), NAME_GameSession, SearchResult);
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Player %d joining session..."), LocalPlayer->GetControllerId());
+        SessionInterface->JoinSession(LocalPlayer->GetControllerId(), NAME_GameSession, SearchResult);
     }
      else
     {
-	    UE_LOG(LogTemp, Error, TEXT("[HostSession] JoinSession failed: Cannot get LocalPlayer."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] JoinSession failed: Cannot get LocalPlayer."));
     }
 }
 
@@ -199,42 +259,42 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
     OnCreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 
     TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-    SessionSettings->bIsLANMatch = true;
+    SessionSettings->bIsLANMatch = false; // This is not a LAN match
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = false;
-    SessionSettings->bUseLobbiesIfAvailable = false;
+    SessionSettings->bUsesPresence = true; // Required for some platforms
+    SessionSettings->bUseLobbiesIfAvailable = true; // Use EOS Lobbies
     SessionSettings->bAllowJoinInProgress = true;
-    SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
+    SessionSettings->Set(SEARCH_KEYWORDS, SessionName, EOnlineDataAdvertisementType::ViaOnlineService);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured. SEARCH_KEYWORDS = %s"), *SessionName);
 	
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if(LocalPlayer)
     {
-	    UE_LOG(LogTemp, Log, TEXT("[HostSession] Creating LAN session with name: %s for player %d"), *SessionName, LocalPlayer->GetControllerId());
-	    SessionInterface->CreateSession(LocalPlayer->GetControllerId(), NAME_GameSession, *SessionSettings);
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Creating session with name: %s for player %d"), *SessionName, LocalPlayer->GetControllerId());
+        SessionInterface->CreateSession(LocalPlayer->GetControllerId(), NAME_GameSession, *SessionSettings);
     }
     else
     {
-	    UE_LOG(LogTemp, Error, TEXT("[HostSession] CreateSession failed: Cannot get LocalPlayer."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] CreateSession failed: Cannot get LocalPlayer."));
     }
 }
 
 void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnCreateSessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnCreateSessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
         
     // Broadcast the result to any subscribed UI widgets
     OnSessionCreated.Broadcast(bWasSuccessful);
 
     if (bWasSuccessful)
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
         GetWorld()->ServerTravel(LevelNameToHost.ToString() + TEXT("?listen"));
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to create session."));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] Failed to create session."));
         bIsHost = false; // Reset host status on failure
     }
 
@@ -246,7 +306,7 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 
 void UChessGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnDestroySessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnDestroySessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
         
     bIsHost = false; // We are no longer a host after destroying a session.
 
@@ -256,7 +316,7 @@ void UChessGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSu
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to destroy session '%s'."), *SessionName.ToString());
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] Failed to destroy session '%s'."), *SessionName.ToString());
     }
 
     if (SessionInterface.IsValid())
@@ -267,20 +327,19 @@ void UChessGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSu
 
 void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete received. bWasSuccessful: %d"), bWasSuccessful);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnFindSessionsComplete received. bWasSuccessful: %d"), bWasSuccessful);
 
     if (bWasSuccessful && SessionSearch.IsValid())
     {
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] Search query completed. Found %d matching sessions."), SessionSearch->SearchResults.Num());
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Search query completed. Found %d matching sessions."), SessionSearch->SearchResults.Num());
         
         bool bFoundMatch = false;
         if (SessionSearch->SearchResults.Num() > 0)
         {
+            // We only care about the first result for this simple implementation
             const FOnlineSessionSearchResult& SearchResult = SessionSearch->SearchResults[0];
-            FString RoomName;
-            SearchResult.Session.SessionSettings.Get(FName(TEXT("ROOM_NAME_KEY")), RoomName);
             
-            UE_LOG(LogTemp, Log, TEXT("[HostSession] >>> Found a matching session via query! RoomName: '%s', Owner: '%s'. Joining..."), *RoomName, *SearchResult.Session.OwningUserName);
+            UE_LOG(LogTemp, Log, TEXT("[NetworkSession] >>> Found a matching session! Owner: '%s'. Joining..."), *SearchResult.Session.OwningUserName);
             
             bIsFindingSessions = false; // Search process is complete.
             GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
@@ -290,16 +349,16 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
         
         if (!bFoundMatch)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[HostSession] No session found matching the name '%s'."), *SessionNameToFind);
+            UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] No session found matching the name '%s'."), *SessionNameToFind);
             if (FindSessionRetryCount < MAX_FIND_SESSION_RETRIES)
             {
-                UE_LOG(LogTemp, Log, TEXT("[HostSession] Will retry search in 2.0 seconds..."));
+                UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Will retry search in 2.0 seconds..."));
                 // bIsFindingSessions remains true for the retry
                 GetWorld()->GetTimerManager().SetTimer(FindSessionTimerHandle, this, &UChessGameInstance::FindSessions, 2.0f, false);
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("[HostSession] All %d search attempts failed. Could not find session '%s'. Giving up."), MAX_FIND_SESSION_RETRIES, *SessionNameToFind);
+                UE_LOG(LogTemp, Error, TEXT("[NetworkSession] All %d search attempts failed. Could not find session '%s'. Giving up."), MAX_FIND_SESSION_RETRIES, *SessionNameToFind);
                 bIsFindingSessions = false; // Search process is complete.
                 GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
             }
@@ -307,7 +366,7 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] FindSessions RPC call failed. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), bWasSuccessful, SessionSearch.IsValid());
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] FindSessions RPC call failed. bWasSuccessful=%d, SessionSearch.IsValid()=%d"), bWasSuccessful, SessionSearch.IsValid());
         bIsFindingSessions = false; // Search process is complete.
         GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
     }
@@ -315,21 +374,21 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
     if (SessionInterface.IsValid())
     {
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle);
-        UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle cleared."));
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnFindSessionsComplete delegate handle cleared."));
     }
 }
 
 void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] OnJoinSessionComplete called. SessionName: %s, Result: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnJoinSessionComplete called. SessionName: %s, Result: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
 
     if (Result == EOnJoinSessionCompleteResult::Success && SessionInterface.IsValid())
     {
         FString ConnectString;
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {
-            UE_LOG(LogTemp, Log, TEXT("[HostSession] Join successful. Resolved connect string: %s"), *ConnectString);
-            UE_LOG(LogTemp, Log, TEXT("[HostSession] Traveling to host..."));
+            UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Join successful. Resolved connect string: %s"), *ConnectString);
+            UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Traveling to host..."));
             APlayerController* PlayerController = GetFirstLocalPlayerController();
             if (PlayerController)
             {
@@ -337,17 +396,17 @@ void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("[HostSession] ClientTravel FAILED: Could not get PlayerController."));
+                UE_LOG(LogTemp, Error, TEXT("[NetworkSession] ClientTravel FAILED: Could not get PlayerController."));
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("[HostSession] Could not get connect string for session '%s'."), *SessionName.ToString());
+            UE_LOG(LogTemp, Error, TEXT("[NetworkSession] Could not get connect string for session '%s'."), *SessionName.ToString());
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to join session '%s'. Reason: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] Failed to join session '%s'. Reason: %s"), *SessionName.ToString(), *GetJoinSessionResultString(Result));
     }
     
     if (SessionInterface.IsValid())
