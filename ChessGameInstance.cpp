@@ -141,9 +141,9 @@ void UChessGameInstance::FindSessions()
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
     SessionSearch->bIsLanQuery = true;
     SessionSearch->MaxSearchResults = 20;
-    SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, false, EOnlineComparisonOp::Equals);
+    SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCE")), false, EOnlineComparisonOp::Equals);
 
-    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. SEARCH_PRESENCE=false."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
+    UE_LOG(LogTemp, Log, TEXT("[HostSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. PRESENCE=false."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults);
 
     OnFindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate);
 	UE_LOG(LogTemp, Log, TEXT("[HostSession] OnFindSessionsComplete delegate handle bound."));
