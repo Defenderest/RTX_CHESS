@@ -26,6 +26,7 @@ UChessGameInstance::UChessGameInstance()
 {
 	FindSessionRetryCount = 0;
 	bIsFindingSessions = false;
+	bIsHost = false;
 }
 
 void UChessGameInstance::Init()
@@ -70,6 +71,7 @@ void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName
 
     LevelNameToHost = LevelName;
     SessionNameToCreate = SessionName;
+    bIsHost = true; // Mark this instance as the host
     UE_LOG(LogTemp, Log, TEXT("[HostSession] --- Starting Host Process ---"));
     UE_LOG(LogTemp, Log, TEXT("[HostSession] Caching LevelNameToHost: %s and SessionNameToCreate: %s"), *LevelNameToHost.ToString(), *SessionNameToCreate);
 
@@ -90,6 +92,12 @@ void UChessGameInstance::HostSession(const FString& SessionName, FName LevelName
 void UChessGameInstance::FindAndJoinSession(const FString& SessionName)
 {
     UE_LOG(LogTemp, Log, TEXT("[HostSession] FindAndJoinSession triggered for session: '%s'"), *SessionName);
+
+    if (bIsHost)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[HostSession] FindAndJoinSession IGNORED: This client is the host and cannot join another session."));
+        return;
+    }
 
     if (!SessionInterface.IsValid())
     {
@@ -215,6 +223,10 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
 void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
     UE_LOG(LogTemp, Log, TEXT("[HostSession] OnCreateSessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
+        
+    // Broadcast the result to any subscribed UI widgets
+    OnSessionCreated.Broadcast(bWasSuccessful);
+
     if (bWasSuccessful)
     {
         UE_LOG(LogTemp, Log, TEXT("[HostSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
@@ -223,6 +235,7 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
     else
     {
         UE_LOG(LogTemp, Error, TEXT("[HostSession] Failed to create session."));
+        bIsHost = false; // Reset host status on failure
     }
 
     if (SessionInterface.IsValid())
@@ -234,6 +247,9 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 void UChessGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
     UE_LOG(LogTemp, Log, TEXT("[HostSession] OnDestroySessionComplete called. SessionName: %s, Success: %d"), *SessionName.ToString(), bWasSuccessful);
+        
+    bIsHost = false; // We are no longer a host after destroying a session.
+
     if (bWasSuccessful)
     {
         CreateSession(SessionNameToCreate);

@@ -5,6 +5,8 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "ChessGameInstance.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSessionCreatedDelegate, bool, bWasSuccessful);
+
 UCLASS()
 class RTX_CHESS_API UChessGameInstance : public UGameInstance
 {
@@ -20,6 +22,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Exec, Category = "Network")
 	void FindAndJoinSession(const FString& SessionName);
+
+	UPROPERTY(BlueprintAssignable, Category = "Network")
+	FOnSessionCreatedDelegate OnSessionCreated;
 
 protected:
 	IOnlineSessionPtr SessionInterface;
@@ -44,6 +49,7 @@ private:
     int32 FindSessionRetryCount;
     FTimerHandle FindSessionTimerHandle;
     bool bIsFindingSessions;
+    bool bIsHost;
 
     static const int32 MAX_FIND_SESSION_RETRIES = 3;
 	
