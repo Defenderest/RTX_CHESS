@@ -432,6 +432,50 @@ void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* Piec
     }
 }
 
+bool AChessPlayerController::Server_RequestValidMoves_Validate(AChessPiece* ForPiece)
+{
+    return ForPiece != nullptr;
+}
+
+void AChessPlayerController::Server_RequestValidMoves_Implementation(AChessPiece* ForPiece)
+{
+    if (!ForPiece) return;
+
+    // We must get the GameState and Board from the world on the server to ensure we use the authoritative versions.
+    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    AChessBoard* Board = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass()));
+
+    if (GameState && Board)
+    {
+        TArray<FIntPoint> ValidMoves = ForPiece->GetValidMoves(GameState, Board);
+        Client_ReceiveValidMoves(ValidMoves);
+    }
+}
+
+void AChessPlayerController::Client_ReceiveValidMoves_Implementation(const TArray<FIntPoint>& Moves)
+{
+    // It's possible the player deselected the piece while waiting for the server's response.
+    if (!SelectedPiece || !ChessBoard)
+    {
+        return;
+    }
+
+    LastValidMoves = Moves;
+
+    if (LastValidMoves.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Client_ReceiveValidMoves: Server returned 0 valid moves for piece %s."), *GetNameSafe(SelectedPiece));
+    }
+    
+    for (const FIntPoint& Move : LastValidMoves)
+    {
+        ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
+    }
+    
+    // Also highlight the piece that these moves are for.
+    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
+}
+
 void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
 {
     if (!PieceToSelect || !ChessBoard)
@@ -455,27 +499,9 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     SelectedPiece = PieceToSelect;
     SelectedPiece->OnSelected();
 
-    // Подсветка допустимых ходов
-    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-    if (!GameState)
-    {
-        UE_LOG(LogTemp, Error, TEXT("HandlePieceSelection: GameState is NULL! Cannot get valid moves."));
-        return;
-    }
-
-    LastValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
-
-    if (LastValidMoves.Num() == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("HandlePieceSelection: GetValidMoves() for piece %s returned 0 valid moves."), *GetNameSafe(SelectedPiece));
-    }
-
-    for (const FIntPoint& Move : LastValidMoves)
-    {
-        ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
-    }
-    // Подсветка текущей клетки
-    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
+    // Запрашиваем валидные ходы с сервера вместо того, чтобы считать их на клиенте.
+    // Это предотвращает проблемы с рассинхронизацией состояния.
+    Server_RequestValidMoves(SelectedPiece);
 }
 
 void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)

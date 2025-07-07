@@ -116,6 +116,14 @@ protected:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);
 
+    /** [SERVER] Requests valid moves for a given piece from the server. */
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_RequestValidMoves(AChessPiece* ForPiece);
+
+    /** [CLIENT] Receives the valid moves from the server and highlights the squares. */
+    UFUNCTION(Client, Reliable)
+    void Client_ReceiveValidMoves(const TArray<FIntPoint>& Moves);
+
 private:
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
