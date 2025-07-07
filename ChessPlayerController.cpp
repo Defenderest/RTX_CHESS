@@ -457,7 +457,19 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
 
     // Подсветка допустимых ходов
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    if (!GameState)
+    {
+        UE_LOG(LogTemp, Error, TEXT("HandlePieceSelection: GameState is NULL! Cannot get valid moves."));
+        return;
+    }
+
     LastValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
+
+    if (LastValidMoves.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("HandlePieceSelection: GetValidMoves() for piece %s returned 0 valid moves."), *GetNameSafe(SelectedPiece));
+    }
+
     for (const FIntPoint& Move : LastValidMoves)
     {
         ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
