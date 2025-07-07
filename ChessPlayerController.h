@@ -82,6 +82,14 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UPromotionMenuWidget> PromotionMenuWidgetClass;
 
+    /** Цвет для подсветки клеток, на которые можно сделать ход. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")
+    FLinearColor ValidMoveHighlightColor;
+
+    /** Цвет для подсветки клетки с выделенной в данный момент фигурой. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")
+    FLinearColor SelectedPieceHighlightColor;
+
     // Enhanced Input. Назначьте эти ассеты в вашем Blueprint Player Controller.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputMappingContext* ChessMappingContext;

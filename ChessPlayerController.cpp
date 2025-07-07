@@ -32,6 +32,10 @@ AChessPlayerController::AChessPlayerController()
     SelectedPiece = nullptr;
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
+
+    // Устанавливаем цвета подсветки по умолчанию
+    ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
+    SelectedPieceHighlightColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Синий
 }
 
 void AChessPlayerController::BeginPlay()
@@ -456,10 +460,10 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     LastValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
     for (const FIntPoint& Move : LastValidMoves)
     {
-        ChessBoard->HighlightSquare(Move, FLinearColor::Green);
+        ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
     }
     // Подсветка текущей клетки
-    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), FLinearColor::Blue);
+    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
 }
 
 void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
