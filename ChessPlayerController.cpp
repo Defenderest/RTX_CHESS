@@ -13,6 +13,7 @@
 #include "PromotionMenuWidget.h"
 #include "PawnPiece.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/AudioComponent.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
 #include "ChessPlayerCameraManager.h"
@@ -32,6 +33,7 @@ AChessPlayerController::AChessPlayerController()
     SelectedPiece = nullptr;
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
+    MenuMusicComponent = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
     ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
@@ -190,6 +192,15 @@ void AChessPlayerController::ShowStartMenu()
         {
             StartMenuWidgetInstance->AddToViewport();
             SetInputModeForUI();
+
+            if (MenuMusic && !MenuMusicComponent)
+            {
+                MenuMusicComponent = UGameplayStatics::CreateSound2D(this, MenuMusic);
+                if (MenuMusicComponent)
+                {
+                    MenuMusicComponent->Play();
+                }
+            }
         }
     }
 }
@@ -254,6 +265,13 @@ void AChessPlayerController::Client_GameStarted_Implementation()
         StartMenuWidgetInstance->RemoveFromParent();
         StartMenuWidgetInstance = nullptr; // Очищаем указатель
     }
+
+    if (MenuMusicComponent && MenuMusicComponent->IsPlaying())
+    {
+        MenuMusicComponent->Stop();
+    }
+    MenuMusicComponent = nullptr;
+
     SetInputModeForGame();
     
     if (GEngine)

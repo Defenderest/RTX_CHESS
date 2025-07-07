@@ -16,6 +16,8 @@ class UStartMenuWidget;
 class AChessPiece;
 class APawnPiece;
 class UPromotionMenuWidget;
+class UAudioComponent;
+class USoundBase;
 
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
@@ -82,6 +84,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UPromotionMenuWidget> PromotionMenuWidgetClass;
 
+    /** Музыка для главного меню. */
+    UPROPERTY(EditDefaultsOnly, Category = "UI|Sound")
+    USoundBase* MenuMusic;
+
     /** Цвет для подсветки клеток, на которые можно сделать ход. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")
     FLinearColor ValidMoveHighlightColor;
@@ -127,6 +133,9 @@ protected:
 private:
     UPROPERTY()
     UStartMenuWidget* StartMenuWidgetInstance;
+
+    UPROPERTY()
+    UAudioComponent* MenuMusicComponent;
 
     UPROPERTY()
     UPromotionMenuWidget* PromotionMenuWidgetInstance;

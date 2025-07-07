@@ -16,6 +16,7 @@ enum class EGameModeType : uint8
 };
 
 // Forward declarations
+class USoundBase;
 class AChessPlayerController;
 class AChessGameState;
 class AChessBoard;
@@ -88,6 +89,22 @@ protected:
 
     /** Таймер для отложенного хода бота. */
     FTimerHandle BotMoveTimerHandle;
+
+    /** Звуки, проигрываемые в различных игровых ситуациях. Настраиваются в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Sound")
+    TObjectPtr<USoundBase> GameStartSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Sound")
+    TObjectPtr<USoundBase> MoveSound;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Sound")
+    TObjectPtr<USoundBase> CaptureSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Sound")
+    TObjectPtr<USoundBase> CheckSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Sound")
+    TObjectPtr<USoundBase> CheckmateSound;
 
     void MakeBotMove();
 

@@ -313,6 +313,11 @@ void AChessGameMode::SetupBoardAndGameState()
     CurrentGS->SetCurrentTurnColor(EPieceColor::White);
     CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
+    if (GameStartSound)
+    {
+        UGameplayStatics::PlaySound2D(GetWorld(), GameStartSound);
+    }
+
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Board and game state have been reset. White's turn."));
 }
 
@@ -403,6 +408,7 @@ void AChessGameMode::CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType
 
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
+    bool bSoundPlayed = false;
     UE_LOG(LogTemp, Log, TEXT("--- AttemptMove START ---"));
 
     AChessGameState* CurrentGS = GetCurrentGameState();
@@ -520,6 +526,11 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         GameBoard->ClearSquare(CapturedPiece->GetBoardPosition());
         CapturedPiece->OnCaptured();
         CapturedPiece->Destroy();
+        if (CaptureSound)
+        {
+            UGameplayStatics::PlaySound2D(GetWorld(), CaptureSound);
+            bSoundPlayed = true;
+        }
     }
     else if (PieceToMove->GetPieceType() == EPieceType::Pawn &&
              TargetGridPosition == CurrentGS->GetEnPassantTargetSquare() &&
@@ -535,6 +546,11 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
             GameBoard->ClearSquare(EnPassantCapturedPawn->GetBoardPosition());
             EnPassantCapturedPawn->OnCaptured();
             EnPassantCapturedPawn->Destroy();
+            if (CaptureSound)
+            {
+                UGameplayStatics::PlaySound2D(GetWorld(), CaptureSound);
+                bSoundPlayed = true;
+            }
         }
     }
 
@@ -590,6 +606,11 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
             FIntPoint EnPassantSquare = FIntPoint(OriginalPosition.X, OriginalPosition.Y + Direction);
             CurrentGS->SetEnPassantData(EnPassantSquare, MovedPawn);
         }
+    }
+
+    if (!bSoundPlayed && MoveSound)
+    {
+        UGameplayStatics::PlaySound2D(GetWorld(), MoveSound);
     }
 
     GameBoard->ClearAllHighlights();
@@ -779,9 +800,18 @@ void AChessGameMode::CheckGameEndConditions()
 
     EPieceColor CurrentTurnColor = CurrentGS->GetCurrentTurnColor();
     EPieceColor OpponentColor = (CurrentTurnColor == EPieceColor::White) ? EPieceColor::Black : EPieceColor::White;
+    const bool bWasInCheck = CurrentGS->GetGamePhase() == EGamePhase::Check;
 
     if (CurrentGS->IsPlayerInCheck(CurrentTurnColor, GameBoard))
     {
+        if (!bWasInCheck) // Воспроизводим звук, только если это новый шах
+        {
+            if (CheckSound)
+            {
+                UGameplayStatics::PlaySound2D(GetWorld(), CheckSound);
+            }
+        }
+        
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: %s is in check."), (CurrentTurnColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
         CurrentGS->SetGamePhase(EGamePhase::Check);
 
@@ -789,6 +819,10 @@ void AChessGameMode::CheckGameEndConditions()
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Checkmate! %s wins!"), (OpponentColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
             CurrentGS->SetGamePhase((OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins);
+            if (CheckmateSound)
+            {
+                UGameplayStatics::PlaySound2D(GetWorld(), CheckmateSound);
+            }
         }
     }
     else
