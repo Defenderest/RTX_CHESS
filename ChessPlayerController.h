@@ -125,6 +125,9 @@ private:
     UPROPERTY()
     AChessBoard* ChessBoard;
 
+    /** Хранит список валидных ходов для текущей выделенной фигуры. */
+    TArray<FIntPoint> LastValidMoves;
+
     /** Вызывается при выборе своей фигуры. */
     void HandlePieceSelection(AChessPiece* PieceToSelect);
 
