@@ -22,21 +22,9 @@ void APlayerPawn::Tick(float DeltaTime)
 
 	if (Controller && PlayerMesh)
 	{
-		// Получаем мировое вращение контроллера (камеры) в виде кватерниона
-		const FQuat ControlRotation = Controller->GetControlRotation().Quaternion();
-
-		// Получаем мировое преобразование компонента сетки
-		const FTransform MeshComponentTransform = PlayerMesh->GetComponentTransform();
-		
-		// Преобразуем мировое вращение камеры в локальное пространство компонента сетки.
-		// Это даст нам вращение "взгляда" относительно ориентации самого персонажа.
-		const FQuat LocalHeadRotation = MeshComponentTransform.InverseTransformRotation(ControlRotation);
-		
-		// Сохраняем результат в виде FRotator.
-		HeadLookRotation = LocalHeadRotation.Rotator();
-		
-		// Обнуляем крен (Roll), чтобы голова не наклонялась вбок.
-		HeadLookRotation.Roll = 0.f;
+		// Просто получаем мировое вращение контроллера (камеры).
+		// AnimBP будет настроен для использования этого мирового вращения.
+		HeadLookRotation = Controller->GetControlRotation();
 	}
 	else
 	{
