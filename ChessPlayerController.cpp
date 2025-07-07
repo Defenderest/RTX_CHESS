@@ -476,10 +476,13 @@ void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
     if (LastValidMoves.Contains(GridPosition))
     {
         Server_AttemptMove(SelectedPiece, GridPosition);
+
+        // Снимаем выделение только ПОСЛЕ того, как отправили валидный ход на сервер.
+        // Это обеспечивает правильную обратную связь для игрока.
+        ClearSelectionAndHighlights();
     }
-    
-    // В любом случае (даже если ход невалиден) снимаем выделение после попытки хода
-    ClearSelectionAndHighlights();
+    // Если игрок кликнул на невалидную клетку, мы больше не будем снимать выделение.
+    // Это позволит ему выбрать другую клетку без необходимости заново выбирать фигуру.
 }
 
 void AChessPlayerController::ClearSelectionAndHighlights()
