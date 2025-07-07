@@ -20,18 +20,23 @@ void APlayerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Controller)
+	if (Controller && PlayerMesh)
 	{
-		// Получаем вращение контроллера (камеры)
-		const FRotator ControlRotation = Controller->GetControlRotation();
+		// Получаем мировое вращение контроллера (камеры) в виде кватерниона
+		const FQuat ControlRotation = Controller->GetControlRotation().Quaternion();
 
-		// Получаем вращение самого пеона
-		const FRotator ActorRotation = GetActorRotation();
-
-		// Вычисляем дельту вращения для головы. Нам нужны только Pitch и Yaw.
-		// Результат будет в координатах, относительных к пеону.
-		HeadLookRotation = FRotator(ControlRotation.Pitch, ControlRotation.Yaw, 0.f) - ActorRotation;
-		HeadLookRotation.Normalize();
+		// Получаем мировое преобразование компонента сетки
+		const FTransform MeshComponentTransform = PlayerMesh->GetComponentTransform();
+		
+		// Преобразуем мировое вращение камеры в локальное пространство компонента сетки.
+		// Это даст нам вращение "взгляда" относительно ориентации самого персонажа.
+		const FQuat LocalHeadRotation = MeshComponentTransform.InverseTransformRotation(ControlRotation);
+		
+		// Сохраняем результат в виде FRotator.
+		HeadLookRotation = LocalHeadRotation.Rotator();
+		
+		// Обнуляем крен (Roll), чтобы голова не наклонялась вбок.
+		HeadLookRotation.Roll = 0.f;
 	}
 	else
 	{
