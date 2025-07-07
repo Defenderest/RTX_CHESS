@@ -155,6 +155,9 @@ protected:
     // Вызывается, когда игрок успешно входит в игру
     virtual void PostLogin(APlayerController* NewPlayer) override;
 
+    /** Выбирает стартовую точку для игрока в зависимости от его цвета (ищет PlayerStart с тегом "White" или "Black"). */
+    virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+
 private:
     // Счетчик подключенных игроков
     int32 NumberOfPlayers;

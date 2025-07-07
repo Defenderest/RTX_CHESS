@@ -1,4 +1,5 @@
 #include "ChessGameMode.h"
+#include "PlayerPawn.h"
 #include "ChessPlayerController.h"
 #include "ChessGameState.h"
 #include "ChessBoard.h"
@@ -10,12 +11,14 @@
 #include "StockfishManager.h"
 #include "ChessPlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerStart.h"
 
 AChessGameMode::AChessGameMode()
 {
     PrimaryActorTick.bCanEverTick = false;
 
     GameStateClass = AChessGameState::StaticClass();
+    DefaultPawnClass = APlayerPawn::StaticClass();
 
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
@@ -101,12 +104,13 @@ void AChessGameMode::StartBotGame()
     
     SetupBoardAndGameState();
 
-    // Оповещаем игрока о начале игры
+    // Оповещаем игрока о начале игры и спавним его пешку
     if (APlayerController* PC_Raw = UGameplayStatics::GetPlayerController(GetWorld(), 0))
     {
         if (AChessPlayerController* PC = Cast<AChessPlayerController>(PC_Raw))
         {
             PC->Client_GameStarted();
+            RestartPlayer(PC);
         }
     }
 }
@@ -151,6 +155,35 @@ void AChessGameMode::PostLogin(APlayerController* NewPlayer)
             }
         }
     }
+}
+
+AActor* AChessGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+    AChessPlayerController* ChessController = Cast<AChessPlayerController>(Player);
+    if (!ChessController)
+    {
+        // Fallback для контроллеров, не являющихся шахматными, или если приведение типа не удалось
+        return Super::ChoosePlayerStart_Implementation(Player);
+    }
+
+    const FString ExpectedTag = (ChessController->GetPlayerColor() == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+    UE_LOG(LogTemp, Log, TEXT("Choosing player start for %s player."), *ExpectedTag);
+
+    TArray<AActor*> PlayerStarts;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), PlayerStarts);
+
+    for (AActor* Start : PlayerStarts)
+    {
+        if (Start->ActorHasTag(FName(*ExpectedTag)))
+        {
+            UE_LOG(LogTemp, Log, TEXT("Found matching PlayerStart: %s"), *GetNameSafe(Start));
+            return Start;
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("No PlayerStart with tag '%s' found. Falling back to default behavior."), *ExpectedTag);
+    // Fallback на любую доступную стартовую точку, если точка с тегом не найдена
+    return Super::ChoosePlayerStart_Implementation(Player);
 }
 
 void AChessGameMode::MakeBotMove()
@@ -285,12 +318,13 @@ void AChessGameMode::StartNewGame()
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
     SetupBoardAndGameState();
 
-    // Оповещаем всех игроков о начале игры
+    // Оповещаем всех игроков о начале игры и спавним их пешки
     for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
     {
         if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
         {
             PC->Client_GameStarted();
+            RestartPlayer(PC);
         }
     }
 }
