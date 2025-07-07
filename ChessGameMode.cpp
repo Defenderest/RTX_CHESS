@@ -21,6 +21,7 @@ AChessGameMode::AChessGameMode()
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     NumberOfPlayers = 0;
     BotSkillLevel = 10; // Глубина поиска для бота (1-15)
+    BotMoveDelay = 1.0f; // Задержка в 1 секунду по умолчанию
 }
 
 void AChessGameMode::BeginPlay()
@@ -336,7 +337,13 @@ void AChessGameMode::EndTurn()
 
         if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
         {
-            MakeBotMove();
+            const EGamePhase CurrentPhase = CurrentGS->GetGamePhase();
+            if (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check)
+            {
+                // Используем таймер, чтобы создать задержку перед ходом бота.
+                // Это дает время для завершения анимации хода игрока.
+                GetWorldTimerManager().SetTimer(BotMoveTimerHandle, this, &AChessGameMode::MakeBotMove, BotMoveDelay, false);
+            }
         }
     }
     else

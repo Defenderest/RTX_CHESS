@@ -82,6 +82,13 @@ protected:
 
     int32 BotSkillLevel;
 
+    /** Задержка в секундах перед ходом бота. Позволяет анимации хода игрока завершиться. */
+    UPROPERTY(EditDefaultsOnly, Category = "Chess Setup|Bot")
+    float BotMoveDelay;
+
+    /** Таймер для отложенного хода бота. */
+    FTimerHandle BotMoveTimerHandle;
+
     void MakeBotMove();
 
     UFUNCTION()
