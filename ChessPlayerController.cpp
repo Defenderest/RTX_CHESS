@@ -251,20 +251,8 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 
 void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 {
-    // Не обрабатываем ввод для камеры, если мы не в игровом режиме (например, в меню)
-    if (!bIsInputModeSetForGame) return;
-
-    // Вращаем камеру, только если зажата правая кнопка мыши
-    if (IsInputKeyDown(EKeys::RightMouseButton))
-    {
-        const FVector2D MoveVector = Value.Get<FVector2D>();
-    
-        // Получаем Camera Manager и вызываем его функцию вращения
-        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
-        {
-            CamManager->AddCameraRotationInput(MoveVector);
-        }
-    }
+    // TODO: Здесь можно реализовать логику перемещения (панорамирования) камеры.
+    // Предыдущая реализация была дубликатом HandleLook и, вероятно, вызывала дрожание камеры.
 }
 
 AChessGameMode* AChessPlayerController::GetChessGameMode() const
