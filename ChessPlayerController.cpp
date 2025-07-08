@@ -35,6 +35,7 @@ AChessPlayerController::AChessPlayerController()
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
     MenuMusicComponent = nullptr;
+    MenuCameraActor = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
     ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
@@ -181,15 +182,22 @@ void AChessPlayerController::SetGameCamera()
 
 void AChessPlayerController::SetMenuCamera()
 {
-    // Find the Menu Camera Actor in the world
-    AMenuCameraActor* MenuCamera = Cast<AMenuCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AMenuCameraActor::StaticClass()));
-    if (MenuCamera)
+    // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint.
+    AMenuCameraActor* CameraToSet = MenuCameraActor;
+
+    // Если она не задана, ищем камеру на сцене, как и раньше.
+    if (!CameraToSet)
     {
-        SetViewTargetWithBlend(MenuCamera, 0.5f);
+        CameraToSet = Cast<AMenuCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AMenuCameraActor::StaticClass()));
+    }
+
+    if (CameraToSet)
+    {
+        SetViewTargetWithBlend(CameraToSet, 0.5f);
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetMenuCamera: MenuCameraActor not found in the world! Falling back to game camera."));
+        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetMenuCamera: MenuCameraActor not found either in properties or in the world! Falling back to game camera."));
         SetGameCamera();
     }
 }

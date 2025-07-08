@@ -98,6 +98,10 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")
     FLinearColor SelectedPieceHighlightColor;
 
+    /** Камера для главного меню. Может быть установлена в Blueprint для указания конкретной камеры на сцене. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Player Controller")
+    AMenuCameraActor* MenuCameraActor;
+
     // Enhanced Input. Назначьте эти ассеты в вашем Blueprint Player Controller.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputMappingContext* ChessMappingContext;
