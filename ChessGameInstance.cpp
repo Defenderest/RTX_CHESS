@@ -255,10 +255,10 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
         // First, look for a Radmin VPN IP (typically in 26.x.x.x range)
         for (const auto& Addr : Addresses)
         {
-            if (Addr.IsValid() && !Addr->IsLoopbackAddress())
+            if (Addr.IsValid())
             {
-                FString CurrentIP = Addr->ToString(false);
-                if (CurrentIP.StartsWith(TEXT("26.")))
+                const FString CurrentIP = Addr->ToString(false);
+                if (!CurrentIP.StartsWith(TEXT("127.")) && CurrentIP.StartsWith(TEXT("26.")))
                 {
                     DisplayIP = CurrentIP;
                     break;
@@ -271,10 +271,14 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
         {
             for (const auto& Addr : Addresses)
             {
-                if (Addr.IsValid() && !Addr->IsLoopbackAddress() && Addr->GetProtocolType() == FNetworkProtocolTypes::IPv4)
+                if (Addr.IsValid() && Addr->GetProtocolType() == FNetworkProtocolTypes::IPv4)
                 {
-                    DisplayIP = Addr->ToString(false);
-                    break;
+                    const FString CurrentIP = Addr->ToString(false);
+                    if (!CurrentIP.StartsWith(TEXT("127.")))
+                    {
+                        DisplayIP = CurrentIP;
+                        break;
+                    }
                 }
             }
         }
