@@ -108,19 +108,6 @@ void AChessGameMode::StartBotGame()
     }
 }
 
-bool AChessGameMode::ReadyToStartMatch()
-{
-    const AChessGameState* const CurrentGS = GetCurrentGameState();
-    
-    // Мы готовы к спавну пешек игроков, ТОЛЬКО когда фаза игры больше не 'WaitingToStart'.
-    if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
-    {
-        return false;
-    }
-
-    return Super::ReadyToStartMatch();
-}
-
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
@@ -190,6 +177,19 @@ AActor* AChessGameMode::ChoosePlayerStart_Implementation(AController* Player)
     UE_LOG(LogTemp, Warning, TEXT("No PlayerStart with tag '%s' found. Falling back to default behavior."), *ExpectedTag);
     // Fallback на любую доступную стартовую точку, если точка с тегом не найдена
     return Super::ChoosePlayerStart_Implementation(Player);
+}
+
+UClass* AChessGameMode::GetDefaultPawnClassForController_Implementation(AController* ForController)
+{
+    const AChessGameState* const CurrentGS = GetCurrentGameState();
+    if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
+    {
+        // Не спавним пешку, пока игра не началась, чтобы камера не привязывалась к ней
+        return nullptr;
+    }
+
+    // В остальных случаях возвращаем пешку по умолчанию
+    return Super::GetDefaultPawnClassForController_Implementation(ForController);
 }
 
 void AChessGameMode::MakeBotMove()
