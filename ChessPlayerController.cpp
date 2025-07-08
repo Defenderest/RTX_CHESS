@@ -291,6 +291,12 @@ void AChessPlayerController::Client_GameStarted_Implementation()
     SetInputModeForGame();
     SetGameCamera();
     
+    // После установки основной игровой камеры, переключаемся на перспективу игрока
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    {
+        CamManager->SwitchToPlayerPerspective(PlayerColor);
+    }
+    
     if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Match has started! Good luck."));
@@ -306,10 +312,16 @@ void AChessPlayerController::OnRep_PlayerColor()
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, FString::Printf(TEXT("The server has assigned you the color: %s"), *MyColorStr));
     }
     
-    // Переключаем камеру на правильную перспективу
-    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    // Переключаем камеру на правильную перспективу, ТОЛЬКО ЕСЛИ ИГРА УЖЕ ИДЕТ.
+    // В главном меню у нас своя камера. Если игра еще не началась, перспектива
+    // будет установлена при вызове Client_GameStarted.
+    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (GameState && GameState->GetGamePhase() != EGamePhase::WaitingToStart)
     {
-        CamManager->SwitchToPlayerPerspective(PlayerColor);
+        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+        {
+            CamManager->SwitchToPlayerPerspective(PlayerColor);
+        }
     }
 }
 
