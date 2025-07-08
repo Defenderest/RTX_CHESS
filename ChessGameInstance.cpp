@@ -247,22 +247,50 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
     {
         UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Session '%s' created successfully. Traveling to map '%s' as listen server..."), *SessionName.ToString(), *LevelNameToHost.ToString());
 
-        // --- Get and display local IP address ---
-        bool bCanBindAll = false;
-        TSharedPtr<FInternetAddr> IpAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
-        if (IpAddr.IsValid())
+        // --- Get and display local IP address, prioritizing VPN addresses ---
+        FString DisplayIP = TEXT("Not Found");
+        TArray<TSharedPtr<FInternetAddr>> Addresses;
+        ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalAdapterAddresses(Addresses);
+
+        // First, look for a Radmin VPN IP (typically in 26.x.x.x range)
+        for (const auto& Addr : Addresses)
         {
-            FString MyIP = IpAddr->ToString(false);
+            if (Addr.IsValid() && !Addr->IsLoopbackAddress())
+            {
+                FString CurrentIP = Addr->ToString(false);
+                if (CurrentIP.StartsWith(TEXT("26.")))
+                {
+                    DisplayIP = CurrentIP;
+                    break;
+                }
+            }
+        }
+
+        // If no Radmin IP was found, find the first valid non-loopback IPv4
+        if (DisplayIP == TEXT("Not Found"))
+        {
+            for (const auto& Addr : Addresses)
+            {
+                if (Addr.IsValid() && !Addr->IsLoopbackAddress() && Addr->GetProtocolType() == FNetworkProtocolTypes::IPv4)
+                {
+                    DisplayIP = Addr->ToString(false);
+                    break;
+                }
+            }
+        }
+        
+        if (DisplayIP != TEXT("Not Found"))
+        {
             if (GEngine)
             {
                 // The default Unreal port is 7777.
-                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Your IP is: %s:7777"), *MyIP));
-                UE_LOG(LogTemp, Log, TEXT("Server IP Address: %s:7777"), *MyIP);
+                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Share this IP with LAN/VPN players: %s:7777"), *DisplayIP));
+                UE_LOG(LogTemp, Log, TEXT("Displaying Server IP for LAN/VPN: %s:7777"), *DisplayIP);
             }
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("Could not determine local IP address."));
+            UE_LOG(LogTemp, Warning, TEXT("Could not determine a suitable local IP address to display."));
         }
 
         GetWorld()->ServerTravel(LevelNameToHost.ToString() + TEXT("?listen"));
