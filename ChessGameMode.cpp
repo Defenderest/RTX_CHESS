@@ -108,6 +108,19 @@ void AChessGameMode::StartBotGame()
     }
 }
 
+bool AChessGameMode::ReadyToStartMatch()
+{
+    const AChessGameState* const CurrentGS = GetCurrentGameState();
+    
+    // Мы готовы к спавну пешек игроков, ТОЛЬКО когда фаза игры больше не 'WaitingToStart'.
+    if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
+    {
+        return false;
+    }
+
+    return Super::ReadyToStartMatch();
+}
+
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);

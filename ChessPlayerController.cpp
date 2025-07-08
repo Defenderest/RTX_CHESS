@@ -14,7 +14,6 @@
 #include "PromotionMenuWidget.h"
 #include "PawnPiece.h"
 #include "Blueprint/UserWidget.h"
-#include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
@@ -71,37 +70,6 @@ void AChessPlayerController::BeginPlay()
     // до того, как GameState полностью инициализирован или реплицирован.
     FTimerHandle TimerHandle;
     GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AChessPlayerController::DetermineInitialUI, 0.1f, false);
-}
-
-void AChessPlayerController::OnPossess(APawn* InPawn)
-{
-    Super::OnPossess(InPawn);
-
-    // Если у пешки, которой мы завладели, есть автоматически активируемая камера, она может
-    // переопределить нашу желаемую камеру. Мы должны деактивировать ее, чтобы
-    // наше ручное управление камерой работало.
-    if (InPawn)
-    {
-        if (UCameraComponent* PawnCamera = InPawn->FindComponentByClass<UCameraComponent>())
-        {
-            if (PawnCamera->IsActive())
-            {
-                PawnCamera->Deactivate();
-                UE_LOG(LogCameraManagement, Log, TEXT("OnPossess: Deactivated an active camera component found on the possessed pawn '%s'."), *InPawn->GetName());
-            }
-        }
-    }
-    
-    // После получения управления пешкой (possess), движок может по умолчанию переключить
-    // камеру на эту пешку. Нам нужно принудительно установить правильную камеру снова,
-    // основываясь на текущем состоянии игры.
-    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (GameState && GameState->GetGamePhase() == EGamePhase::WaitingToStart)
-    {
-        // Если игра еще не началась (мы в главном меню), мы должны убедиться, что активна камера меню.
-        UE_LOG(LogCameraManagement, Log, TEXT("OnPossess: Game is in WaitingToStart phase. Re-asserting Menu Camera."));
-        SetMenuCamera();
-    }
 }
 
 void AChessPlayerController::SetupInputComponent()
