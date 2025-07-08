@@ -35,7 +35,6 @@ AChessPlayerController::AChessPlayerController()
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
     MenuMusicComponent = nullptr;
-    MenuCameraActor = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
     ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
@@ -182,10 +181,16 @@ void AChessPlayerController::SetGameCamera()
 
 void AChessPlayerController::SetMenuCamera()
 {
-    // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint.
-    AMenuCameraActor* CameraToSet = MenuCameraActor;
+    AMenuCameraActor* CameraToSet = nullptr;
 
-    // Если она не задана, ищем камеру на сцене, как и раньше.
+    // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint через TSoftObjectPtr.
+    if (MenuCameraActor.IsValid())
+    {
+        // .Get() вернет указатель, если объект загружен, что для актора на уровне должно быть правдой.
+        CameraToSet = MenuCameraActor.Get();
+    }
+
+    // Если камера не была задана в Blueprint, ищем первую попавшуюся на сцене как запасной вариант.
     if (!CameraToSet)
     {
         CameraToSet = Cast<AMenuCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AMenuCameraActor::StaticClass()));
