@@ -52,39 +52,32 @@ void AChessGameMode::BeginPlay()
 
     FindGameBoard();
 
-    // Мы начинаем игру, только если в опциях запуска явно указан режим игры.
-    // Это позволяет при первом запуске просто показать главное меню.
-    FString IsBotGameValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("bIsBotGame"));
-    if (!IsBotGameValue.IsEmpty())
+    // Мы начинаем игру, только если в опциях запуска явно указан режим игры С БОТОМ.
+    // Это позволяет при первом запуске просто показать главное меню. Сетевые игры (PvP)
+    // запускаются автоматически из PostLogin, когда подключается второй игрок.
+    const FString IsBotGameValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("bIsBotGame"));
+    if (IsBotGameValue.ToBool())
     {
-        if (IsBotGameValue.ToBool())
-        {
-            // Запускаем игру против бота
-            StartBotGame();
+        // Запускаем игру против бота
+        StartBotGame();
 
-            // Устанавливаем уровень сложности бота из параметров запуска
-            if (StockfishManager)
+        // Устанавливаем уровень сложности бота из параметров запуска
+        if (StockfishManager)
+        {
+            const FString SkillLevelValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("SkillLevel"));
+            if (!SkillLevelValue.IsEmpty())
             {
-                FString SkillLevelValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("SkillLevel"));
-                if (!SkillLevelValue.IsEmpty())
-                {
-                    BotSkillLevel = FCString::Atoi(*SkillLevelValue);
-                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), BotSkillLevel);
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: SkillLevel option not found for bot game. Using default skill level."));
-                }
+                BotSkillLevel = FCString::Atoi(*SkillLevelValue);
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), BotSkillLevel);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: SkillLevel option not found for bot game. Using default skill level."));
             }
         }
-        else
-        {
-            // Запускаем игру "Игрок против Игрока"
-            StartNewGame();
-        }
     }
-    // Если опция не найдена, ничего не делаем. GameState останется в EGamePhase::WaitingToStart,
-    // и PlayerController покажет стартовое меню.
+    // Если опция не найдена или это PvP, ничего не делаем. GameState останется в EGamePhase::WaitingToStart,
+    // и PlayerController покажет стартовое меню. Игра начнется, когда подключится второй игрок.
 }
 
 void AChessGameMode::StartBotGame()
