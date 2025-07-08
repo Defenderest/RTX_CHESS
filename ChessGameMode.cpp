@@ -23,6 +23,7 @@ AChessGameMode::AChessGameMode()
     StockfishManager = CreateDefaultSubobject<UStockfishManager>(TEXT("StockfishManager"));
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     NumberOfPlayers = 0;
+    bHasGameStarted = false;
     BotSkillLevel = 10; // Глубина поиска для бота (1-15)
     BotMoveDelay = 1.0f; // Задержка в 1 секунду по умолчанию
 }
@@ -82,6 +83,7 @@ void AChessGameMode::BeginPlay()
 
 void AChessGameMode::StartBotGame()
 {
+    bHasGameStarted = true;
     CurrentGameMode = EGameModeType::PlayerVsBot;
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Bot game."));
 
@@ -181,8 +183,7 @@ AActor* AChessGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 UClass* AChessGameMode::GetDefaultPawnClassForController_Implementation(AController* ForController)
 {
-    const AChessGameState* const CurrentGS = GetCurrentGameState();
-    if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
+    if (!bHasGameStarted)
     {
         // Не спавним пешку, пока игра не началась, чтобы камера не привязывалась к ней
         return nullptr;
@@ -320,6 +321,7 @@ void AChessGameMode::FindGameBoard()
 
 void AChessGameMode::StartNewGame()
 {
+    bHasGameStarted = true;
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
     SetupBoardAndGameState();

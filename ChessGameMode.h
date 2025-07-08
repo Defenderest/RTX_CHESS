@@ -146,6 +146,9 @@ protected:
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* ForController) override;
 
 private:
+    // Флаг, который показывает, что матч официально начался. Используется для предотвращения спавна пешек до начала игры.
+    bool bHasGameStarted;
+    
     // Счетчик подключенных игроков
     int32 NumberOfPlayers;
 
