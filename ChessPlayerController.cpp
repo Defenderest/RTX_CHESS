@@ -8,6 +8,7 @@
 #include "ChessGameMode.h"
 #include "StockfishManager.h"
 #include "GameCameraActor.h"
+#include "MenuCameraActor.h"
 #include "Kismet/GameplayStatics.h"
 #include "StartMenuWidget.h"
 #include "PromotionMenuWidget.h"
@@ -56,8 +57,6 @@ void AChessPlayerController::BeginPlay()
         }
     }
 
-    SetCamera();
-
     ChessBoard = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass()));
     if (!ChessBoard)
     {
@@ -81,6 +80,7 @@ void AChessPlayerController::BeginPlay()
     {
         // Если игра уже идет, убеждаемся, что ввод настроен для игры.
         SetInputModeForGame();
+        SetGameCamera();
     }
 }
 
@@ -170,12 +170,27 @@ void AChessPlayerController::Tick(float DeltaTime)
     // --- Конец отладочной информации ---
 }
 
-void AChessPlayerController::SetCamera()
+void AChessPlayerController::SetGameCamera()
 {
     AGameCameraActor* GameCamera = Cast<AGameCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AGameCameraActor::StaticClass()));
     if (GameCamera)
     {
         SetViewTargetWithBlend(GameCamera, 0.5f);
+    }
+}
+
+void AChessPlayerController::SetMenuCamera()
+{
+    // Find the Menu Camera Actor in the world
+    AMenuCameraActor* MenuCamera = Cast<AMenuCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AMenuCameraActor::StaticClass()));
+    if (MenuCamera)
+    {
+        SetViewTargetWithBlend(MenuCamera, 0.5f);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetMenuCamera: MenuCameraActor not found in the world! Falling back to game camera."));
+        SetGameCamera();
     }
 }
 
@@ -192,6 +207,7 @@ void AChessPlayerController::ShowStartMenu()
         {
             StartMenuWidgetInstance->AddToViewport();
             SetInputModeForUI();
+            SetMenuCamera();
 
             if (MenuMusic && !MenuMusicComponent)
             {
@@ -273,6 +289,7 @@ void AChessPlayerController::Client_GameStarted_Implementation()
     MenuMusicComponent = nullptr;
 
     SetInputModeForGame();
+    SetGameCamera();
     
     if (GEngine)
     {

@@ -18,6 +18,7 @@ class APawnPiece;
 class UPromotionMenuWidget;
 class UAudioComponent;
 class USoundBase;
+class AMenuCameraActor;
 
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
@@ -65,7 +66,8 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-    void SetCamera();
+    void SetGameCamera();
+    void SetMenuCamera();
 
     /** Handles player's choice from promotion menu. */
     UFUNCTION()
