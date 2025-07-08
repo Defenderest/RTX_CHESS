@@ -186,8 +186,9 @@ void AChessPlayerController::SetMenuCamera()
     // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint через TSoftObjectPtr.
     if (MenuCameraActor.IsValid())
     {
-        // .Get() вернет указатель, если объект загружен, что для актора на уровне должно быть правдой.
-        CameraToSet = MenuCameraActor.Get();
+        // Принудительно загружаем объект, на который указывает Soft Ptr.
+        // Это необходимо, так как на момент вызова BeginPlay объект может быть еще не загружен.
+        CameraToSet = MenuCameraActor.LoadSynchronous();
     }
 
     // Если камера не была задана в Blueprint, ищем первую попавшуюся на сцене как запасной вариант.
