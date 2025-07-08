@@ -237,6 +237,9 @@ void AChessPlayerController::ShowStartMenu()
 
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
+    // Не обрабатываем ввод для камеры, если мы не в игровом режиме (например, в меню)
+    if (!bIsInputModeSetForGame) return;
+
     // Вращаем камеру, только если зажата правая кнопка мыши
     if (IsInputKeyDown(EKeys::RightMouseButton))
     {
@@ -252,6 +255,9 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 
 void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 {
+    // Не обрабатываем ввод для камеры, если мы не в игровом режиме (например, в меню)
+    if (!bIsInputModeSetForGame) return;
+
     // Вращаем камеру, только если зажата правая кнопка мыши
     if (IsInputKeyDown(EKeys::RightMouseButton))
     {

@@ -16,25 +16,15 @@ void AMenuCameraActor::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    FRotator CurrentRotation = GetActorRotation();
-    float YawChange = RotationSpeed * DeltaTime * RotationDirection;
-    FRotator NewRotation = CurrentRotation + FRotator(0.f, YawChange, 0.f);
+    // Используем осцилляцию на основе синусоиды, чтобы избежать "борьбы" за управление вращением камеры
+    // с другими частями системы, такими как PlayerCameraManager.
+    // Этот метод рассчитывает вращение абсолютно на основе времени, а не инкрементально,
+    // что делает его устойчивым к внешним изменениям и предотвращает дрожание.
+    const float CurrentTime = GetWorld()->GetTimeSeconds();
+    const float YawOffset = FMath::Sin(CurrentTime * RotationSpeed) * MaxYawOffset;
 
-    // Normalize the angles to keep them within a predictable range.
-    float DeltaYaw = FMath::FindDeltaAngleDegrees(InitialRotation.Yaw, NewRotation.Yaw);
-
-    if (RotationDirection == 1 && DeltaYaw > MaxYawOffset)
-    {
-        RotationDirection = -1;
-        // Clamp to the max offset to prevent overshooting
-        NewRotation.Yaw = InitialRotation.Yaw + MaxYawOffset;
-    }
-    else if (RotationDirection == -1 && DeltaYaw < -MaxYawOffset)
-    {
-        RotationDirection = 1;
-        // Clamp to the min offset to prevent overshooting
-        NewRotation.Yaw = InitialRotation.Yaw - MaxYawOffset;
-    }
+    FRotator NewRotation = InitialRotation;
+    NewRotation.Yaw += YawOffset;
 
     SetActorRotation(NewRotation);
 }
