@@ -9,6 +9,8 @@
 #include "UObject/SoftObjectPtr.h"
 #include "ChessPlayerController.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogCameraManagement, Log, All);
+
 // Forward declarations
 class UInputMappingContext;
 class UInputAction;

@@ -24,6 +24,8 @@
 #include "OnlineSessionSettings.h"
 #include "GameFramework/PlayerState.h"
 
+DEFINE_LOG_CATEGORY(LogCameraManagement);
+
 AChessPlayerController::AChessPlayerController()
 {
     bAutoManageActiveCameraTarget = false;
@@ -161,7 +163,12 @@ void AChessPlayerController::SetGameCamera()
     AGameCameraActor* GameCamera = Cast<AGameCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AGameCameraActor::StaticClass()));
     if (GameCamera)
     {
+        UE_LOG(LogCameraManagement, Log, TEXT("Switching to Game Camera: %s"), *GetNameSafe(GameCamera));
         SetViewTargetWithBlend(GameCamera, 0.5f);
+    }
+    else
+    {
+        UE_LOG(LogCameraManagement, Warning, TEXT("GameCameraActor not found in world. Cannot switch to game camera."));
     }
 }
 
@@ -172,6 +179,7 @@ void AChessPlayerController::SetMenuCamera()
     // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint через TSoftObjectPtr.
     if (MenuCameraActor.IsValid())
     {
+        UE_LOG(LogCameraManagement, Log, TEXT("Attempting to load Menu Camera from Soft Ptr reference."));
         // Принудительно загружаем объект, на который указывает Soft Ptr.
         // Это необходимо, так как на момент вызова BeginPlay объект может быть еще не загружен.
         CameraToSet = MenuCameraActor.LoadSynchronous();
@@ -180,16 +188,18 @@ void AChessPlayerController::SetMenuCamera()
     // Если камера не была задана в Blueprint, ищем первую попавшуюся на сцене как запасной вариант.
     if (!CameraToSet)
     {
+        UE_LOG(LogCameraManagement, Log, TEXT("Menu Camera not loaded from properties. Searching for one in the world."));
         CameraToSet = Cast<AMenuCameraActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AMenuCameraActor::StaticClass()));
     }
 
     if (CameraToSet)
     {
+        UE_LOG(LogCameraManagement, Log, TEXT("Switching to Menu Camera: %s"), *GetNameSafe(CameraToSet));
         SetViewTargetWithBlend(CameraToSet, 0.5f);
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetMenuCamera: MenuCameraActor not found either in properties or in the world! Falling back to game camera."));
+        UE_LOG(LogCameraManagement, Warning, TEXT("MenuCameraActor not found either in properties or in the world! Falling back to game camera."));
         SetGameCamera();
     }
 }
@@ -307,8 +317,14 @@ void AChessPlayerController::OnRep_PlayerColor()
     {
         if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
         {
+            FString ColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+            UE_LOG(LogCameraManagement, Log, TEXT("OnRep_PlayerColor: Game is in progress. Switching camera perspective to %s's view."), *ColorStr);
             CamManager->SwitchToPlayerPerspective(PlayerColor);
         }
+    }
+    else
+    {
+        UE_LOG(LogCameraManagement, Log, TEXT("OnRep_PlayerColor: Game not started. Deferring camera perspective switch."));
     }
 }
 
@@ -359,6 +375,8 @@ void AChessPlayerController::SetupGameUI()
     
     if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
     {
+        FString ColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+        UE_LOG(LogCameraManagement, Log, TEXT("SetupGameUI: Switching camera perspective to %s's view."), *ColorStr);
         CamManager->SwitchToPlayerPerspective(PlayerColor);
     }
 }
