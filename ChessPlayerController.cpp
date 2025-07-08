@@ -648,3 +648,23 @@ void AChessPlayerController::Server_CompletePawnPromotion_Implementation(APawnPi
         GameMode->CompletePawnPromotion(PawnToPromote, PromoteToType);
     }
 }
+
+void AChessPlayerController::Client_PlaySound_Implementation(EChessSoundType SoundType)
+{
+    USoundBase* SoundToPlay = nullptr;
+    switch (SoundType)
+    {
+    case EChessSoundType::Move:      SoundToPlay = MoveSound;      break;
+    case EChessSoundType::Capture:   SoundToPlay = CaptureSound;   break;
+    case EChessSoundType::Castle:    SoundToPlay = CastleSound;    break;
+    case EChessSoundType::Check:     SoundToPlay = CheckSound;     break;
+    case EChessSoundType::Checkmate: SoundToPlay = CheckmateSound; break;
+    case EChessSoundType::GameStart: SoundToPlay = GameStartSound; break;
+    }
+
+    if (SoundToPlay)
+    {
+        // Воспроизводим звук локально для этого игрока
+        UGameplayStatics::PlaySound2D(this, SoundToPlay);
+    }
+}

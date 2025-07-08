@@ -21,6 +21,17 @@ class UAudioComponent;
 class USoundBase;
 class AMenuCameraActor;
 
+UENUM()
+enum class EChessSoundType : uint8
+{
+	Move,
+	Capture,
+	Castle,
+	Check,
+	Checkmate,
+	GameStart
+};
+
 UCLASS()
 class RTX_CHESS_API AChessPlayerController : public APlayerController
 {
@@ -57,6 +68,10 @@ public:
     UFUNCTION(Client, Reliable)
     void Client_GameStarted();
 
+    /** [CLIENT] Plays a specific game sound. Called from server. */
+    UFUNCTION(Client, Reliable)
+    void Client_PlaySound(EChessSoundType SoundType);
+
     /** [SERVER] Called from client to finalize pawn promotion. */
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
@@ -90,6 +105,25 @@ protected:
     /** Музыка для главного меню. */
     UPROPERTY(EditDefaultsOnly, Category = "UI|Sound")
     USoundBase* MenuMusic;
+
+    /** Звуки игровых событий. Настраиваются в Blueprint контроллера. */
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* GameStartSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* MoveSound;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* CaptureSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* CastleSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* CheckSound;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Gameplay|Sound")
+    USoundBase* CheckmateSound;
 
     /** Цвет для подсветки клеток, на которые можно сделать ход. */
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")

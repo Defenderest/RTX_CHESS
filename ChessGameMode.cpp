@@ -347,9 +347,13 @@ void AChessGameMode::SetupBoardAndGameState()
     CurrentGS->SetCurrentTurnColor(EPieceColor::White);
     CurrentGS->SetGamePhase(EGamePhase::InProgress);
 
-    if (GameStartSound)
+    // Оповещаем всех игроков о начале игры, проигрывая звук
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
     {
-        UGameplayStatics::PlaySound2D(GetWorld(), GameStartSound);
+        if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+        {
+            PC->Client_PlaySound(EChessSoundType::GameStart);
+        }
     }
 
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Board and game state have been reset. White's turn."));
@@ -442,7 +446,6 @@ void AChessGameMode::CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType
 
 bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition, AChessPlayerController* RequestingController)
 {
-    bool bSoundPlayed = false;
     UE_LOG(LogTemp, Log, TEXT("--- AttemptMove START ---"));
 
     AChessGameState* CurrentGS = GetCurrentGameState();
@@ -506,8 +509,10 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     UE_LOG(LogTemp, Log, TEXT("--- ALL CHECKS PASSED: EXECUTING MOVE ---"));
 
     // --- Специальная обработка рокировки ---
+    bool bIsCastlingMove = false;
     if (PieceToMove->GetPieceType() == EPieceType::King && FMath::Abs(TargetGridPosition.X - OriginalPosition.X) == 2)
     {
+        bIsCastlingMove = true;
         // Это ход рокировки. Нам нужно переместить и ладью.
         UE_LOG(LogTemp, Log, TEXT("Executing Move: Castling detected."));
         if (TargetGridPosition.X > OriginalPosition.X) // Рокировка в сторону короля (короткая)
@@ -539,6 +544,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
 
     const bool bIsPawnMove = PieceToMove->GetPieceType() == EPieceType::Pawn;
     const bool bIsCapture = CapturedPiece != nullptr;
+    bool bIsEnPassantCapture = false;
 
     bool bIsPawnTwoStep = false;
     if (PieceToMove->GetPieceType() == EPieceType::Pawn && FMath::Abs(TargetGridPosition.Y - OriginalPosition.Y) == 2)
@@ -560,16 +566,12 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         GameBoard->ClearSquare(CapturedPiece->GetBoardPosition());
         CapturedPiece->OnCaptured();
         CapturedPiece->Destroy();
-        if (CaptureSound)
-        {
-            UGameplayStatics::PlaySound2D(GetWorld(), CaptureSound);
-            bSoundPlayed = true;
-        }
     }
     else if (PieceToMove->GetPieceType() == EPieceType::Pawn &&
              TargetGridPosition == CurrentGS->GetEnPassantTargetSquare() &&
              CurrentGS->GetEnPassantPawnToCapture() != nullptr)
     {
+        bIsEnPassantCapture = true;
         APawnPiece* EnPassantCapturedPawn = CurrentGS->GetEnPassantPawnToCapture();
         if (EnPassantCapturedPawn)
         {
@@ -580,11 +582,6 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
             GameBoard->ClearSquare(EnPassantCapturedPawn->GetBoardPosition());
             EnPassantCapturedPawn->OnCaptured();
             EnPassantCapturedPawn->Destroy();
-            if (CaptureSound)
-            {
-                UGameplayStatics::PlaySound2D(GetWorld(), CaptureSound);
-                bSoundPlayed = true;
-            }
         }
     }
 
@@ -642,10 +639,29 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
         }
     }
 
-    if (!bSoundPlayed && MoveSound)
+    // --- Воспроизведение звука ---
+    EChessSoundType SoundToPlay;
+    if (bIsCastlingMove)
     {
-        UGameplayStatics::PlaySound2D(GetWorld(), MoveSound);
+        SoundToPlay = EChessSoundType::Castle;
     }
+    else if (bIsCapture || bIsEnPassantCapture)
+    {
+        SoundToPlay = EChessSoundType::Capture;
+    }
+    else
+    {
+        SoundToPlay = EChessSoundType::Move;
+    }
+
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+        {
+            PC->Client_PlaySound(SoundToPlay);
+        }
+    }
+    // --- Конец воспроизведения звука ---
 
     GameBoard->ClearAllHighlights();
 
@@ -840,9 +856,12 @@ void AChessGameMode::CheckGameEndConditions()
     {
         if (!bWasInCheck) // Воспроизводим звук, только если это новый шах
         {
-            if (CheckSound)
+            for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
             {
-                UGameplayStatics::PlaySound2D(GetWorld(), CheckSound);
+                if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+                {
+                    PC->Client_PlaySound(EChessSoundType::Check);
+                }
             }
         }
         
@@ -853,9 +872,12 @@ void AChessGameMode::CheckGameEndConditions()
         {
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Checkmate! %s wins!"), (OpponentColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
             CurrentGS->SetGamePhase((OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins);
-            if (CheckmateSound)
+            for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
             {
-                UGameplayStatics::PlaySound2D(GetWorld(), CheckmateSound);
+                if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+                {
+                    PC->Client_PlaySound(EChessSoundType::Checkmate);
+                }
             }
         }
     }
