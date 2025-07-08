@@ -85,6 +85,9 @@ protected:
     void SetGameCamera();
     void SetMenuCamera();
 
+    /** Determines whether to show the start menu or set up the game UI based on the current GameState. Called shortly after BeginPlay. */
+    void DetermineInitialUI();
+
     /** Handles player's choice from promotion menu. */
     UFUNCTION()
     void HandlePromotionSelection(EPieceType SelectedType);
