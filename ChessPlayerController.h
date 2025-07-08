@@ -194,6 +194,9 @@ private:
     /** Хранит список валидных ходов для текущей выделенной фигуры. */
     TArray<FIntPoint> LastValidMoves;
 
+    /** Sets up the UI and camera for active gameplay. Hides menus. */
+    void SetupGameUI();
+
     /** Вызывается при выборе своей фигуры. */
     void HandlePieceSelection(AChessPiece* PieceToSelect);
 

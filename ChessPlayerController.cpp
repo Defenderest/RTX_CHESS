@@ -63,25 +63,11 @@ void AChessPlayerController::BeginPlay()
         UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::BeginPlay: ChessBoard actor not found!"));
     }
     
-    // Показываем меню только если игра еще не началась.
-    // GameMode отвечает за запуск игры (и смену состояния) при перезагрузке уровня с опциями.
-    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (!GameState)
-    {
-        UE_LOG(LogTemp, Fatal, TEXT("AChessPlayerController::BeginPlay: AChessGameState is NULL! Check GameMode Override in World Settings. It must be set to AChessGameMode or a Blueprint based on it."));
-        return;
-    }
-
-    if (GameState->GetGamePhase() == EGamePhase::WaitingToStart)
-    {
-        ShowStartMenu();
-    }
-    else
-    {
-        // Если игра уже идет, убеждаемся, что ввод настроен для игры.
-        SetInputModeForGame();
-        SetGameCamera();
-    }
+    // Откладываем решение о том, что показывать, до тех пор, пока GameState точно не будет доступен.
+    // Это помогает избежать гонок состояний, когда BeginPlay контроллера игрока запускается
+    // до того, как GameState полностью инициализирован или реплицирован.
+    FTimerHandle TimerHandle;
+    GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AChessPlayerController::DetermineInitialUI, 0.1f, false);
 }
 
 void AChessPlayerController::SetupInputComponent()
@@ -296,26 +282,7 @@ void AChessPlayerController::SetInputModeForUI()
 
 void AChessPlayerController::Client_GameStarted_Implementation()
 {
-    if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
-    {
-        StartMenuWidgetInstance->RemoveFromParent();
-        StartMenuWidgetInstance = nullptr; // Очищаем указатель
-    }
-
-    if (MenuMusicComponent && MenuMusicComponent->IsPlaying())
-    {
-        MenuMusicComponent->Stop();
-    }
-    MenuMusicComponent = nullptr;
-
-    SetInputModeForGame();
-    SetGameCamera();
-    
-    // После установки основной игровой камеры, переключаемся на перспективу игрока
-    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
-    {
-        CamManager->SwitchToPlayerPerspective(PlayerColor);
-    }
+    SetupGameUI();
     
     if (GEngine)
     {
@@ -349,6 +316,51 @@ void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AChessPlayerController, PlayerColor);
+}
+
+void AChessPlayerController::DetermineInitialUI()
+{
+    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (!GameState)
+    {
+        // Если GameState все еще недействителен, это серьезная проблема.
+        UE_LOG(LogTemp, Fatal, TEXT("AChessPlayerController::DetermineInitialUI: AChessGameState is NULL! Check GameMode Override in World Settings."));
+        return;
+    }
+
+    if (GameState->GetGamePhase() == EGamePhase::WaitingToStart)
+    {
+        // Мы находимся в главном меню или на экране ожидания
+        ShowStartMenu();
+    }
+    else 
+    {
+        // Игра уже идет, настраиваем игровой интерфейс
+        SetupGameUI();
+    }
+}
+
+void AChessPlayerController::SetupGameUI()
+{
+    if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
+    {
+        StartMenuWidgetInstance->RemoveFromParent();
+        StartMenuWidgetInstance = nullptr;
+    }
+
+    if (MenuMusicComponent && MenuMusicComponent->IsPlaying())
+    {
+        MenuMusicComponent->Stop();
+    }
+    MenuMusicComponent = nullptr;
+
+    SetInputModeForGame();
+    SetGameCamera();
+    
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    {
+        CamManager->SwitchToPlayerPerspective(PlayerColor);
+    }
 }
 
 void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)
