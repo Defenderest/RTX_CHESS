@@ -80,6 +80,7 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void OnPossess(APawn* InPawn) override;
     virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

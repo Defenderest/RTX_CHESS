@@ -72,6 +72,22 @@ void AChessPlayerController::BeginPlay()
     GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AChessPlayerController::DetermineInitialUI, 0.1f, false);
 }
 
+void AChessPlayerController::OnPossess(APawn* InPawn)
+{
+    Super::OnPossess(InPawn);
+    
+    // После получения управления пешкой (possess), движок может по умолчанию переключить
+    // камеру на эту пешку. Нам нужно принудительно установить правильную камеру снова,
+    // основываясь на текущем состоянии игры.
+    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (GameState && GameState->GetGamePhase() == EGamePhase::WaitingToStart)
+    {
+        // Если игра еще не началась (мы в главном меню), мы должны убедиться, что активна камера меню.
+        UE_LOG(LogCameraManagement, Log, TEXT("OnPossess: Game is in WaitingToStart phase. Re-asserting Menu Camera."));
+        SetMenuCamera();
+    }
+}
+
 void AChessPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
