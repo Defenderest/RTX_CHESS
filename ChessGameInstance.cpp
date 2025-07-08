@@ -1,4 +1,5 @@
 #include "ChessGameInstance.h"
+#include "GameFramework/GameUserSettings.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
 #include "Kismet/GameplayStatics.h"
@@ -34,6 +35,18 @@ UChessGameInstance::UChessGameInstance()
 void UChessGameInstance::Init()
 {
 	Super::Init();
+
+	if (GEngine)
+	{
+		UGameUserSettings* UserSettings = GEngine->GetGameUserSettings();
+		if (UserSettings)
+		{
+			UserSettings->SetFrameRateLimit(0); // 0 = без ограничений
+			UserSettings->SetVSyncEnabled(false);
+			UserSettings->ApplySettings(false);
+		}
+	}
+	
 	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
 	if (Subsystem)
 	{
