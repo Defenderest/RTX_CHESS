@@ -25,9 +25,13 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chess Board Setup")
     FIntPoint BoardSize;
 
-    // Размер одной клетки доски в мировых единицах Unreal Engine
+    // Размер одной клетки доски в мировых единицах Unreal Engine (для доски с масштабом 1.0)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chess Board Setup")
     float TileSize;
+
+    // Общий масштаб доски. Применяется к TileSize для корректного позиционирования.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chess Board Setup")
+    float BoardScale = 1.0f;
 
     // Смещение по оси Z для фигур относительно поверхности клетки доски
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Board Setup")
