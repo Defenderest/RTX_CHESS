@@ -1,6 +1,7 @@
 #include "ChessPiece.h"
 #include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
+#include "Components/SceneComponent.h"
 #include "Engine/StaticMesh.h" // Для UStaticMesh
 #include "Materials/MaterialInterface.h" // Для UMaterialInterface
 #include "Net/UnrealNetwork.h" // Для репликации
@@ -15,9 +16,13 @@ AChessPiece::AChessPiece()
     // Фигуры всегда важны, отключаем отсечение по расстоянию.
     bAlwaysRelevant = true;
 
-    // Создаем компонент меша и делаем его корневым компонентом.
+    // Создаем корневой компонент сцены для обеспечения стабильной точки привязки.
+    USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
+    RootComponent = SceneComponent;
+
+    // Создаем компонент меша и присоединяем его к корневому компоненту.
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));
-    RootComponent = PieceMeshComponent;
+    PieceMeshComponent->SetupAttachment(RootComponent);
     
     // Настраиваем коллизию меша так, чтобы он был интерактивным.
     // Он должен быть видимым для трассировки курсора (ECC_Visibility).
