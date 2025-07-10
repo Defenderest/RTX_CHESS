@@ -17,8 +17,8 @@ AChessPiece::AChessPiece()
     bAlwaysRelevant = true;
 
     // Создаем корневой компонент сцены для обеспечения стабильной точки привязки.
-    USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
-    RootComponent = SceneComponent;
+    SceneRootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
+    RootComponent = SceneRootComponent;
 
     // Создаем компонент меша и присоединяем его к корневому компоненту.
     PieceMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PieceMesh"));

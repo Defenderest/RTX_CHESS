@@ -11,6 +11,7 @@
 class AChessBoard;
 class AChessGameState;
 class UStaticMeshComponent;
+class USceneComponent;
 class UStaticMesh;
 class UMaterialInterface;
 class UDecalComponent;
@@ -83,6 +84,9 @@ protected:
     float MoveLerpAlpha;
     bool bIsMoving;
     // --- End Movement Animation ---
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<USceneComponent> SceneRootComponent;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> PieceMeshComponent;
