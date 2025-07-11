@@ -486,25 +486,52 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     FIntPoint OriginalPosition = PieceToMove->GetBoardPosition();
     AChessPiece* CapturedPiece = CurrentGS->GetPieceAtGridPosition(TargetGridPosition);
 
+    // --- Симуляция хода с учетом рокировки для проверки шаха ---
+    bool bIsCastlingSim = PieceToMove->GetPieceType() == EPieceType::King && FMath::Abs(TargetGridPosition.X - OriginalPosition.X) == 2;
+    AChessPiece* RookToMoveSim = nullptr;
+    FIntPoint RookOriginalPosSim, RookTargetPosSim;
+
     // Временно "делаем" ход, чтобы проверить состояние доски после него
     CurrentGS->RemovePieceFromState(PieceToMove);
-    if (CapturedPiece)
-    {
-        CurrentGS->RemovePieceFromState(CapturedPiece);
-    }
+    if (CapturedPiece) { CurrentGS->RemovePieceFromState(CapturedPiece); }
     PieceToMove->SetBoardPosition(TargetGridPosition);
     CurrentGS->AddPieceToState(PieceToMove);
 
-    bool bIsInCheckAfterMove = CurrentGS->IsPlayerInCheck(CurrentGS->GetCurrentTurnColor(), GameBoard);
+    if (bIsCastlingSim)
+    {
+        if (TargetGridPosition.X > OriginalPosition.X) // Рокировка в сторону короля
+        {
+            RookOriginalPosSim = FIntPoint(GameBoard->GetBoardSize().X - 1, OriginalPosition.Y);
+            RookTargetPosSim = FIntPoint(OriginalPosition.X + 1, OriginalPosition.Y);
+        }
+        else // Рокировка в сторону ферзя
+        {
+            RookOriginalPosSim = FIntPoint(0, OriginalPosition.Y);
+            RookTargetPosSim = FIntPoint(OriginalPosition.X - 1, OriginalPosition.Y);
+        }
+        RookToMoveSim = CurrentGS->GetPieceAtGridPosition(RookOriginalPosSim);
+        if (RookToMoveSim)
+        {
+            CurrentGS->RemovePieceFromState(RookToMoveSim);
+            RookToMoveSim->SetBoardPosition(RookTargetPosSim);
+            CurrentGS->AddPieceToState(RookToMoveSim);
+        }
+    }
+
+    const bool bIsInCheckAfterMove = CurrentGS->IsPlayerInCheck(CurrentGS->GetCurrentTurnColor(), GameBoard);
 
     // Отменяем временный ход
     CurrentGS->RemovePieceFromState(PieceToMove);
     PieceToMove->SetBoardPosition(OriginalPosition);
     CurrentGS->AddPieceToState(PieceToMove);
-    if (CapturedPiece)
+    if (CapturedPiece) { CurrentGS->AddPieceToState(CapturedPiece); }
+    if (bIsCastlingSim && RookToMoveSim)
     {
-        CurrentGS->AddPieceToState(CapturedPiece);
+        CurrentGS->RemovePieceFromState(RookToMoveSim);
+        RookToMoveSim->SetBoardPosition(RookOriginalPosSim);
+        CurrentGS->AddPieceToState(RookToMoveSim);
     }
+    // --- Конец симуляции ---
 
     if (bIsInCheckAfterMove)
     {
