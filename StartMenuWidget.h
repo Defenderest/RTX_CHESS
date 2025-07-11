@@ -46,6 +46,10 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnJoinGameClicked();
 
+    /** Вызывается при изменении значения слайдера выбора цвета. */
+    UFUNCTION()
+    void OnPlayerColorSliderChanged(float Value);
+
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UWidgetSwitcher> MainMenuSwitcher;
 
@@ -111,6 +115,10 @@ protected:
     /** Поле для ввода IP-адреса сервера для присоединения. Находится в NativeConstruct по имени. */
     UPROPERTY()
     TObjectPtr<UEditableTextBox> SessionNameInput;
+
+    /** Слайдер для выбора цвета игрока в игре против бота. Находится в NativeConstruct по имени. */
+    UPROPERTY()
+    TObjectPtr<USlider> PlayerColorSlider;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<USlider> SkillLevelSlider;

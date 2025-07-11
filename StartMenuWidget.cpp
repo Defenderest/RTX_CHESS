@@ -21,6 +21,18 @@ void UStartMenuWidget::NativeConstruct()
         // Это не критическая ошибка, а предупреждение для разработчика.
         UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти EditableTextBox с именем 'SessionNameInput'. Убедитесь, что виджет с таким именем существует на панели OnlineMenuPanel."));
     }
+
+    PlayerColorSlider = Cast<USlider>(GetWidgetFromName(TEXT("PlayerColorSlider")));
+    if (PlayerColorSlider)
+    {
+        PlayerColorSlider->OnValueChanged.AddDynamic(this, &UStartMenuWidget::OnPlayerColorSliderChanged);
+        // Вызываем один раз при запуске, чтобы установить начальное значение из слайдера
+        OnPlayerColorSliderChanged(PlayerColorSlider->GetValue());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти Slider с именем 'PlayerColorSlider'. Убедитесь, что виджет с таким именем существует на панели BotSettingsPanel."));
+    }
 }
 
 void UStartMenuWidget::OnStartPlayerVsPlayerClicked()
@@ -124,6 +136,16 @@ void UStartMenuWidget::OnJoinGameClicked()
     {
         UE_LOG(LogTemp, Warning, TEXT("IP address field is empty. Cannot join game."));
         // При желании можно показать пользователю сообщение в UI
+    }
+}
+
+void UStartMenuWidget::OnPlayerColorSliderChanged(float Value)
+{
+    if (AChessPlayerController* PlayerController = GetOwningPlayer<AChessPlayerController>())
+    {
+        // Округляем значение до ближайшего целого (0, 1 или 2)
+        const int32 ChoiceIndex = FMath::RoundToInt(Value);
+        PlayerController->SetPlayerColorChoiceForBotGame(ChoiceIndex);
     }
 }
 
