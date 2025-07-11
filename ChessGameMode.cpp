@@ -156,6 +156,28 @@ void AChessGameMode::SetPlayerColorForBotGame(EPlayerColorPreference ColorChoice
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Player color preference for next bot game set to %s."), *ChoiceStr);
 }
 
+void AChessGameMode::SetPlayerColorForBotGameFromInt(int32 ChoiceIndex)
+{
+    EPlayerColorPreference ColorChoice = EPlayerColorPreference::Random; // Значение по умолчанию
+    switch (ChoiceIndex)
+    {
+    case 0:
+        ColorChoice = EPlayerColorPreference::White;
+        break;
+    case 1:
+        ColorChoice = EPlayerColorPreference::Random;
+        break;
+    case 2:
+        ColorChoice = EPlayerColorPreference::Black;
+        break;
+    default:
+        UE_LOG(LogTemp, Warning, TEXT("SetPlayerColorForBotGameFromInt: Неверный ChoiceIndex %d. Используется 'Случайный'."), ChoiceIndex);
+        break;
+    }
+    // Используем уже существующую функцию, чтобы не дублировать логику
+    SetPlayerColorForBotGame(ColorChoice);
+}
+
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);

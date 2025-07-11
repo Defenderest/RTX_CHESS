@@ -59,6 +59,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void SetPlayerColorForBotGame(EPlayerColorPreference ColorChoice);
 
+    /**
+     * Задает выбор цвета игрока для следующей игры с ботом на основе числового значения (например, от слайдера).
+     * @param ChoiceIndex 0 для Белых, 1 для Случайного, 2 для Черных.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
+    void SetPlayerColorForBotGameFromInt(int32 ChoiceIndex);
+
     // Завершает текущий ход и передает управление следующему игроку
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void EndTurn();
