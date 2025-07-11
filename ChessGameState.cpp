@@ -448,13 +448,36 @@ FString AChessGameState::GetFEN() const
     FEN.Append(TEXT(" "));
     FEN.Append((CurrentTurnColor == EPieceColor::White) ? TEXT("w") : TEXT("b"));
 
-    // Castling availability - Hardcoded to match the working API example
+    // Castling availability
     FEN.Append(TEXT(" "));
-    FEN.Append(TEXT("-"));
+    FString CastlingRights;
+    if (bCanWhiteCastleKingSide)  CastlingRights += TEXT("K");
+    if (bCanWhiteCastleQueenSide) CastlingRights += TEXT("Q");
+    if (bCanBlackCastleKingSide)  CastlingRights += TEXT("k");
+    if (bCanBlackCastleQueenSide) CastlingRights += TEXT("q");
+    if (CastlingRights.IsEmpty())
+    {
+        FEN.Append(TEXT("-"));
+    }
+    else
+    {
+        FEN.Append(CastlingRights);
+    }
 
-    // En Passant target square - Hardcoded to match the working API example
+    // En Passant target square
     FEN.Append(TEXT(" "));
-    FEN.Append(TEXT("-"));
+    if (EnPassantTargetSquare.X != -1 && EnPassantTargetSquare.Y != -1)
+    {
+        // Convert grid coordinates to algebraic notation (e.g., e3)
+        FString EnPassantSquareString;
+        EnPassantSquareString += TCHAR('a' + EnPassantTargetSquare.X);
+        EnPassantSquareString += TCHAR('1' + EnPassantTargetSquare.Y);
+        FEN.Append(EnPassantSquareString);
+    }
+    else
+    {
+        FEN.Append(TEXT("-"));
+    }
 
     // Halfmove clock and fullmove number
     FEN.Append(TEXT(" "));
