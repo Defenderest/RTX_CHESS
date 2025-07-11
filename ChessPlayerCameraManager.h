@@ -23,6 +23,12 @@ public:
     /** Добавляет вращение к камере. Вызывается из PlayerController. */
     void AddCameraRotationInput(FVector2D RotationInput);
 
+    /** Сообщает менеджеру камеры, что он должен начать применять свою игровую логику (интерполяцию, вращение игрока). */
+    void StartControllingGameCamera();
+
+    /** Сообщает менеджеру камеры прекратить свою логику и вернуться к поведению по умолчанию (например, для меню). */
+    void StopControllingGameCamera();
+
 protected:
     // Скорость интерполяции камеры при смене перспективы
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera", meta = (ClampMin = "0.1", UIMin = "0.1"))
@@ -40,6 +46,9 @@ private:
 
     // Флаг, указывающий, нужно ли интерполировать камеру
     bool bShouldInterpolateCamera = false;
+
+    // Флаг, указывающий, что мы управляем камерой для игры в шахматы, а не для меню.
+    bool bIsControllingGameCamera = false;
 
     // Инициализирует начальное положение камеры
     virtual void BeginPlay() override;

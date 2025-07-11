@@ -20,6 +20,13 @@ void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float Delt
 {
     Super::UpdateViewTarget(OutVT, DeltaTime);
 
+    // Если мы не управляем игровой камерой (например, в меню), выходим.
+    // Это позволяет другим системам (например, SetViewTargetWithBlend) работать как ожидается.
+    if (!bIsControllingGameCamera)
+    {
+        return;
+    }
+
     // Шаг 1: Обработка смены перспективы (интерполяция к базовой позиции)
     if (bShouldInterpolateCamera)
     {
@@ -105,6 +112,18 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
         UE_LOG(LogTemp, Error, TEXT("AChessPlayerCameraManager: Perspective actor for color %s is not set in GameCameraActor. Cannot switch perspective."),
             (NewPerspective == EPieceColor::White ? TEXT("White") : TEXT("Black")));
     }
+}
+
+void AChessPlayerCameraManager::StartControllingGameCamera()
+{
+    bIsControllingGameCamera = true;
+}
+
+void AChessPlayerCameraManager::StopControllingGameCamera()
+{
+    bIsControllingGameCamera = false;
+    bShouldInterpolateCamera = false; // Также останавливаем любую интерполяцию
+    CurrentRotationOffset = FRotator::ZeroRotator; // Сбрасываем вращение
 }
 
 void AChessPlayerCameraManager::AddCameraRotationInput(FVector2D RotationInput)

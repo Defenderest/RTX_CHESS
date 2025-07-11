@@ -166,6 +166,10 @@ void AChessPlayerController::SetGameCamera()
     {
         UE_LOG(LogCameraManagement, Log, TEXT("Switching to Game Camera: %s"), *GetNameSafe(GameCamera));
         SetViewTargetWithBlend(GameCamera, 0.5f);
+        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+        {
+            CamManager->StartControllingGameCamera();
+        }
     }
     else
     {
@@ -197,6 +201,10 @@ void AChessPlayerController::SetMenuCamera()
     {
         UE_LOG(LogCameraManagement, Log, TEXT("Switching to Menu Camera: %s"), *GetNameSafe(CameraToSet));
         SetViewTargetWithBlend(CameraToSet, 0.5f);
+        if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+        {
+            CamManager->StopControllingGameCamera();
+        }
     }
     else
     {
