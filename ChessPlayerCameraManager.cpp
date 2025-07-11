@@ -14,9 +14,6 @@ AChessPlayerCameraManager::AChessPlayerCameraManager()
 void AChessPlayerCameraManager::BeginPlay()
 {
     Super::BeginPlay();
-    // Устанавливаем начальную перспективу на белых. 
-    // Камера плавно переместится в эту позицию при первом вызове UpdateViewTarget.
-    SwitchToPlayerPerspective(EPieceColor::White);
 }
 
 void AChessPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)

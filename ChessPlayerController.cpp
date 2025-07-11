@@ -28,6 +28,7 @@ DEFINE_LOG_CATEGORY(LogCameraManagement);
 
 AChessPlayerController::AChessPlayerController()
 {
+    PlayerCameraManagerClass = AChessPlayerCameraManager::StaticClass();
     bAutoManageActiveCameraTarget = false;
     bShowMouseCursor = true;
     bEnableClickEvents = true;
