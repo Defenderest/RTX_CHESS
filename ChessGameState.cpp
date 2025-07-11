@@ -9,6 +9,7 @@ AChessGameState::AChessGameState()
     PrimaryActorTick.bCanEverTick = false; // GameState обычно не тикает
     CurrentTurnColor = EPieceColor::White;
     CurrentGamePhase = EGamePhase::WaitingToStart;
+    CurrentGameMode = EGameModeType::PlayerVsPlayer;
     EnPassantTargetSquare = FIntPoint(-1, -1); // Инициализация невалидным значением
     EnPassantPawnToCapture = nullptr;
     HalfmoveClock = 0;
@@ -46,6 +47,7 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, bCanBlackCastleKingSide);
     DOREPLIFETIME(AChessGameState, bCanBlackCastleQueenSide);
     DOREPLIFETIME(AChessGameState, PawnToPromote);
+    DOREPLIFETIME(AChessGameState, CurrentGameMode);
 }
 
 EPieceColor AChessGameState::GetCurrentTurnColor() const
@@ -488,6 +490,19 @@ FString AChessGameState::GetFEN() const
     UE_LOG(LogTemp, Log, TEXT("AChessGameState::GetFEN: Generated FEN: %s"), *FEN);
 
     return FEN;
+}
+
+EGameModeType AChessGameState::GetCurrentGameModeType() const
+{
+    return CurrentGameMode;
+}
+
+void AChessGameState::SetCurrentGameMode(EGameModeType NewMode)
+{
+    if (GetLocalRole() == ROLE_Authority)
+    {
+        CurrentGameMode = NewMode;
+    }
 }
 
 APawnPiece* AChessGameState::GetPawnToPromote() const

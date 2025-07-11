@@ -4,7 +4,7 @@
 #include "GameCameraActor.h"
 #include "GameFramework/PlayerController.h"
 #include "ChessPlayerController.h"
-#include "ChessGameMode.h"
+#include "ChessGameState.h"
 
 AChessPlayerCameraManager::AChessPlayerCameraManager()
 {
@@ -58,10 +58,10 @@ void AChessPlayerCameraManager::SwitchToPlayerPerspective(EPieceColor NewPerspec
     AChessPlayerController* ChessPC = Cast<AChessPlayerController>(GetOwningPlayerController());
     if (ChessPC)
     {
-        AChessGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AChessGameMode>() : nullptr;
+        AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
         // В режиме "Игрок против Бота" камера должна оставаться на перспективе человека,
         // даже во время хода бота. Это предотвращает "тряску" камеры от переключения туда-сюда.
-        if (GameMode && GameMode->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
+        if (GameState && GameState->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
         {
             if (NewPerspective != ChessPC->GetPlayerColor())
             {

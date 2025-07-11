@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
 #include "ChessPiece.h" // Для EPieceColor и AChessPiece
+#include "ChessGameMode.h" // Для EGameModeType
 #include "Math/IntPoint.h" // Для FIntPoint
 #include "Net/UnrealNetwork.h" // Для репликации
 #include "ChessGameState.generated.h"
@@ -48,6 +49,10 @@ public:
     // Вызывается при изменении CurrentGamePhase для обновления на клиентах
     UFUNCTION()
     void OnRep_GamePhase();
+
+    // Текущий режим игры (PvP или PvE)
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    EGameModeType CurrentGameMode;
 
     // Массив всех активных фигур на доске
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
@@ -171,4 +176,9 @@ public: // Changed from protected
 
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
     FString GetFEN() const;
+
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    EGameModeType GetCurrentGameModeType() const;
+
+    void SetCurrentGameMode(EGameModeType NewMode);
 };

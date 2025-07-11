@@ -87,6 +87,10 @@ void AChessGameMode::StartBotGame()
 {
     bHasGameStarted = true;
     CurrentGameMode = EGameModeType::PlayerVsBot;
+    if (AChessGameState* GS = GetCurrentGameState())
+    {
+        GS->SetCurrentGameMode(CurrentGameMode);
+    }
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Bot game."));
 
     // --- Определение цвета игрока и бота ---
@@ -386,6 +390,10 @@ void AChessGameMode::StartNewGame()
 {
     bHasGameStarted = true;
     CurrentGameMode = EGameModeType::PlayerVsPlayer;
+    if (AChessGameState* GS = GetCurrentGameState())
+    {
+        GS->SetCurrentGameMode(CurrentGameMode);
+    }
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
     SetupBoardAndGameState();
 
