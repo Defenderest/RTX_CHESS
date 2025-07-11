@@ -15,6 +15,14 @@ enum class EGameModeType : uint8
     PlayerVsBot
 };
 
+UENUM(BlueprintType)
+enum class EPlayerColorPreference : uint8
+{
+    White   UMETA(DisplayName = "White"),
+    Black   UMETA(DisplayName = "Black"),
+    Random  UMETA(DisplayName = "Random")
+};
+
 // Forward declarations
 class USoundBase;
 class AChessPlayerController;
@@ -43,6 +51,13 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
     void StartBotGame();
+
+    /**
+     * Задает выбор цвета игрока для следующей игры с ботом. Должна вызываться из UI перед StartBotGame.
+     * @param ColorChoice Выбор игрока: Белый, Черный или Случайный.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
+    void SetPlayerColorForBotGame(EPlayerColorPreference ColorChoice);
 
     // Завершает текущий ход и передает управление следующему игроку
     UFUNCTION(BlueprintCallable, Category = "Chess Game Mode")
@@ -80,6 +95,9 @@ protected:
     TObjectPtr<UStockfishManager> StockfishManager;
 
     EGameModeType CurrentGameMode;
+
+    /** Выбор цвета игрока для игры с ботом. Устанавливается через SetPlayerColorForBotGame. По умолчанию - Случайный. */
+    EPlayerColorPreference PlayerColorChoiceForBotGame;
 
     int32 BotSkillLevel;
 
