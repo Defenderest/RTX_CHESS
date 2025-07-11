@@ -242,6 +242,12 @@ void AChessPlayerController::ShowStartMenu()
 
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
+    // Эта функция предназначена для вращения камеры (осмотра). Если вращение не работает,
+    // возможно, ввод по ошибке привязан к MoveCameraAction.
+}
+
+void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
+{
     // Не обрабатываем ввод для камеры, если мы не в игровом режиме (например, в меню)
     if (!bIsInputModeSetForGame) return;
 
@@ -256,12 +262,6 @@ void AChessPlayerController::HandleLook(const FInputActionValue& Value)
             CamManager->AddCameraRotationInput(LookAxisVector);
         }
     }
-}
-
-void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
-{
-    // TODO: Здесь можно реализовать логику перемещения (панорамирования) камеры.
-    // Предыдущая реализация была дубликатом HandleLook и, вероятно, вызывала дрожание камеры.
 }
 
 AChessGameMode* AChessPlayerController::GetChessGameMode() const
