@@ -22,12 +22,12 @@ void UStartMenuWidget::NativeConstruct()
         UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти EditableTextBox с именем 'SessionNameInput'. Убедитесь, что виджет с таким именем существует на панели OnlineMenuPanel."));
     }
 
-    PlayerColorSlider = Cast<USlider>(GetWidgetFromName(TEXT("PlayerColorSlider")));
-    if (PlayerColorSlider)
+    ColorSelectionSlider = Cast<USlider>(GetWidgetFromName(TEXT("PlayerColorSlider")));
+    if (ColorSelectionSlider)
     {
-        PlayerColorSlider->OnValueChanged.AddDynamic(this, &UStartMenuWidget::OnPlayerColorSliderChanged);
+        ColorSelectionSlider->OnValueChanged.AddDynamic(this, &UStartMenuWidget::OnPlayerColorSliderChanged);
         // Вызываем один раз при запуске, чтобы установить начальное значение из слайдера
-        OnPlayerColorSliderChanged(PlayerColorSlider->GetValue());
+        OnPlayerColorSliderChanged(ColorSelectionSlider->GetValue());
     }
     else
     {

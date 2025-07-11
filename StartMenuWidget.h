@@ -116,9 +116,9 @@ protected:
     UPROPERTY()
     TObjectPtr<UEditableTextBox> SessionNameInput;
 
-    /** Слайдер для выбора цвета игрока в игре против бота. Находится в NativeConstruct по имени. */
+    /** Слайдер для выбора цвета игрока в игре против бота. Находится в NativeConstruct по имени "PlayerColorSlider". */
     UPROPERTY()
-    TObjectPtr<USlider> PlayerColorSlider;
+    TObjectPtr<USlider> ColorSelectionSlider;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<USlider> SkillLevelSlider;
