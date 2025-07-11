@@ -26,6 +26,8 @@ AChessGameMode::AChessGameMode()
     bHasGameStarted = false;
     BotSkillLevel = 10; // Глубина поиска для бота (1-15)
     BotMoveDelay = 1.0f; // Задержка в 1 секунду по умолчанию
+    PlayerColorChoiceForBotGame = EPlayerColorPreference::Random;
+    BotColor = EPieceColor::Black; // По умолчанию бот играет за черных
 }
 
 void AChessGameMode::BeginPlay()
@@ -87,6 +89,29 @@ void AChessGameMode::StartBotGame()
     CurrentGameMode = EGameModeType::PlayerVsBot;
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Bot game."));
 
+    // --- Определение цвета игрока и бота ---
+    EPieceColor PlayerColor = EPieceColor::White; // Цвет игрока по умолчанию
+    
+    if (PlayerColorChoiceForBotGame == EPlayerColorPreference::Random)
+    {
+        PlayerColorChoiceForBotGame = (FMath::RandBool()) ? EPlayerColorPreference::White : EPlayerColorPreference::Black;
+    }
+
+    if (PlayerColorChoiceForBotGame == EPlayerColorPreference::White)
+    {
+        PlayerColor = EPieceColor::White;
+        BotColor = EPieceColor::Black;
+    }
+    else // Black
+    {
+        PlayerColor = EPieceColor::Black;
+        BotColor = EPieceColor::White;
+    }
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Player color set to %s, Bot color set to %s."), 
+        (PlayerColor == EPieceColor::White ? TEXT("White") : TEXT("Black")), 
+        (BotColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
+    // --- Конец определения цвета ---
+
     if (StockfishManager)
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Initializing API-based bot."));
@@ -99,15 +124,36 @@ void AChessGameMode::StartBotGame()
     
     SetupBoardAndGameState();
 
-    // Оповещаем игрока о начале игры и спавним его пешку
+    // Оповещаем игрока о начале игры, спавним его пешку и УСТАНАВЛИВАЕМ ЦВЕТ
     if (APlayerController* PC_Raw = UGameplayStatics::GetPlayerController(GetWorld(), 0))
     {
         if (AChessPlayerController* PC = Cast<AChessPlayerController>(PC_Raw))
         {
+            PC->SetPlayerColor(PlayerColor);
             PC->Client_GameStarted();
             RestartPlayer(PC);
         }
     }
+
+    // Если бот играет за белых, он должен сделать первый ход
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (CurrentGS && CurrentGS->GetCurrentTurnColor() == BotColor)
+    {
+        GetWorldTimerManager().SetTimer(BotMoveTimerHandle, this, &AChessGameMode::MakeBotMove, BotMoveDelay, false);
+    }
+}
+
+void AChessGameMode::SetPlayerColorForBotGame(EPlayerColorPreference ColorChoice)
+{
+    PlayerColorChoiceForBotGame = ColorChoice;
+    FString ChoiceStr;
+    switch(ColorChoice)
+    {
+        case EPlayerColorPreference::White: ChoiceStr = "White"; break;
+        case EPlayerColorPreference::Black: ChoiceStr = "Black"; break;
+        case EPlayerColorPreference::Random: ChoiceStr = "Random"; break;
+    }
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Player color preference for next bot game set to %s."), *ChoiceStr);
 }
 
 void AChessGameMode::PostLogin(APlayerController* NewPlayer)
@@ -118,13 +164,8 @@ void AChessGameMode::PostLogin(APlayerController* NewPlayer)
     if (ChessController)
     {
         NumberOfPlayers++;
-        if (CurrentGameMode == EGameModeType::PlayerVsBot)
-        {
-            // В игре с ботом человек всегда играет за белых
-            ChessController->SetPlayerColor(EPieceColor::White);
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player %d joined a BOT game. Assigned color: White."), NumberOfPlayers);
-        }
-        else // PlayerVsPlayer
+        // Логика для ботов была перенесена в StartBotGame
+        if (CurrentGameMode == EGameModeType::PlayerVsPlayer)
         {
             if (NumberOfPlayers == 1)
             {
@@ -215,9 +256,9 @@ void AChessGameMode::HandleBotMoveReceived(const FString& BestMove)
     }
 
     // Убедимся, что все еще ход бота, прежде чем делать ход
-    if (CurrentGS->GetCurrentTurnColor() != EPieceColor::Black)
+    if (CurrentGS->GetCurrentTurnColor() != BotColor)
     {
-        UE_LOG(LogTemp, Warning, TEXT("ChessGameMode::HandleBotMoveReceived: Received bot move, but it's not Black's turn anymore. Ignoring move."));
+        UE_LOG(LogTemp, Warning, TEXT("ChessGameMode::HandleBotMoveReceived: Received bot move, but it's not the Bot's turn anymore. Ignoring move."));
         return;
     }
 
@@ -386,7 +427,7 @@ void AChessGameMode::EndTurn()
         
         CheckGameEndConditions();
 
-        if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
+        if (CurrentGameMode == EGameModeType::PlayerVsBot && CurrentGS->GetCurrentTurnColor() == BotColor)
         {
             const EGamePhase CurrentPhase = CurrentGS->GetGamePhase();
             if (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check)

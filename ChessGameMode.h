@@ -108,6 +108,9 @@ protected:
     /** Таймер для отложенного хода бота. */
     FTimerHandle BotMoveTimerHandle;
 
+    /** Цвет фигур, за которые играет бот. Устанавливается в StartBotGame. */
+    EPieceColor BotColor;
+
     void MakeBotMove();
 
     UFUNCTION()
