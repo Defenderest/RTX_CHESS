@@ -269,6 +269,18 @@ AChessGameMode* AChessPlayerController::GetChessGameMode() const
     return Cast<AChessGameMode>(GetWorld()->GetAuthGameMode());
 }
 
+void AChessPlayerController::SetPlayerColorChoiceForBotGame(int32 ChoiceIndex)
+{
+    if (AChessGameMode* GM = GetChessGameMode())
+    {
+        GM->SetPlayerColorForBotGameFromInt(ChoiceIndex);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetPlayerColorChoiceForBotGame: Could not get ChessGameMode."));
+    }
+}
+
 void AChessPlayerController::SetInputModeForGame()
 {
     FInputModeGameAndUI InputMode;

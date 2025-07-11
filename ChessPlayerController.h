@@ -54,6 +54,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "Chess Player Controller")
     AChessGameMode* GetChessGameMode() const;
 
+    /** [UI] Sets the player's color preference for a bot game. Wrapper around the GameMode function for easier Blueprint access. */
+    UFUNCTION(BlueprintCallable, Category = "Chess Player Controller|UI")
+    void SetPlayerColorChoiceForBotGame(int32 ChoiceIndex);
+
     /** Sets the input mode to GameAndUI, suitable for gameplay. */
     UFUNCTION(BlueprintCallable, Category = "Input")
     void SetInputModeForGame();
