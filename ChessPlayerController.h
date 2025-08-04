@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "ChessPiece.h" // Включаем для доступа к EPieceColor
+#include "ChessPiece.h" 
 #include "PlayerProfile.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
