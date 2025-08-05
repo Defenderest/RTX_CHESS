@@ -49,6 +49,11 @@ public:
     /** Показывает или скрывает меню паузы. */
     void TogglePauseMenu();
 
+    /** Показывает или скрывает меню настроек графики. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ToggleGraphicsSettingsMenu();
+
+
     void ShowStartMenu();
 
     UFUNCTION(BlueprintCallable, Category = "Chess Player Controller")
@@ -212,6 +217,9 @@ private:
     UPauseMenuWidget* PauseMenuWidgetInstance;
 
     UPROPERTY()
+    UUserWidget* GraphicsSettingsWidgetInstance;
+
+    UPROPERTY()
     UAudioComponent* MenuMusicComponent;
 
     UPROPERTY()
@@ -247,5 +255,8 @@ private:
 
     /** [CLIENT-SIDE] Флаг, чтобы отслеживать, был ли получен RPC Client_GameStarted. Используется для предотвращения гонки состояний камеры. */
     bool bHasGameStarted_Client;
+
+    /** Обновляет режим ввода (UI/Game) в зависимости от того, отображается ли какой-либо виджет меню. */
+    void UpdateInputMode();
 };
 

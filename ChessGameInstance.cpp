@@ -1,5 +1,5 @@
 #include "ChessGameInstance.h"
-#include "ChessGameMode.h" // For ETimeControlType
+#include "ChessGameMode.h" 
 #include "ChessSaveGame.h"
 #include "GameFramework/GameUserSettings.h"
 #include "OnlineSubsystem.h"
@@ -8,8 +8,9 @@
 #include "Engine/World.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
-#include "MoviePlayer.h"
 #include "Blueprint/UserWidget.h"
+#include "Modules/ModuleManager.h"
+#include "RenderingThread.h"
 
 // Helper function to convert EOnJoinSessionCompleteResult::Type to FString
 FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
@@ -77,8 +78,11 @@ void UChessGameInstance::Init()
 
 	LoadPlayerProfile();
 
-	FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UChessGameInstance::BeginLoadingScreen);
-	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UChessGameInstance::EndLoadingScreen);
+	if (!IsRunningDedicatedServer())
+	{
+		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UChessGameInstance::BeginLoadingScreen);
+		FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UChessGameInstance::EndLoadingScreen);
+	}
 }
 
 void UChessGameInstance::Shutdown()
@@ -88,49 +92,48 @@ void UChessGameInstance::Shutdown()
 	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
 }
 
-void UChessGameInstance::BeginLoadingScreen(const FString& InMapName)
+void UChessGameInstance::BeginLoadingScreen(const FString& MapName)
 {
+	UE_LOG(LogTemp, Log, TEXT("--- BeginLoadingScreen triggered for map: %s ---"), *MapName);
 	if (IsRunningDedicatedServer())
 	{
 		return;
 	}
 
-	FLoadingScreenAttributes LoadingScreen;
-	LoadingScreen.bAutoCompleteWhenLoadingCompletes = true;
-	
 	if (LoadingScreenWidgetClass)
 	{
-		LoadingScreen.WidgetLoadingScreen = CreateWidget<UUserWidget>(this, LoadingScreenWidgetClass)->TakeWidget();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("LoadingScreenWidgetClass is not set in ChessGameInstance Blueprint. Falling back to default loading screen."));
-		LoadingScreen.WidgetLoadingScreen = FLoadingScreenAttributes::NewTestLoadingScreenWidget();
-	}
-
-	GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
-}
-
-void UChessGameInstance::EndLoadingScreen(UWorld* InLoadedWorld)
-{
-	// Эта функция вызывается после загрузки карты.
-	// Экран загрузки скроется автоматически благодаря bAutoCompleteWhenLoadingCompletes = true.
-}
-
-void UChessGameInstance::ShowGraphicsSettingsMenu()
-{
-	if (MainGraphicsSettingsWidgetClass)
-	{
-		UUserWidget* SettingsWidget = CreateWidget<UUserWidget>(this, MainGraphicsSettingsWidgetClass);
-		if (SettingsWidget)
+		UE_LOG(LogTemp, Log, TEXT("Showing loading screen."));
+		LoadingScreenWidgetInstance = CreateWidget<UUserWidget>(this, LoadingScreenWidgetClass);
+		if (LoadingScreenWidgetInstance)
 		{
-			SettingsWidget->AddToViewport();
-			// Как правило, сам виджет должен обрабатывать переключение режима ввода.
+			LoadingScreenWidgetInstance->AddToViewport(9999);
+			FlushRenderingCommands();
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("MainGraphicsSettingsWidgetClass is not set in ChessGameInstance Blueprint. Cannot show settings menu."));
+		// --- ЧЕТКАЯ ДИАГНОСТИКА ---
+		// Если мы видим это сообщение, значит, в настройках проекта указан не тот GameInstance.
+		// Нужно указать Blueprint-класс, в котором задан LoadingScreenWidgetClass.
+		const FString ErrorMessage = FString::Printf(
+			TEXT("!!! ACTION REQUIRED: LoadingScreenWidgetClass is NOT SET on GameInstance of class '%s'. Go to Project Settings -> Maps & Modes and set 'Game Instance Class' to your Blueprint, e.g., 'BP_ChessGameInstance'."),
+			*GetClass()->GetName()
+		);
+		UE_LOG(LogTemp, Error, TEXT("%s"), *ErrorMessage);
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Red, ErrorMessage);
+		}
+	}
+}
+
+void UChessGameInstance::EndLoadingScreen(UWorld* InLoadedWorld)
+{
+	if (LoadingScreenWidgetInstance)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Hiding loading screen."));
+		LoadingScreenWidgetInstance->RemoveFromParent();
+		LoadingScreenWidgetInstance = nullptr;
 	}
 }
 
@@ -527,6 +530,11 @@ const FPlayerProfile& UChessGameInstance::GetPlayerProfile() const
 	static const FPlayerProfile DefaultProfile;
 	UE_LOG(LogTemp, Warning, TEXT("UChessGameInstance::GetPlayerProfile returning default profile because CurrentSaveGame is null."));
 	return DefaultProfile;
+}
+
+TSubclassOf<class UUserWidget> UChessGameInstance::GetGraphicsSettingsWidgetClass() const
+{
+	return GraphicsSettingsWidgetClass;
 }
 
 void UChessGameInstance::UpdatePlayerProfile(const FPlayerProfile& NewProfile)

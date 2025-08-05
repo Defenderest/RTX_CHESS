@@ -47,6 +47,7 @@ AChessPlayerController::AChessPlayerController()
     MenuMusicComponent = nullptr;
     CaptureEffect = nullptr;
     PauseMenuWidgetInstance = nullptr;
+    GraphicsSettingsWidgetInstance = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
     ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
@@ -74,7 +75,7 @@ void AChessPlayerController::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::BeginPlay: ChessBoard actor not found!"));
     }
-    
+
     // Откладываем решение о том, что показывать, до тех пор, пока GameState точно не будет доступен.
     // Это помогает избежать гонок состояний, когда BeginPlay контроллера игрока запускается
     // до того, как GameState полностью инициализирован или реплицирован.
@@ -246,7 +247,6 @@ void AChessPlayerController::TogglePauseMenu()
     if (PauseMenuWidgetInstance && PauseMenuWidgetInstance->IsInViewport())
     {
         PauseMenuWidgetInstance->RemoveFromParent();
-        SetInputModeForGame();
     }
     else // Иначе, открываем
     {
@@ -259,8 +259,7 @@ void AChessPlayerController::TogglePauseMenu()
             
             if (PauseMenuWidgetInstance)
             {
-                PauseMenuWidgetInstance->AddToViewport();
-                SetInputModeForUI();
+                PauseMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
             }
         }
         else
@@ -268,6 +267,65 @@ void AChessPlayerController::TogglePauseMenu()
             UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PauseMenuWidgetClass не назначен в Blueprint!"));
         }
     }
+    UpdateInputMode();
+}
+
+void AChessPlayerController::ToggleGraphicsSettingsMenu()
+{
+    UE_LOG(LogTemp, Log, TEXT("--- ToggleGraphicsSettingsMenu: CALLED ---"));
+
+    if (GraphicsSettingsWidgetInstance && GraphicsSettingsWidgetInstance->IsInViewport())
+    {
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Widget is visible. Removing it."));
+        GraphicsSettingsWidgetInstance->RemoveFromParent();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Widget is not visible. Attempting to show."));
+
+        UChessGameInstance* GameInstance = GetGameInstance<UChessGameInstance>();
+        if (!GameInstance)
+        {
+            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. GetGameInstance() returned NULL."));
+            return;
+        }
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 1 -> GameInstance is valid."));
+
+        TSubclassOf<class UUserWidget> WidgetClass = GameInstance->GetGraphicsSettingsWidgetClass();
+        if (!WidgetClass)
+        {
+            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. GetGraphicsSettingsWidgetClass() returned NULL. Check BP_ChessGameInstance settings."));
+            return;
+        }
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 2 -> WidgetClass is valid (%s)."), *WidgetClass->GetName());
+
+        if (!GraphicsSettingsWidgetInstance)
+        {
+            UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 3 -> Widget instance is null. Creating new one..."));
+            GraphicsSettingsWidgetInstance = CreateWidget<UUserWidget>(this, WidgetClass);
+        }
+        
+        if (!GraphicsSettingsWidgetInstance)
+        {
+            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. CreateWidget() returned NULL. This should not happen if class is valid."));
+            return;
+        }
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 4 -> Widget instance is valid."));
+
+        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 5 -> Adding to viewport with Z-Order 10..."));
+        GraphicsSettingsWidgetInstance->AddToViewport(10);
+
+        if (GraphicsSettingsWidgetInstance->IsInViewport())
+        {
+            UE_LOG(LogTemp, Warning, TEXT("ToggleGraphicsSettingsMenu: SUCCESS! Widget is now in viewport."));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: FAILURE! Widget is NOT in viewport immediately after AddToViewport(). This is the problem."));
+        }
+    }
+
+    UpdateInputMode();
 }
 
 void AChessPlayerController::SetGameCamera()
@@ -335,8 +393,8 @@ void AChessPlayerController::ShowStartMenu()
 
         if (StartMenuWidgetInstance)
         {
-            StartMenuWidgetInstance->AddToViewport();
-            SetInputModeForUI();
+            StartMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+            UpdateInputMode();
             SetMenuCamera();
 
             if (MenuMusic && !MenuMusicComponent)
@@ -382,7 +440,12 @@ void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 
 AChessGameMode* AChessPlayerController::GetChessGameMode() const
 {
-    return Cast<AChessGameMode>(GetWorld()->GetAuthGameMode());
+    UWorld* World = GetWorld();
+    if (World)
+    {
+        return Cast<AChessGameMode>(World->GetAuthGameMode());
+    }
+    return nullptr;
 }
 
 void AChessPlayerController::SetPlayerColorChoiceForBotGame(int32 ChoiceIndex)
@@ -413,6 +476,30 @@ void AChessPlayerController::SetInputModeForUI()
     SetInputMode(InputMode);
     bShowMouseCursor = true;
     bIsInputModeSetForGame = false;
+}
+
+void AChessPlayerController::UpdateInputMode()
+{
+    UE_LOG(LogTemp, Log, TEXT("--- UpdateInputMode: CALLED ---"));
+
+    const bool bStartMenuVisible = StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport();
+    const bool bPauseMenuVisible = PauseMenuWidgetInstance && PauseMenuWidgetInstance->IsInViewport();
+    const bool bSettingsMenuVisible = GraphicsSettingsWidgetInstance && GraphicsSettingsWidgetInstance->IsInViewport();
+    const bool bPromotionMenuVisible = PromotionMenuWidgetInstance && PromotionMenuWidgetInstance->IsInViewport();
+
+    UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: Menu visibility states: Start=%d, Pause=%d, Settings=%d, Promotion=%d"),
+        bStartMenuVisible, bPauseMenuVisible, bSettingsMenuVisible, bPromotionMenuVisible);
+
+    if (bStartMenuVisible || bPauseMenuVisible || bSettingsMenuVisible || bPromotionMenuVisible)
+    {
+        UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: At least one menu is visible. Setting input mode to UI_ONLY."));
+        SetInputModeForUI();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: No menus are visible. Setting input mode to GAME_AND_UI."));
+        SetInputModeForGame();
+    }
 }
 
 void AChessPlayerController::Client_GameStarted_Implementation()
@@ -505,7 +592,7 @@ void AChessPlayerController::SetupGameUI()
     }
     MenuMusicComponent = nullptr;
 
-    SetInputModeForGame();
+    UpdateInputMode();
     // Камера теперь устанавливается в Client_GameStarted, чтобы гарантировать,
     // что цвет игрока уже реплицирован.
 }
@@ -773,8 +860,8 @@ void AChessPlayerController::Client_ShowPromotionMenu_Implementation(APawnPiece*
         if (PromotionMenuWidgetInstance && !PromotionMenuWidgetInstance->IsInViewport())
         {
             PawnAwaitingPromotion = PawnForPromotion; // Сохраняем пешку для отправки на сервер
-            PromotionMenuWidgetInstance->AddToViewport();
-            SetInputModeForUI();
+            PromotionMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+            UpdateInputMode();
         }
     }
     else
@@ -789,7 +876,13 @@ void AChessPlayerController::HandlePromotionSelection(EPieceType SelectedType)
     {
         Server_CompletePawnPromotion(PawnAwaitingPromotion, SelectedType);
     }
-    SetInputModeForGame(); // Возвращаем управление в игру
+    
+    // Скрываем меню выбора и обновляем режим ввода
+    if (PromotionMenuWidgetInstance)
+    {
+        PromotionMenuWidgetInstance->RemoveFromParent();
+    }
+    UpdateInputMode();
     PawnAwaitingPromotion = nullptr;
 }
 

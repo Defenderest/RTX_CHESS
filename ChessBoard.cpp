@@ -210,10 +210,31 @@ bool AChessBoard::IsSquareAttackedBy(const FIntPoint& SquarePosition, EPieceColo
     {
         if (Piece && Piece->GetPieceColor() == AttackingColor)
         {
-            const TArray<FIntPoint> ValidMoves = Piece->GetValidMoves(GS, this);
-            if (ValidMoves.Contains(SquarePosition))
+            // --- ИСПРАВЛЕНИЕ ВЫЛЕТА ИЗ-ЗА РЕКУРСИИ ---
+            // Вылет был вызван бесконечной рекурсией: KingA->GetValidMoves вызывает IsSquareAttackedBy,
+            // который вызывает GetValidMoves для вражеского KingB, что в свою очередь снова вызывает IsSquareAttackedBy, создавая цикл.
+            // Чтобы разорвать этот цикл, мы обрабатываем атаку короля отдельно, не вызывая для него GetValidMoves.
+            if (Piece->GetPieceType() == EPieceType::King)
             {
-                return true; // Найдена фигура, атакующая клетку
+                FIntPoint KingPos = Piece->GetBoardPosition();
+                // Король атакует все 8 смежных клеток.
+                if (FMath::Abs(KingPos.X - SquarePosition.X) <= 1 && FMath::Abs(KingPos.Y - SquarePosition.Y) <= 1)
+                {
+                    // Убедимся, что это не та же клетка, на которой стоит король, так как фигура не атакует саму себя.
+                    if (KingPos != SquarePosition)
+                    {
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                // Для всех остальных фигур мы предполагаем, что вызов GetValidMoves безопасен.
+                const TArray<FIntPoint> ValidMoves = Piece->GetValidMoves(GS, this);
+                if (ValidMoves.Contains(SquarePosition))
+                {
+                    return true; // Найдена фигура, атакующая клетку
+                }
             }
         }
     }

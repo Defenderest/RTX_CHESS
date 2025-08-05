@@ -4,6 +4,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "ChessPiece.h" // Для EPieceColor, EPieceType
 #include "Math/IntPoint.h" // Для FIntPoint
+#include "DatabaseManager.h"
 #include "ChessGameMode.generated.h"
 
 class UStockfishManager;
@@ -106,6 +107,9 @@ public:
     FVector GetBurnEffectScale() const;
 
 protected:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Database")
+    TObjectPtr<UDatabaseManager> DatabaseManager;
+
     // Ссылка на объект шахматной доски на уровне. Должна быть установлена в BeginPlay.
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Chess Game Mode", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<AChessBoard> GameBoard;
@@ -214,8 +218,14 @@ private:
     // Счетчик подключенных игроков
     int32 NumberOfPlayers;
 
+    /** ID текущей игры в базе данных. */
+    int64 CurrentGameDBId;
+
     // Вспомогательная функция для получения ChessGameState с проверкой типа
     AChessGameState* GetCurrentGameState() const;
+
+    /** Сохраняет ход в базу данных. */
+    void RecordMove(const FString& MoveNotation);
 
     // Флаг для отслеживания случая, когда превращение пешки происходит в результате взятия.
     bool bIsPromotionAfterCapture;

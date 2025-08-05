@@ -35,17 +35,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player Profile")
 	void UpdatePlayerProfile(const FPlayerProfile& NewProfile);
 
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowGraphicsSettingsMenu();
+	/** Возвращает класс виджета для меню настроек графики. */
+	UFUNCTION(BlueprintPure, Category = "UI")
+	TSubclassOf<class UUserWidget> GetGraphicsSettingsWidgetClass() const;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<class UUserWidget> LoadingScreenWidgetClass;
-	
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<class UUserWidget> MainGraphicsSettingsWidgetClass;
 
-	void BeginLoadingScreen(const FString& InMapName);
+	/** Виджет для меню настроек графики. Назначается в Blueprint. */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UUserWidget> GraphicsSettingsWidgetClass;
+
+	void BeginLoadingScreen(const FString& MapName);
 	void EndLoadingScreen(UWorld* InLoadedWorld);
 
 	IOnlineSessionPtr SessionInterface;
@@ -74,6 +76,9 @@ private:
     FTimerHandle FindSessionTimerHandle;
     bool bIsFindingSessions;
     bool bIsHost;
+
+    UPROPERTY()
+    TObjectPtr<class UUserWidget> LoadingScreenWidgetInstance;
 
     UPROPERTY()
 	TObjectPtr<class UChessSaveGame> CurrentSaveGame;
