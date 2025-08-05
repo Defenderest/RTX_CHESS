@@ -47,7 +47,7 @@ A brief video demonstrating the core features of the project is highly recommend
 
 **(Embed a link to a YouTube video showcasing the game. A good demo would include: Main Menu -> Starting a game vs AI -> Pawn Promotion -> Starting a network game -> Hosting & Joining -> A few moves in multiplayer.)**
 
-`[Link to your YouTube video showcase]`
+`[}`
 
 ---
 
