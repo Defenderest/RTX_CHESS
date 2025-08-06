@@ -10,7 +10,6 @@
 #include "IPAddress.h"
 #include "Blueprint/UserWidget.h"
 #include "Modules/ModuleManager.h"
-#include "RenderingThread.h"
 
 // Helper function to convert EOnJoinSessionCompleteResult::Type to FString
 FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
@@ -107,7 +106,6 @@ void UChessGameInstance::BeginLoadingScreen(const FString& MapName)
 		if (LoadingScreenWidgetInstance)
 		{
 			LoadingScreenWidgetInstance->AddToViewport(9999);
-			FlushRenderingCommands();
 		}
 	}
 	else

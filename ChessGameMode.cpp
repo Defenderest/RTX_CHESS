@@ -1,5 +1,5 @@
 #include "ChessGameMode.h"
-#include "DatabaseManager.h"
+// #include "DatabaseManager.h"
 #include "PlayerPawn.h"
 #include "ChessPlayerController.h"
 #include "ChessPlayerState.h"
@@ -20,8 +20,8 @@ AChessGameMode::AChessGameMode()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    DatabaseManager = CreateDefaultSubobject<UDatabaseManager>(TEXT("DatabaseManager"));
-    CurrentGameDBId = -1;
+    // DatabaseManager = CreateDefaultSubobject<UDatabaseManager>(TEXT("DatabaseManager"));
+    // CurrentGameDBId = -1;
 
     GameStateClass = AChessGameState::StaticClass();
     PlayerStateClass = AChessPlayerState::StaticClass();
@@ -125,10 +125,10 @@ void AChessGameMode::BeginPlay()
     // и PlayerController покажет стартовое меню. Игра начнется, когда подключится второй игрок.
     
     // Подключаемся к базе данных
-    if (DatabaseManager)
-    {
-        DatabaseManager->Connect();
-    }
+    // if (DatabaseManager)
+    // {
+    //     DatabaseManager->Connect();
+    // }
 }
 
 void AChessGameMode::Tick(float DeltaTime)
@@ -618,10 +618,10 @@ void AChessGameMode::StartNewGame()
     {
         CurrentGS->OnRep_PlayerProfiles();
 
-        if (DatabaseManager)
-        {
-            DatabaseManager->SaveNewGame(CurrentGS->WhitePlayerProfile.PlayerName, CurrentGS->BlackPlayerProfile.PlayerName, CurrentGameDBId);
-        }
+        // if (DatabaseManager)
+        // {
+        //     DatabaseManager->SaveNewGame(CurrentGS->WhitePlayerProfile.PlayerName, CurrentGS->BlackPlayerProfile.PlayerName, CurrentGameDBId);
+        // }
     }
 }
 
@@ -662,32 +662,32 @@ void AChessGameMode::SetupBoardAndGameState(int32 StartTime, int32 Increment)
 #include "ChessPlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
 
-void AChessGameMode::RecordMove(const FString& MoveNotation)
-{
-    if (DatabaseManager && CurrentGameDBId != -1)
-    {
-        AChessGameState* CurrentGS = GetCurrentGameState();
-        if (CurrentGS)
-        {
-            FString FEN = CurrentGS->GetFEN();
-            
-            // Вычисляем номер полухода
-            int32 MoveNumber = (CurrentGS->GetFullmoveNumber() - 1) * 2;
-            // EndTurn уже переключил ход, поэтому логика обратная:
-            // если сейчас ход черных, значит, только что сходили белые.
-            if (CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
-            {
-                MoveNumber += 1; // Ход белых
-            }
-            else
-            {
-                MoveNumber += 2; // Ход черных
-            }
-            
-            DatabaseManager->SaveMove(CurrentGameDBId, MoveNumber, MoveNotation, FEN);
-        }
-    }
-}
+// void AChessGameMode::RecordMove(const FString& MoveNotation)
+// {
+    // if (DatabaseManager && CurrentGameDBId != -1)
+    // {
+    //     AChessGameState* CurrentGS = GetCurrentGameState();
+    //     if (CurrentGS)
+    //     {
+    //         FString FEN = CurrentGS->GetFEN();
+    //         
+    //         // Вычисляем номер полухода
+    //         int32 MoveNumber = (CurrentGS->GetFullmoveNumber() - 1) * 2;
+    //         // EndTurn уже переключил ход, поэтому логика обратная:
+    //         // если сейчас ход черных, значит, только что сходили белые.
+    //         if (CurrentGS->GetCurrentTurnColor() == EPieceColor::Black)
+    //         {
+    //             MoveNumber += 1; // Ход белых
+    //         }
+    //         else
+    //         {
+    //             MoveNumber += 2; // Ход черных
+    //         }
+    //         
+    //         DatabaseManager->SaveMove(CurrentGameDBId, MoveNumber, MoveNotation, FEN);
+    //     }
+    // }
+// }
 
 void AChessGameMode::EndTurn()
 {
@@ -1107,7 +1107,7 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     EndTurn();
 
     // Записываем ход в БД после EndTurn, чтобы FEN был корректным
-    RecordMove(MoveNotation);
+    // RecordMove(MoveNotation);
 
     UE_LOG(LogTemp, Log, TEXT("--- AttemptMove END (Success) ---"));
     return true;
@@ -1316,11 +1316,11 @@ void AChessGameMode::CheckGameEndConditions()
             const EGamePhase FinalPhase = (OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins;
             CurrentGS->SetGamePhase(FinalPhase);
             
-            if (DatabaseManager && CurrentGameDBId != -1)
-            {
-                const EGameResult Result = (FinalPhase == EGamePhase::WhiteWins) ? EGameResult::WhiteWins : EGameResult::BlackWins;
-                DatabaseManager->UpdateGameResult(CurrentGameDBId, Result);
-            }
+            // if (DatabaseManager && CurrentGameDBId != -1)
+            // {
+            //     const EGameResult Result = (FinalPhase == EGamePhase::WhiteWins) ? EGameResult::WhiteWins : EGameResult::BlackWins;
+            //     DatabaseManager->UpdateGameResult(CurrentGameDBId, Result);
+            // }
             for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
             {
                 if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
@@ -1337,10 +1337,10 @@ void AChessGameMode::CheckGameEndConditions()
             UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Stalemate! Game is a draw."));
             CurrentGS->SetGamePhase(EGamePhase::Stalemate);
 
-            if (DatabaseManager && CurrentGameDBId != -1)
-            {
-                DatabaseManager->UpdateGameResult(CurrentGameDBId, EGameResult::Draw);
-            }
+            // if (DatabaseManager && CurrentGameDBId != -1)
+            // {
+            //     DatabaseManager->UpdateGameResult(CurrentGameDBId, EGameResult::Draw);
+            // }
         }
         else
         {
