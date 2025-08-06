@@ -73,13 +73,13 @@ protected:
     FString Host = TEXT("localhost");
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Database|Connection")
-    FString Port = TEXT("5432");
+    FString Port = TEXT("2112");
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Database|Connection")
     FString User = TEXT("postgres");
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Database|Connection")
-    FString Password = TEXT("password"); // ЗАМЕНИТЕ НА ВАШ ПАРОЛЬ
+    FString Password = TEXT("2112"); // ЗАМЕНИТЕ НА ВАШ ПАРОЛЬ
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Database|Connection")
     FString DBName = TEXT("chess_db");

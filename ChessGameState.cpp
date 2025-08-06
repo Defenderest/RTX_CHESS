@@ -98,6 +98,11 @@ EPieceColor AChessGameState::GetCurrentTurnColor() const
     return CurrentTurnColor;
 }
 
+int32 AChessGameState::GetFullmoveNumber() const
+{
+    return FullmoveNumber;
+}
+
 void AChessGameState::Server_SwitchTurn()
 {
     if (GetLocalRole() == ROLE_Authority) // Убеждаемся, что это вызывается на сервере

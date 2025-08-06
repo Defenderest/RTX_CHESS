@@ -1,4 +1,5 @@
 #include "ChessGameMode.h"
+#include "DatabaseManager.h"
 #include "PlayerPawn.h"
 #include "ChessPlayerController.h"
 #include "ChessPlayerState.h"

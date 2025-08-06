@@ -121,6 +121,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
     EPieceColor GetCurrentTurnColor() const;
 
+    // Возвращает номер текущего полного хода
+    UFUNCTION(BlueprintPure, Category = "Chess Game State")
+    int32 GetFullmoveNumber() const;
+
     // Переключает ход на другого игрока (должен вызываться на сервере из GameMode)
     void Server_SwitchTurn();
 
