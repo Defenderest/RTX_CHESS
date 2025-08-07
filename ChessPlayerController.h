@@ -21,6 +21,7 @@ class UPauseMenuWidget;
 class AChessPiece;
 class APawnPiece;
 class UPromotionMenuWidget;
+class UPlayerInfoWidget;
 class UAudioComponent;
 class USoundBase;
 class AMenuCameraActor;
@@ -52,6 +53,10 @@ public:
     /** Показывает или скрывает меню настроек графики. */
     UFUNCTION(BlueprintCallable, Category = "UI")
     void ToggleGraphicsSettingsMenu();
+
+    /** Показывает или скрывает виджет с информацией об игроках. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void TogglePlayerInfoWidget();
 
 
     void ShowStartMenu();
@@ -99,6 +104,8 @@ public:
     void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
 
 protected:
+    /** Обновляет информацию в виджете информации об игроках. */
+    void UpdatePlayerInfo();
     /** [SERVER] Called from client to set the player's profile data on their PlayerState. */
     UFUNCTION(Server, Reliable)
     void Server_SetPlayerProfile(const FPlayerProfile& Profile);
@@ -132,6 +139,18 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UPauseMenuWidget> PauseMenuWidgetClass;
+
+    /** 
+     * Класс виджета для меню настроек графики.
+     * !!! ВАЖНО: Это свойство ДОЛЖНО быть установлено в Blueprint вашего Player Controller (например, BP_ChessPlayerController).
+     * Если оно не установлено (None), меню настроек не появится.
+     */
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> GraphicsSettingsWidgetClass;
+
+    /** Класс виджета для отображения информации об игроках (счет, пинг и т.д.). Назначается в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<class UPlayerInfoWidget> PlayerInfoWidgetClass;
 
     /** Музыка для главного меню. */
     UPROPERTY(EditDefaultsOnly, Category = "UI|Sound")
@@ -188,6 +207,12 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
     UInputAction* PauseAction; // Для открытия меню паузы
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* PlayerInfoAction; // Для отображения информации об игроках
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+    UInputAction* ToggleDebugAction; // Для переключения отладочной информации
+
     /** Handles the start of a click/drag. */
     void OnClickStarted();
 
@@ -196,6 +221,9 @@ protected:
 
     /** Handles camera movement. */
     void HandleCameraMove(const struct FInputActionValue& Value);
+
+    /** Переключает видимость отладочной информации. */
+    void ToggleDebugInfo();
 
     /** [SERVER] Attempts to move a piece. Called from client, runs on server. */
     UFUNCTION(Server, Reliable, WithValidation)
@@ -220,10 +248,16 @@ private:
     UUserWidget* GraphicsSettingsWidgetInstance;
 
     UPROPERTY()
+    class UPlayerInfoWidget* PlayerInfoWidgetInstance;
+
+    UPROPERTY()
     UAudioComponent* MenuMusicComponent;
 
     UPROPERTY()
     UPromotionMenuWidget* PromotionMenuWidgetInstance;
+
+    /** Таймер для периодического обновления информации об игроках (пинг). */
+    FTimerHandle PlayerInfoUpdateTimerHandle;
     
     /** The pawn that is waiting to be promoted. Set on client when promotion menu is shown. */
     UPROPERTY()
@@ -255,6 +289,9 @@ private:
 
     /** [CLIENT-SIDE] Флаг, чтобы отслеживать, был ли получен RPC Client_GameStarted. Используется для предотвращения гонки состояний камеры. */
     bool bHasGameStarted_Client;
+
+    /** Флаг, управляющий отображением отладочной информации на экране. */
+    bool bShowDebugInfo;
 
     /** Обновляет режим ввода (UI/Game) в зависимости от того, отображается ли какой-либо виджет меню. */
     void UpdateInputMode();

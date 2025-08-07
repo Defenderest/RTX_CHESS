@@ -31,6 +31,10 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnOnlineGameClicked();
 
+    /** Вызывается при нажатии кнопки "Настройки" в главном меню. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void OnSettingsClicked();
+
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnExitClicked();
 

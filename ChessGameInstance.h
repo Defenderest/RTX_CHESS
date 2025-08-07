@@ -9,6 +9,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSessionCreatedDelegate, bool, bWasSuccessful);
 
+struct FGraphicsSettingsData; // Forward declaration
+
 UCLASS()
 class RTX_CHESS_API UChessGameInstance : public UGameInstance
 {
@@ -39,6 +41,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "UI")
 	TSubclassOf<class UUserWidget> GetGraphicsSettingsWidgetClass() const;
 
+	/** [Settings] Получает текущие сохраненные настройки графики. */
+	UFUNCTION(BlueprintPure, Category = "Settings")
+	FGraphicsSettingsData GetGraphicsSettings() const;
+
+	/** [Settings] Обновляет настройки графики, применяет их и сохраняет на диск. */
+	UFUNCTION(BlueprintCallable, Category = "Settings")
+	void UpdateGraphicsSettings(const FGraphicsSettingsData& NewSettings);
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<class UUserWidget> LoadingScreenWidgetClass;
@@ -65,6 +75,9 @@ protected:
 	void JoinSession(const FOnlineSessionSearchResult& SearchResult);
 	void LoadPlayerProfile();
 	void SavePlayerProfile();
+
+	/** Применяет настройки графики из CurrentSaveGame к UGameUserSettings. */
+	void ApplyGraphicsSettings();
 
 private:
     // --- Session Data ---

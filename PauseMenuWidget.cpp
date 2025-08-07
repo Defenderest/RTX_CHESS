@@ -14,6 +14,11 @@ void UPauseMenuWidget::NativeConstruct()
     }
     if (SettingsButton)
     {
+        // Здесь мы привязываем C++ функцию OnSettingsClicked к событию нажатия кнопки.
+        // Это стандартный способ обработки кликов по кнопкам из C++.
+        // !!! ВАЖНО: Убедитесь, что в Event Graph виджета WBP_PauseMenu нет узлов,
+        // подключенных к событию "OnClicked" для SettingsButton.
+        // Вся логика теперь находится в C++ функции OnSettingsClicked().
         SettingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::OnSettingsClicked);
     }
     if (ExitToMenuButton)
@@ -36,7 +41,10 @@ void UPauseMenuWidget::OnResumeClicked()
 
 void UPauseMenuWidget::OnSettingsClicked()
 {
-    UChessBlueprintFunctionLibrary::ShowChessGraphicsSettings(this);
+    if (AChessPlayerController* PlayerController = Cast<AChessPlayerController>(GetOwningPlayer()))
+    {
+        PlayerController->ToggleGraphicsSettingsMenu();
+    }
 }
 
 void UPauseMenuWidget::OnExitToMenuClicked()

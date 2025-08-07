@@ -17,6 +17,7 @@
 #include "PawnPiece.h"
 #include "Blueprint/UserWidget.h"
 #include "PauseMenuWidget.h"
+#include "PlayerInfoWidget.h"
 #include "Components/AudioComponent.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
@@ -44,10 +45,12 @@ AChessPlayerController::AChessPlayerController()
     ChessBoard = nullptr;
     bIsInputModeSetForGame = false;
     bHasGameStarted_Client = false;
+    bShowDebugInfo = false;
     MenuMusicComponent = nullptr;
     CaptureEffect = nullptr;
     PauseMenuWidgetInstance = nullptr;
     GraphicsSettingsWidgetInstance = nullptr;
+    PlayerInfoWidgetInstance = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
     ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
@@ -133,6 +136,24 @@ void AChessPlayerController::SetupInputComponent()
         {
             UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PauseAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
         }
+
+        if (PlayerInfoAction)
+        {
+            EnhancedInput->BindAction(PlayerInfoAction, ETriggerEvent::Started, this, &AChessPlayerController::TogglePlayerInfoWidget);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PlayerInfoAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+        }
+
+        if (ToggleDebugAction)
+        {
+            EnhancedInput->BindAction(ToggleDebugAction, ETriggerEvent::Started, this, &AChessPlayerController::ToggleDebugInfo);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ToggleDebugAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+        }
     }
 }
 
@@ -144,7 +165,9 @@ void AChessPlayerController::Tick(float DeltaTime)
     // Тангаж (Pitch) будет управляться отдельно, чтобы избежать взгляда в потолок при старте.
     if (bIsInputModeSetForGame)
     {
-        if (PlayerCameraManager)
+        // ОПТИМИЗАЦИЯ: Этот блок кода должен выполняться, только когда игрок активно вращает камеру (зажата ПКМ).
+        // Это предотвращает ненужные вычисления в каждом кадре, когда камера статична.
+        if (PlayerCameraManager && IsInputKeyDown(EKeys::RightMouseButton))
         {
             FRotator CurrentControlRotation = GetControlRotation();
 
@@ -168,63 +191,77 @@ void AChessPlayerController::Tick(float DeltaTime)
     }
 
     // --- Отладочная информация на экране ---
-    if (GEngine)
+    if (bShowDebugInfo && GEngine)
     {
-        AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-        if (GameState)
+        // ОПТИМИЗАЦИЯ: Обновляем отладочную информацию реже, чем каждый кадр,
+        // так как это очень ресурсоемкая операция.
+        static float DebugInfoTimer = 0.0f;
+        DebugInfoTimer += DeltaTime;
+
+        if (DebugInfoTimer > 0.1f) // Обновление ~10 раз в секунду
         {
-            FString GamePhaseStr = UEnum::GetValueAsString(GameState->GetGamePhase());
-            FString CurrentTurnStr = (GameState->GetCurrentTurnColor() == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+            DebugInfoTimer = 0.0f;
             
-            GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Yellow, FString::Printf(TEXT("Game Phase: %s"), *GamePhaseStr));
-            GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Current Turn: %s"), *CurrentTurnStr));
-
-            // Отображение времени
-            const int32 WhiteTimeInt = FMath::CeilToInt(GameState->WhiteTimeSeconds);
-            const FString WhiteTimeStr = (WhiteTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), WhiteTimeInt / 60, WhiteTimeInt % 60);
-            GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::White, FString::Printf(TEXT("White Time: %s"), *WhiteTimeStr));
-
-            const int32 BlackTimeInt = FMath::CeilToInt(GameState->BlackTimeSeconds);
-            const FString BlackTimeStr = (BlackTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), BlackTimeInt / 60, BlackTimeInt % 60);
-            GEngine->AddOnScreenDebugMessage(6, 0.f, FColor::Black, FString::Printf(TEXT("Black Time: %s"), *BlackTimeStr));
-
-            // Отображение профилей
-            const FString WhiteProfileStr = FString::Printf(TEXT("White: %s (%d) [%s]"), *GameState->WhitePlayerProfile.PlayerName, GameState->WhitePlayerProfile.EloRating, *GameState->WhitePlayerProfile.Country);
-            GEngine->AddOnScreenDebugMessage(7, 0.f, FColor::White, WhiteProfileStr);
-
-            const FString BlackProfileStr = FString::Printf(TEXT("Black: %s (%d) [%s]"), *GameState->BlackPlayerProfile.PlayerName, GameState->BlackPlayerProfile.EloRating, *GameState->BlackPlayerProfile.Country);
-            GEngine->AddOnScreenDebugMessage(8, 0.f, FColor::Black, BlackProfileStr);
-        }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Red, TEXT("Game State is NULL"));
-        }
-
-        FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
-        GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Cyan, FString::Printf(TEXT("My Player Color: %s"), *MyColorStr));
-
-        FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
-        GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
-
-        // --- Stockfish Debug Info ---
-        AChessGameMode* GameMode = GetChessGameMode();
-        if (GameMode && GameMode->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
-        {
-            UStockfishManager* SFManager = GameMode->GetStockfishManager();
-            if (SFManager)
+            AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+            if (GameState)
             {
-                // NOTE: The new async StockfishManager doesn't expose internal state for debug logs.
-                // We can only confirm that the manager object exists.
-                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Orange, TEXT("Stockfish Manager: Present"));
+                FString GamePhaseStr = UEnum::GetValueAsString(GameState->GetGamePhase());
+                FString CurrentTurnStr = (GameState->GetCurrentTurnColor() == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+                
+                GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Yellow, FString::Printf(TEXT("Game Phase: %s"), *GamePhaseStr));
+                GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Current Turn: %s"), *CurrentTurnStr));
+
+                // Отображение времени
+                const int32 WhiteTimeInt = FMath::CeilToInt(GameState->WhiteTimeSeconds);
+                const FString WhiteTimeStr = (WhiteTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), WhiteTimeInt / 60, WhiteTimeInt % 60);
+                GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::White, FString::Printf(TEXT("White Time: %s"), *WhiteTimeStr));
+
+                const int32 BlackTimeInt = FMath::CeilToInt(GameState->BlackTimeSeconds);
+                const FString BlackTimeStr = (BlackTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), BlackTimeInt / 60, BlackTimeInt % 60);
+                GEngine->AddOnScreenDebugMessage(6, 0.f, FColor::Black, FString::Printf(TEXT("Black Time: %s"), *BlackTimeStr));
+
+                // Отображение профилей
+                const FString WhiteProfileStr = FString::Printf(TEXT("White: %s (%d) [%s]"), *GameState->WhitePlayerProfile.PlayerName, GameState->WhitePlayerProfile.EloRating, *GameState->WhitePlayerProfile.Country);
+                GEngine->AddOnScreenDebugMessage(7, 0.f, FColor::White, WhiteProfileStr);
+
+                const FString BlackProfileStr = FString::Printf(TEXT("Black: %s (%d) [%s]"), *GameState->BlackPlayerProfile.PlayerName, GameState->BlackPlayerProfile.EloRating, *GameState->BlackPlayerProfile.Country);
+                GEngine->AddOnScreenDebugMessage(8, 0.f, FColor::Black, BlackProfileStr);
             }
             else
             {
-                GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Red, TEXT("Stockfish Manager is NULL"));
+                GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Red, TEXT("Game State is NULL"));
             }
-        }
-        else if (GameMode)
-        {
-             GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::White, TEXT("Game Mode: Player vs Player"));
+
+            FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
+            GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Cyan, FString::Printf(TEXT("My Player Color: %s"), *MyColorStr));
+
+            FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
+            GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
+
+            // Отображение FPS
+            const float FPS = 1.0f / DeltaTime;
+            GEngine->AddOnScreenDebugMessage(9, 0.f, FColor::Green, FString::Printf(TEXT("FPS: %.1f"), FPS));
+
+            // --- Stockfish Debug Info ---
+            AChessGameMode* GameMode = GetChessGameMode();
+            if (GameMode && GameMode->GetCurrentGameModeType() == EGameModeType::PlayerVsBot)
+            {
+                UStockfishManager* SFManager = GameMode->GetStockfishManager();
+                if (SFManager)
+                {
+                    // NOTE: The new async StockfishManager doesn't expose internal state for debug logs.
+                    // We can only confirm that the manager object exists.
+                    GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Orange, TEXT("Stockfish Manager: Present"));
+                }
+                else
+                {
+                    GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::Red, TEXT("Stockfish Manager is NULL"));
+                }
+            }
+            else if (GameMode)
+            {
+                 GEngine->AddOnScreenDebugMessage(4, 0.f, FColor::White, TEXT("Game Mode: Player vs Player"));
+            }
         }
     }
     // --- Конец отладочной информации ---
@@ -272,60 +309,92 @@ void AChessPlayerController::TogglePauseMenu()
 
 void AChessPlayerController::ToggleGraphicsSettingsMenu()
 {
-    UE_LOG(LogTemp, Log, TEXT("--- ToggleGraphicsSettingsMenu: CALLED ---"));
-
+    // Если меню уже открыто, закрываем его
     if (GraphicsSettingsWidgetInstance && GraphicsSettingsWidgetInstance->IsInViewport())
     {
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Widget is visible. Removing it."));
         GraphicsSettingsWidgetInstance->RemoveFromParent();
     }
-    else
+    else // Иначе, открываем
     {
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Widget is not visible. Attempting to show."));
-
-        UChessGameInstance* GameInstance = GetGameInstance<UChessGameInstance>();
-        if (!GameInstance)
+        if (GraphicsSettingsWidgetClass)
         {
-            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. GetGameInstance() returned NULL."));
-            return;
-        }
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 1 -> GameInstance is valid."));
-
-        TSubclassOf<class UUserWidget> WidgetClass = GameInstance->GetGraphicsSettingsWidgetClass();
-        if (!WidgetClass)
-        {
-            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. GetGraphicsSettingsWidgetClass() returned NULL. Check BP_ChessGameInstance settings."));
-            return;
-        }
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 2 -> WidgetClass is valid (%s)."), *WidgetClass->GetName());
-
-        if (!GraphicsSettingsWidgetInstance)
-        {
-            UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 3 -> Widget instance is null. Creating new one..."));
-            GraphicsSettingsWidgetInstance = CreateWidget<UUserWidget>(this, WidgetClass);
-        }
-        
-        if (!GraphicsSettingsWidgetInstance)
-        {
-            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: ABORTED. CreateWidget() returned NULL. This should not happen if class is valid."));
-            return;
-        }
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 4 -> Widget instance is valid."));
-
-        UE_LOG(LogTemp, Log, TEXT("ToggleGraphicsSettingsMenu: Step 5 -> Adding to viewport with Z-Order 10..."));
-        GraphicsSettingsWidgetInstance->AddToViewport(10);
-
-        if (GraphicsSettingsWidgetInstance->IsInViewport())
-        {
-            UE_LOG(LogTemp, Warning, TEXT("ToggleGraphicsSettingsMenu: SUCCESS! Widget is now in viewport."));
+            if (!GraphicsSettingsWidgetInstance)
+            {
+                GraphicsSettingsWidgetInstance = CreateWidget<UUserWidget>(this, GraphicsSettingsWidgetClass);
+            }
+            
+            if (GraphicsSettingsWidgetInstance)
+            {
+                GraphicsSettingsWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+            }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("ToggleGraphicsSettingsMenu: FAILURE! Widget is NOT in viewport immediately after AddToViewport(). This is the problem."));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GraphicsSettingsWidgetClass не назначен в Blueprint!"));
         }
     }
-
     UpdateInputMode();
+}
+
+void AChessPlayerController::TogglePlayerInfoWidget()
+{
+    // Не позволяем открывать этот виджет, если мы в главном меню.
+    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    if (!GameState) return;
+
+    const EGamePhase CurrentPhase = GameState->GetGamePhase();
+    if (CurrentPhase == EGamePhase::WaitingToStart)
+    {
+        return;
+    }
+
+    // Если виджет уже показан, скрываем его и останавливаем таймер.
+    if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
+    {
+        PlayerInfoWidgetInstance->RemoveFromParent();
+        GetWorldTimerManager().ClearTimer(PlayerInfoUpdateTimerHandle);
+    }
+    else // Иначе, показываем.
+    {
+        if (PlayerInfoWidgetClass)
+        {
+            if (!PlayerInfoWidgetInstance)
+            {
+                PlayerInfoWidgetInstance = CreateWidget<UPlayerInfoWidget>(this, PlayerInfoWidgetClass);
+            }
+            
+            if (PlayerInfoWidgetInstance)
+            {
+                PlayerInfoWidgetInstance->AddToViewport(5); // Z-Order
+                UpdatePlayerInfo(); // Первоначальное обновление данных
+                // Запускаем таймер для периодического обновления (в основном для пинга)
+                GetWorldTimerManager().SetTimer(PlayerInfoUpdateTimerHandle, this, &AChessPlayerController::UpdatePlayerInfo, 1.0f, true);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerInfoWidgetClass не назначен в Blueprint!"));
+        }
+    }
+    // Мы не вызываем UpdateInputMode(), так как этот виджет - просто оверлей и не должен менять режим ввода.
+}
+
+void AChessPlayerController::ToggleDebugInfo()
+{
+    bShowDebugInfo = !bShowDebugInfo;
+}
+
+void AChessPlayerController::UpdatePlayerInfo()
+{
+    if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
+    {
+        PlayerInfoWidgetInstance->UpdateDisplay();
+    }
+    else
+    {
+        // Если виджет по какой-то причине был скрыт, останавливаем таймер, чтобы не тратить ресурсы.
+        GetWorldTimerManager().ClearTimer(PlayerInfoUpdateTimerHandle);
+    }
 }
 
 void AChessPlayerController::SetGameCamera()

@@ -1,4 +1,5 @@
 #include "ChessGameInstance.h"
+#include "GraphicsSettingsData.h"
 #include "ChessGameMode.h" 
 #include "ChessSaveGame.h"
 #include "GameFramework/GameUserSettings.h"
@@ -6,10 +7,12 @@
 #include "OnlineSessionSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 #include "Blueprint/UserWidget.h"
 #include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 
 // Helper function to convert EOnJoinSessionCompleteResult::Type to FString
 FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
@@ -79,6 +82,10 @@ void UChessGameInstance::Init()
 
 	if (!IsRunningDedicatedServer())
 	{
+		// Применяем сохраненные настройки графики поверх настроек по умолчанию
+		ApplyGraphicsSettings();
+
+		// Настраиваем загрузочный экран для переходов между картами
 		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UChessGameInstance::BeginLoadingScreen);
 		FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UChessGameInstance::EndLoadingScreen);
 	}
@@ -94,7 +101,7 @@ void UChessGameInstance::Shutdown()
 void UChessGameInstance::BeginLoadingScreen(const FString& MapName)
 {
 	UE_LOG(LogTemp, Log, TEXT("--- BeginLoadingScreen triggered for map: %s ---"), *MapName);
-	if (IsRunningDedicatedServer())
+	if (IsRunningDedicatedServer() || LoadingScreenWidgetInstance)
 	{
 		return;
 	}
@@ -106,6 +113,8 @@ void UChessGameInstance::BeginLoadingScreen(const FString& MapName)
 		if (LoadingScreenWidgetInstance)
 		{
 			LoadingScreenWidgetInstance->AddToViewport(9999);
+			// Принудительно отрисовываем кадр, чтобы загрузочный экран появился до блокировки потока
+			FSlateApplication::Get().Tick();
 		}
 	}
 	else
@@ -542,4 +551,76 @@ void UChessGameInstance::UpdatePlayerProfile(const FPlayerProfile& NewProfile)
 		CurrentSaveGame->PlayerProfile = NewProfile;
 		SavePlayerProfile();
 	}
+}
+
+FGraphicsSettingsData UChessGameInstance::GetGraphicsSettings() const
+{
+	if (CurrentSaveGame)
+	{
+		return CurrentSaveGame->GraphicsSettings;
+	}
+	
+	// Возвращаем настройки по умолчанию, если файл сохранения еще не создан
+	return FGraphicsSettingsData();
+}
+
+void UChessGameInstance::UpdateGraphicsSettings(const FGraphicsSettingsData& NewSettings)
+{
+	if (CurrentSaveGame)
+	{
+		CurrentSaveGame->GraphicsSettings = NewSettings;
+		SavePlayerProfile();     // Сохраняем их в файл
+
+		// Откладываем применение настроек, чтобы UI успел отреагировать (например, закрыть меню)
+		// до начала потенциально долгой операции. Это предотвращает "зависание" интерфейса.
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			// Используем небольшую задержку, чтобы гарантировать, что текущий кадр с UI-логикой завершится.
+			FTimerHandle DummyHandle;
+			World->GetTimerManager().SetTimer(DummyHandle, this, &UChessGameInstance::ApplyGraphicsSettings, 0.1f, false);
+		}
+		else
+		{
+			// Если мир недоступен, применяем немедленно как запасной вариант.
+			ApplyGraphicsSettings();
+		}
+	}
+}
+
+void UChessGameInstance::ApplyGraphicsSettings()
+{
+	if (!GEngine || !CurrentSaveGame)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyGraphicsSettings: GEngine or CurrentSaveGame is null."));
+		return;
+	}
+
+	UGameUserSettings* UserSettings = GEngine->GetGameUserSettings();
+	if (!UserSettings)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ApplyGraphicsSettings: UserSettings is null."));
+		return;
+	}
+
+	const FGraphicsSettingsData& Settings = CurrentSaveGame->GraphicsSettings;
+	
+	UserSettings->SetAntiAliasingQuality(Settings.AntiAliasingQuality);
+	UserSettings->SetPostProcessingQuality(Settings.PostProcessingQuality);
+	UserSettings->SetShadowQuality(Settings.ShadowQuality);
+	UserSettings->SetTextureQuality(Settings.TextureQuality);
+	UserSettings->SetVisualEffectQuality(Settings.EffectsQuality);
+	UserSettings->SetVSyncEnabled(Settings.bUseVSync);
+	
+	// Применяем настройки, но не сохраняем их в файл config/user.ini,
+	// так как мы управляем сохранением через наш SaveGame.
+	UserSettings->ApplySettings(false);
+
+	UE_LOG(LogTemp, Log, TEXT("Graphics settings applied. VSync: %d, Quality: AA=%d, PP=%d, SH=%d, TX=%d, FX=%d"), 
+		Settings.bUseVSync,
+		Settings.AntiAliasingQuality,
+		Settings.PostProcessingQuality,
+		Settings.ShadowQuality,
+		Settings.TextureQuality,
+		Settings.EffectsQuality);
 }

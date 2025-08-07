@@ -18,6 +18,8 @@ protected:
     UPROPERTY(meta = (BindWidget))
     UButton* ResumeButton;
 
+    // Эта переменная автоматически связывается с виджетом UButton с именем "SettingsButton" в вашем Blueprint виджета.
+    // Убедитесь, что имя кнопки в UMG Editor совпадает с именем этой переменной.
     UPROPERTY(meta = (BindWidget))
     UButton* SettingsButton;
 

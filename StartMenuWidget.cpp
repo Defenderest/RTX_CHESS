@@ -143,6 +143,14 @@ void UStartMenuWidget::OnOnlineGameClicked()
     }
 }
 
+void UStartMenuWidget::OnSettingsClicked()
+{
+    if (AChessPlayerController* PlayerController = Cast<AChessPlayerController>(GetOwningPlayer()))
+    {
+        PlayerController->ToggleGraphicsSettingsMenu();
+    }
+}
+
 void UStartMenuWidget::OnHostGameClicked()
 {
     if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
