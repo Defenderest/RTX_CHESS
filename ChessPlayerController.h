@@ -22,6 +22,7 @@ class AChessPiece;
 class APawnPiece;
 class UPromotionMenuWidget;
 class UPlayerInfoWidget;
+class UGameOverWidget;
 class UAudioComponent;
 class USoundBase;
 class AMenuCameraActor;
@@ -57,6 +58,14 @@ public:
     /** Показывает или скрывает виджет с информацией об игроках. */
     UFUNCTION(BlueprintCallable, Category = "UI")
     void TogglePlayerInfoWidget();
+
+
+    /** Показывает или скрывает виджет профиля игрока. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ToggleProfileWidget();
+
+    /** Возвращает игрока в главное меню. */
+    void ReturnToMainMenu();
 
 
     void ShowStartMenu();
@@ -99,16 +108,21 @@ public:
     UFUNCTION(Client, Reliable)
     void Client_PlayCaptureEffect(AChessPiece* CapturedPiece, const FVector& Location, const FVector& Scale, const FVector& CellBoundingBox, float Lifetime, float Density);
 
+    /** [CLIENT] Shows game over screen. Called from server. */
+    UFUNCTION(Client, Reliable)
+    void Client_ShowGameOverScreen(const FText& ResultText, const FText& ReasonText);
+
     /** [SERVER] Called from client to finalize pawn promotion. */
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
 
-protected:
-    /** Обновляет информацию в виджете информации об игроках. */
-    void UpdatePlayerInfo();
     /** [SERVER] Called from client to set the player's profile data on their PlayerState. */
     UFUNCTION(Server, Reliable)
     void Server_SetPlayerProfile(const FPlayerProfile& Profile);
+
+protected:
+    /** Обновляет информацию в виджете информации об игроках. */
+    void UpdatePlayerInfo();
     virtual void BeginPlay() override;
     virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaTime) override;
@@ -151,6 +165,14 @@ protected:
     /** Класс виджета для отображения информации об игроках (счет, пинг и т.д.). Назначается в Blueprint. */
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<class UPlayerInfoWidget> PlayerInfoWidgetClass;
+
+    /** Класс виджета для отображения профиля игрока. Назначается в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UUserWidget> PlayerProfileWidgetClass;
+
+    /** Класс виджета для экрана окончания игры. Назначается в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<UGameOverWidget> GameOverWidgetClass;
 
     /** Музыка для главного меню. */
     UPROPERTY(EditDefaultsOnly, Category = "UI|Sound")
@@ -246,6 +268,12 @@ private:
 
     UPROPERTY()
     UUserWidget* GraphicsSettingsWidgetInstance;
+
+    UPROPERTY()
+    UUserWidget* PlayerProfileWidgetInstance;
+
+    UPROPERTY()
+    UGameOverWidget* GameOverWidgetInstance;
 
     UPROPERTY()
     class UPlayerInfoWidget* PlayerInfoWidgetInstance;

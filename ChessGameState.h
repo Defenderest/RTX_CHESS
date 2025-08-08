@@ -13,19 +13,7 @@
 class AChessBoard;
 class APawnPiece; // Для хранения ссылки на пешку для взятия на проходе
 
-// Перечисление для текущей фазы игры
-UENUM(BlueprintType)
-enum class EGamePhase : uint8
-{
-    WaitingToStart UMETA(DisplayName = "Waiting To Start"),
-    InProgress UMETA(DisplayName = "In Progress"),
-    AwaitingPromotion UMETA(DisplayName = "Awaiting Promotion"),
-    Check UMETA(DisplayName = "Check"),
-    WhiteWins UMETA(DisplayName = "White Wins"),
-    BlackWins UMETA(DisplayName = "Black Wins"),
-    Stalemate UMETA(DisplayName = "Stalemate"),
-    Draw UMETA(DisplayName = "Draw")
-};
+// EGamePhase был перемещен в ChessGameMode.h для устранения циклической зависимости.
 
 UCLASS()
 class RTX_CHESS_API AChessGameState : public AGameStateBase

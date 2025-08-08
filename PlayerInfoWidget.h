@@ -7,42 +7,52 @@
 
 /**
  * Базовый C++ класс для виджета информации об игроках.
- * Содержит логику для сбора данных и предоставляет события для их отображения в Blueprint.
+ * Предоставляет функции для привязки (Binding) к текстовым полям в UMG для отображения данных об игре.
+ *
+ * --- Инструкция по настройке и использованию ---
+ *
+ * 1. **Создание Blueprint-виджета:**
+ *    - В Unreal Editor создайте новый Blueprint-виджет. В качестве родительского класса выберите `PlayerInfoWidget`.
+ *
+ * 2. **Привязка функций к текстовым полям (Binding):**
+ *    - Откройте ваш Blueprint-виджет в редакторе (Designer).
+ *    - Выберите элемент `TextBlock`.
+ *    - В панели "Details" найдите свойство "Text" (в разделе "Content").
+ *    - Нажмите на кнопку "Bind" и выберите одну из доступных функций:
+ *      - `GetWhitePlayerNameText`
+ *      - `GetWhitePlayerRatingText`
+ *      - `GetBlackPlayerNameText`
+ *      - `GetBlackPlayerRatingText`
+ *      - `GetPingText`
+ *    - Повторите это для всех текстов, которые нужно отобразить.
+ *
+ * 3. **Отображение виджета:**
+ *    - Создайте и добавьте виджет на экран как обычно (например, из `PlayerController`).
+ *    - Данные будут обновляться автоматически, так как привязки (bindings) опрашиваются каждый кадр.
  */
 UCLASS()
 class RTX_CHESS_API UPlayerInfoWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
-public:
-	/**
-	 *  Главная функция для обновления виджета. Вызывается из PlayerController.
-	 *  Собирает все необходимые данные и вызывает Blueprint-события для обновления UI.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Player Info Widget")
-	void UpdateDisplay();
-
 protected:
-	/**
-	 *  Событие, вызываемое в Blueprint для обновления информации о белом игроке.
-	 *  @param Profile - Профиль игрока (имя, рейтинг).
-	 *  @param bIsBot - Является ли этот игрок ботом.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Player Info Widget", meta = (DisplayName = "On Update White Player"))
-	void BP_OnUpdateWhitePlayer(const FPlayerProfile& Profile, bool bIsBot);
+	/** Возвращает имя белого игрока в виде текста для UMG. */
+	UFUNCTION(BlueprintPure, Category = "Player Info Widget")
+	FText GetWhitePlayerNameText() const;
 
-	/**
-	 *  Событие, вызываемое в Blueprint для обновления информации о черном игроке.
-	 *  @param Profile - Профиль игрока (имя, рейтинг).
-	 *  @param bIsBot - Является ли этот игрок ботом.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Player Info Widget", meta = (DisplayName = "On Update Black Player"))
-	void BP_OnUpdateBlackPlayer(const FPlayerProfile& Profile, bool bIsBot);
+	/** Возвращает рейтинг белого игрока в виде текста для UMG. */
+	UFUNCTION(BlueprintPure, Category = "Player Info Widget")
+	FText GetWhitePlayerRatingText() const;
 
-	/**
-	 *  Событие, вызываемое в Blueprint для обновления пинга локального игрока.
-	 *  @param Ping - Пинг в миллисекундах.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Player Info Widget", meta = (DisplayName = "On Update Ping"))
-	void BP_OnUpdatePing(int32 Ping);
+	/** Возвращает имя черного игрока в виде текста для UMG. */
+	UFUNCTION(BlueprintPure, Category = "Player Info Widget")
+	FText GetBlackPlayerNameText() const;
+
+	/** Возвращает рейтинг черного игрока в виде текста для UMG. */
+	UFUNCTION(BlueprintPure, Category = "Player Info Widget")
+	FText GetBlackPlayerRatingText() const;
+
+	/** Возвращает пинг локального игрока в виде текста для UMG. */
+	UFUNCTION(BlueprintPure, Category = "Player Info Widget")
+	FText GetPingText() const;
 };

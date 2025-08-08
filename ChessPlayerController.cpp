@@ -18,6 +18,7 @@
 #include "Blueprint/UserWidget.h"
 #include "PauseMenuWidget.h"
 #include "PlayerInfoWidget.h"
+#include "GameOverWidget.h"
 #include "Components/AudioComponent.h"
 #include "ChessGameState.h"
 #include "Engine/Engine.h"
@@ -50,6 +51,8 @@ AChessPlayerController::AChessPlayerController()
     CaptureEffect = nullptr;
     PauseMenuWidgetInstance = nullptr;
     GraphicsSettingsWidgetInstance = nullptr;
+    PlayerProfileWidgetInstance = nullptr;
+    GameOverWidgetInstance = nullptr;
     PlayerInfoWidgetInstance = nullptr;
 
     // Устанавливаем цвета подсветки по умолчанию
@@ -338,21 +341,27 @@ void AChessPlayerController::ToggleGraphicsSettingsMenu()
 
 void AChessPlayerController::TogglePlayerInfoWidget()
 {
+    UE_LOG(LogTemp, Log, TEXT("Player Info Widget toggled via key press."));
+
     // Не позволяем открывать этот виджет, если мы в главном меню.
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (!GameState) return;
+    if (!GameState)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TogglePlayerInfoWidget: GameState is null, cannot toggle widget."));
+        return;
+    }
 
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase == EGamePhase::WaitingToStart)
     {
+        UE_LOG(LogTemp, Log, TEXT("TogglePlayerInfoWidget: Widget is disabled in the main menu (WaitingToStart phase)."));
         return;
     }
 
-    // Если виджет уже показан, скрываем его и останавливаем таймер.
+    // Если виджет уже показан, скрываем его.
     if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
     {
         PlayerInfoWidgetInstance->RemoveFromParent();
-        GetWorldTimerManager().ClearTimer(PlayerInfoUpdateTimerHandle);
     }
     else // Иначе, показываем.
     {
@@ -366,9 +375,6 @@ void AChessPlayerController::TogglePlayerInfoWidget()
             if (PlayerInfoWidgetInstance)
             {
                 PlayerInfoWidgetInstance->AddToViewport(5); // Z-Order
-                UpdatePlayerInfo(); // Первоначальное обновление данных
-                // Запускаем таймер для периодического обновления (в основном для пинга)
-                GetWorldTimerManager().SetTimer(PlayerInfoUpdateTimerHandle, this, &AChessPlayerController::UpdatePlayerInfo, 1.0f, true);
             }
         }
         else
@@ -379,23 +385,82 @@ void AChessPlayerController::TogglePlayerInfoWidget()
     // Мы не вызываем UpdateInputMode(), так как этот виджет - просто оверлей и не должен менять режим ввода.
 }
 
+void AChessPlayerController::ToggleProfileWidget()
+{
+    // Если виджет профиля уже открыт, закрываем его и показываем главное меню.
+    if (PlayerProfileWidgetInstance && PlayerProfileWidgetInstance->IsInViewport())
+    {
+        PlayerProfileWidgetInstance->RemoveFromParent();
+
+        // Показываем главное меню снова, если оно существует.
+        if (StartMenuWidgetInstance)
+        {
+            StartMenuWidgetInstance->SetVisibility(ESlateVisibility::Visible);
+        }
+    }
+    else // Иначе, открываем виджет профиля и скрываем главное меню.
+    {
+        // Скрываем главное меню, если оно сейчас на экране.
+        if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
+        {
+            StartMenuWidgetInstance->SetVisibility(ESlateVisibility::Collapsed);
+        }
+
+        if (PlayerProfileWidgetClass)
+        {
+            if (!PlayerProfileWidgetInstance)
+            {
+                PlayerProfileWidgetInstance = CreateWidget<UUserWidget>(this, PlayerProfileWidgetClass);
+            }
+            
+            if (PlayerProfileWidgetInstance)
+            {
+                PlayerProfileWidgetInstance->AddToViewport(11); // Z-order выше, чем у других меню
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerProfileWidgetClass не назначен в Blueprint!"));
+        }
+    }
+    UpdateInputMode();
+}
+
+void AChessPlayerController::ReturnToMainMenu()
+{
+    // Используем тот же уровень, что и в StartMenuWidget, для консистентности.
+    const FName MainMenuLevelName = FName(TEXT("/Game/Cigar_room/Maps/Cigar_room"));
+    UGameplayStatics::OpenLevel(this, MainMenuLevelName);
+}
+
+void AChessPlayerController::Client_ShowGameOverScreen_Implementation(const FText& ResultText, const FText& ReasonText)
+{
+    if (GameOverWidgetClass)
+    {
+        if (!GameOverWidgetInstance)
+        {
+            GameOverWidgetInstance = CreateWidget<UGameOverWidget>(this, GameOverWidgetClass);
+        }
+
+        if (GameOverWidgetInstance && !GameOverWidgetInstance->IsInViewport())
+        {
+            GameOverWidgetInstance->SetResultText(ResultText);
+            GameOverWidgetInstance->SetReasonText(ReasonText);
+            GameOverWidgetInstance->AddToViewport(20); // Наивысший Z-order, чтобы быть поверх всего
+            UpdateInputMode();
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GameOverWidgetClass не назначен в Blueprint!"));
+    }
+}
+
 void AChessPlayerController::ToggleDebugInfo()
 {
     bShowDebugInfo = !bShowDebugInfo;
 }
 
-void AChessPlayerController::UpdatePlayerInfo()
-{
-    if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
-    {
-        PlayerInfoWidgetInstance->UpdateDisplay();
-    }
-    else
-    {
-        // Если виджет по какой-то причине был скрыт, останавливаем таймер, чтобы не тратить ресурсы.
-        GetWorldTimerManager().ClearTimer(PlayerInfoUpdateTimerHandle);
-    }
-}
 
 void AChessPlayerController::SetGameCamera()
 {
@@ -554,12 +619,14 @@ void AChessPlayerController::UpdateInputMode()
     const bool bStartMenuVisible = StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport();
     const bool bPauseMenuVisible = PauseMenuWidgetInstance && PauseMenuWidgetInstance->IsInViewport();
     const bool bSettingsMenuVisible = GraphicsSettingsWidgetInstance && GraphicsSettingsWidgetInstance->IsInViewport();
+    const bool bProfileMenuVisible = PlayerProfileWidgetInstance && PlayerProfileWidgetInstance->IsInViewport();
     const bool bPromotionMenuVisible = PromotionMenuWidgetInstance && PromotionMenuWidgetInstance->IsInViewport();
+    const bool bGameOverScreenVisible = GameOverWidgetInstance && GameOverWidgetInstance->IsInViewport();
 
-    UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: Menu visibility states: Start=%d, Pause=%d, Settings=%d, Promotion=%d"),
-        bStartMenuVisible, bPauseMenuVisible, bSettingsMenuVisible, bPromotionMenuVisible);
+    UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: Menu visibility states: Start=%d, Pause=%d, Settings=%d, Profile=%d, Promotion=%d, GameOver=%d"),
+        bStartMenuVisible, bPauseMenuVisible, bSettingsMenuVisible, bProfileMenuVisible, bPromotionMenuVisible, bGameOverScreenVisible);
 
-    if (bStartMenuVisible || bPauseMenuVisible || bSettingsMenuVisible || bPromotionMenuVisible)
+    if (bStartMenuVisible || bPauseMenuVisible || bSettingsMenuVisible || bProfileMenuVisible || bPromotionMenuVisible || bGameOverScreenVisible)
     {
         UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: At least one menu is visible. Setting input mode to UI_ONLY."));
         SetInputModeForUI();

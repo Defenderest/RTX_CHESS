@@ -35,12 +35,20 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnSettingsClicked();
 
+    /** Вызывается при нажатии кнопки "Профиль" в главном меню. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void OnProfileClicked();
+
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnExitClicked();
 
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnConfirmBotSettingsAndStartClicked();
 
+    /**
+     * Вызывается для возврата на главный экран из любого подменю (например, настроек бота или сетевой игры).
+     * Убедитесь, что кнопка "Назад" в ваших подменю вызывает эту функцию в Blueprint.
+     */
     UFUNCTION(BlueprintCallable, Category = "UI")
     void OnBackToMainMenuClicked();
 

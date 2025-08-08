@@ -49,6 +49,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Settings")
 	void UpdateGraphicsSettings(const FGraphicsSettingsData& NewSettings);
 
+	void SavePlayerProfile();
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<class UUserWidget> LoadingScreenWidgetClass;
@@ -74,7 +76,6 @@ protected:
 	void FindSessions();
 	void JoinSession(const FOnlineSessionSearchResult& SearchResult);
 	void LoadPlayerProfile();
-	void SavePlayerProfile();
 
 	/** Применяет настройки графики из CurrentSaveGame к UGameUserSettings. */
 	void ApplyGraphicsSettings();

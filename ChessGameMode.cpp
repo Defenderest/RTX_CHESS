@@ -143,13 +143,11 @@ void AChessGameMode::Tick(float DeltaTime)
         {
             if (CurrentGS->WhiteTimeSeconds <= 0.f)
             {
-                CurrentGS->SetGamePhase(EGamePhase::BlackWins);
-                UE_LOG(LogTemp, Log, TEXT("Black wins on time."));
+                HandleGameOver(EGamePhase::BlackWins, FText::FromString(TEXT("Время вышло")));
             }
             else if (CurrentGS->BlackTimeSeconds <= 0.f)
             {
-                CurrentGS->SetGamePhase(EGamePhase::WhiteWins);
-                UE_LOG(LogTemp, Log, TEXT("White wins on time."));
+                HandleGameOver(EGamePhase::WhiteWins, FText::FromString(TEXT("Время вышло")));
             }
         }
     }
@@ -1113,6 +1111,104 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     return true;
 }
 
+void AChessGameMode::HandleGameOver(EGamePhase FinalPhase, const FText& Reason)
+{
+    AChessGameState* CurrentGS = GetCurrentGameState();
+    if (!CurrentGS)
+    {
+        UE_LOG(LogTemp, Error, TEXT("HandleGameOver: GameState is null."));
+        return;
+    }
+
+    // Предотвращаем повторный вызов
+    const EGamePhase CurrentPhase = CurrentGS->GetGamePhase();
+    if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
+    {
+        return; // Игра уже завершилась
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Game Over! Final Phase: %s. Reason: %s"), *UEnum::GetValueAsString(FinalPhase), *Reason.ToString());
+
+    // 1. Устанавливаем финальную фазу
+    CurrentGS->SetGamePhase(FinalPhase);
+
+    // 2. Обновляем статистику в профилях
+    FPlayerProfile WhiteProfile = CurrentGS->WhitePlayerProfile;
+    FPlayerProfile BlackProfile = CurrentGS->BlackPlayerProfile;
+
+    if (FinalPhase == EGamePhase::WhiteWins)
+    {
+        WhiteProfile.GamesWon++;
+        BlackProfile.GamesLost++;
+    }
+    else if (FinalPhase == EGamePhase::BlackWins)
+    {
+        WhiteProfile.GamesLost++;
+        BlackProfile.GamesWon++;
+    }
+    else if (FinalPhase == EGamePhase::Stalemate || FinalPhase == EGamePhase::Draw)
+    {
+        WhiteProfile.GamesDrawn++;
+        BlackProfile.GamesDrawn++;
+    }
+    
+    // Обновляем профили в GameState для репликации
+    CurrentGS->WhitePlayerProfile = WhiteProfile;
+    CurrentGS->BlackPlayerProfile = BlackProfile;
+    CurrentGS->OnRep_PlayerProfiles(); // Ручной вызов для сервера
+
+    // 3. Сохраняем профили для локальных игроков
+    if (UChessGameInstance* GI = GetGameInstance<UChessGameInstance>())
+    {
+        for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+        {
+            if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+            {
+                if (PC->IsLocalController())
+                {
+                    if (PC->GetPlayerColor() == EPieceColor::White)
+                    {
+                        GI->UpdatePlayerProfile(WhiteProfile);
+                    }
+                    else if (PC->GetPlayerColor() == EPieceColor::Black)
+                    {
+                        GI->UpdatePlayerProfile(BlackProfile);
+                    }
+                    GI->SavePlayerProfile();
+                }
+            }
+        }
+    }
+
+    // 4. Формируем текст для экрана
+    FText ResultText;
+    switch (FinalPhase)
+    {
+        case EGamePhase::WhiteWins:
+            ResultText = FText::FromString(TEXT("Победа белых!"));
+            break;
+        case EGamePhase::BlackWins:
+            ResultText = FText::FromString(TEXT("Победа черных!"));
+            break;
+        case EGamePhase::Stalemate:
+        case EGamePhase::Draw:
+            ResultText = FText::FromString(TEXT("Ничья"));
+            break;
+        default:
+            ResultText = FText::FromString(TEXT("Игра окончена"));
+            break;
+    }
+
+    // 5. Показываем экран окончания игры всем игрокам
+    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    {
+        if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
+        {
+            PC->Client_ShowGameOverScreen(ResultText, Reason);
+        }
+    }
+}
+
 void AChessGameMode::SpawnInitialPieces()
 {
     AChessGameState* CurrentGS = GetCurrentGameState();
@@ -1312,15 +1408,9 @@ void AChessGameMode::CheckGameEndConditions()
 
         if (CurrentGS->IsPlayerInCheckmate(CurrentTurnColor, GameBoard))
         {
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Checkmate! %s wins!"), (OpponentColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
             const EGamePhase FinalPhase = (OpponentColor == EPieceColor::White) ? EGamePhase::WhiteWins : EGamePhase::BlackWins;
-            CurrentGS->SetGamePhase(FinalPhase);
+            HandleGameOver(FinalPhase, FText::FromString(TEXT("Мат")));
             
-            // if (DatabaseManager && CurrentGameDBId != -1)
-            // {
-            //     const EGameResult Result = (FinalPhase == EGamePhase::WhiteWins) ? EGameResult::WhiteWins : EGameResult::BlackWins;
-            //     DatabaseManager->UpdateGameResult(CurrentGameDBId, Result);
-            // }
             for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
             {
                 if (AChessPlayerController* PC = Cast<AChessPlayerController>(It->Get()))
@@ -1334,13 +1424,7 @@ void AChessGameMode::CheckGameEndConditions()
     {
         if (CurrentGS->IsStalemate(CurrentTurnColor, GameBoard))
         {
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Stalemate! Game is a draw."));
-            CurrentGS->SetGamePhase(EGamePhase::Stalemate);
-
-            // if (DatabaseManager && CurrentGameDBId != -1)
-            // {
-            //     DatabaseManager->UpdateGameResult(CurrentGameDBId, EGameResult::Draw);
-            // }
+            HandleGameOver(EGamePhase::Stalemate, FText::FromString(TEXT("Пат")));
         }
         else
         {

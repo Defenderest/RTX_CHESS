@@ -151,6 +151,14 @@ void UStartMenuWidget::OnSettingsClicked()
     }
 }
 
+void UStartMenuWidget::OnProfileClicked()
+{
+    if (AChessPlayerController* PlayerController = Cast<AChessPlayerController>(GetOwningPlayer()))
+    {
+        PlayerController->ToggleProfileWidget();
+    }
+}
+
 void UStartMenuWidget::OnHostGameClicked()
 {
     if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))

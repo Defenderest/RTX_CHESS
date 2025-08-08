@@ -33,6 +33,20 @@ enum class EPlayerColorPreference : uint8
     Random  UMETA(DisplayName = "Random")
 };
 
+// Перечисление для текущей фазы игры
+UENUM(BlueprintType)
+enum class EGamePhase : uint8
+{
+    WaitingToStart UMETA(DisplayName = "Waiting To Start"),
+    InProgress UMETA(DisplayName = "In Progress"),
+    AwaitingPromotion UMETA(DisplayName = "Awaiting Promotion"),
+    Check UMETA(DisplayName = "Check"),
+    WhiteWins UMETA(DisplayName = "White Wins"),
+    BlackWins UMETA(DisplayName = "Black Wins"),
+    Stalemate UMETA(DisplayName = "Stalemate"),
+    Draw UMETA(DisplayName = "Draw")
+};
+
 // Forward declarations
 class USoundBase;
 class AChessPlayerController;
@@ -207,6 +221,9 @@ protected:
     // Находит объект доски на сцене и сохраняет ссылку в GameBoard
     // Вызывается в BeginPlay
     virtual void FindGameBoard();
+
+    /** Централизованно обрабатывает завершение игры: обновляет профили и показывает экран окончания игры. */
+    void HandleGameOver(EGamePhase FinalPhase, const FText& Reason);
 
     // Вызывается, когда игрок успешно входит в игру
     virtual void PostLogin(APlayerController* NewPlayer) override;
