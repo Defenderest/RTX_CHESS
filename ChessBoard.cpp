@@ -107,13 +107,13 @@ void AChessBoard::SetPieceAtGridPosition(AChessPiece* Piece, const FIntPoint& Gr
         // Обновляем внутреннюю позицию фигуры
         Piece->SetBoardPosition(GridPosition);
 
-        UE_LOG(LogTemp, Log, TEXT("AChessBoard::SetPieceAtGridPosition: Piece set at (%d, %d) world pos (%f, %f, %f)"),
-            GridPosition.X, GridPosition.Y, WorldPos.X, WorldPos.Y, WorldPos.Z);
+        UE_LOG(LogTemp, Log, TEXT("AChessBoard::SetPieceAtGridPosition: Piece set at %s world pos %s"),
+            *GridPosition.ToString(), *WorldPos.ToString());
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessBoard::SetPieceAtGridPosition: Invalid position (%d, %d) or null piece"),
-            GridPosition.X, GridPosition.Y);
+        UE_LOG(LogTemp, Warning, TEXT("AChessBoard::SetPieceAtGridPosition: Invalid position %s or null piece"),
+            *GridPosition.ToString());
     }
 }
 
@@ -128,7 +128,7 @@ void AChessBoard::ClearSquare(const FIntPoint& GridPosition)
         // PieceGrid.Add(GridPosition, nullptr);
     }
     */
-    UE_LOG(LogTemp, Log, TEXT("AChessBoard::ClearSquare called for (%d, %d)."), GridPosition.X, GridPosition.Y);
+    UE_LOG(LogTemp, Log, TEXT("AChessBoard::ClearSquare called for %s."), *GridPosition.ToString());
 }
 
 FVector AChessBoard::GridToWorldPosition(const FIntPoint& GridPosition) const

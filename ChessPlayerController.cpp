@@ -508,6 +508,7 @@ void AChessPlayerController::ShowLobbyUI()
             if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
             {
                 StartMenuWidgetInstance->RemoveFromParent();
+                StartMenuWidgetInstance = nullptr;
             }
 
             LobbyWidgetInstance->AddToViewport(10);
@@ -782,6 +783,13 @@ void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void AChessPlayerController::DetermineInitialUI()
 {
+    // Если виджет лобби уже отображается, не нужно ничего делать.
+    // Это предотвращает повторное открытие главного меню поверх лобби.
+    if (LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport())
+    {
+        return;
+    }
+
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState)
     {
@@ -795,7 +803,7 @@ void AChessPlayerController::DetermineInitialUI()
         // Мы находимся в главном меню или на экране ожидания
         ShowStartMenu();
     }
-    else 
+    else
     {
         // Игра уже идет, настраиваем игровой интерфейс
         SetupGameUI();

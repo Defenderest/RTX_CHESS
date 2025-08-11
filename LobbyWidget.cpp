@@ -62,9 +62,7 @@ void ULobbyWidget::UpdateLobbyInfo()
         {
             if (PS)
             {
-                // Для работы UListView вам потребуется создать объект UObject для данных
-                // и виджет для элемента списка. Здесь мы просто выводим информацию в лог.
-                UE_LOG(LogTemp, Log, TEXT("Lobby Player: %s, Ping: %d"), *PS->GetPlayerName(), PS->GetPingInMilliseconds());
+                PlayerListView->AddItem(PS);
             }
         }
     }
