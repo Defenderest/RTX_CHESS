@@ -323,6 +323,9 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
         
         // Добавляем параметр TimeControl в URL, используя сохраненное значение
         TravelURL += FString::Printf(TEXT("?TimeControl=%d"), static_cast<int32>(StagedTimeControl));
+        
+        // Добавляем флаг, что это лобби
+        TravelURL += TEXT("?Lobby=1");
 
         UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Session '%s' created successfully. Traveling to '%s'..."), *SessionName.ToString(), *TravelURL);
 
@@ -364,11 +367,12 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
         
         if (DisplayIP != TEXT("Not Found"))
         {
+            SessionHostAddress = FString::Printf(TEXT("%s:7777"), *DisplayIP);
             if (GEngine)
             {
                 // The default Unreal port is 7777.
-                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Share this IP with LAN/VPN players: %s:7777"), *DisplayIP));
-                UE_LOG(LogTemp, Log, TEXT("Displaying Server IP for LAN/VPN: %s:7777"), *DisplayIP);
+                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Share this IP with LAN/VPN players: %s"), *SessionHostAddress));
+                UE_LOG(LogTemp, Log, TEXT("Displaying Server IP for LAN/VPN: %s"), *SessionHostAddress);
             }
         }
         else
@@ -474,6 +478,7 @@ void UChessGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSession
         FString ConnectString;
         if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
         {
+            SessionHostAddress = ConnectString; // Store the address
             UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Join successful. Resolved connect string: %s"), *ConnectString);
             UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Traveling to host..."));
             APlayerController* PlayerController = GetFirstLocalPlayerController();
@@ -537,6 +542,11 @@ const FPlayerProfile& UChessGameInstance::GetPlayerProfile() const
 	static const FPlayerProfile DefaultProfile;
 	UE_LOG(LogTemp, Warning, TEXT("UChessGameInstance::GetPlayerProfile returning default profile because CurrentSaveGame is null."));
 	return DefaultProfile;
+}
+
+FString UChessGameInstance::GetSessionHostAddress() const
+{
+    return SessionHostAddress;
 }
 
 TSubclassOf<class UUserWidget> UChessGameInstance::GetGraphicsSettingsWidgetClass() const

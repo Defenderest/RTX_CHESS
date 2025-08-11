@@ -32,6 +32,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "LobbyWidget.h"
 
 DEFINE_LOG_CATEGORY(LogCameraManagement);
 
@@ -95,6 +96,27 @@ void AChessPlayerController::BeginPlay()
         if (UChessGameInstance* GameInstance = GetGameInstance<UChessGameInstance>())
         {
             Server_SetPlayerProfile(GameInstance->GetPlayerProfile());
+        }
+    }
+    
+    // Если мы хост, проверяем, нужно ли нам создавать лобби.
+    if (HasAuthority())
+    {
+        if (const AGameModeBase* GM = GetWorld()->GetAuthGameMode())
+        {
+            const FString Options = GM->OptionsString;
+            const bool bIsLobby = UGameplayStatics::ParseOption(Options, TEXT("Lobby")).Contains(TEXT("1"));
+            if (bIsLobby)
+            {
+                if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
+                {
+                    const FString TimeControlOption = UGameplayStatics::ParseOption(Options, TEXT("TimeControl"));
+                    const ETimeControlType TCType = static_cast<ETimeControlType>(FCString::Atoi(*TimeControlOption));
+                    
+                    GS->SetIsInLobby(true);
+                    GS->SetLobbyTimeControl(TCType);
+                }
+            }
         }
     }
 }
@@ -429,6 +451,21 @@ void AChessPlayerController::ToggleProfileWidget()
 
 void AChessPlayerController::ReturnToMainMenu()
 {
+    UChessGameInstance* GI = GetGameInstance<UChessGameInstance>();
+    // Если мы хост, мы должны уничтожить сессию.
+    if (GI && IsHost())
+    {
+        IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+        if (Subsystem)
+        {
+            IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
+            if (SessionInterface.IsValid())
+            {
+                SessionInterface->DestroySession(NAME_GameSession);
+            }
+        }
+    }
+    
     // Используем тот же уровень, что и в StartMenuWidget, для консистентности.
     const FName MainMenuLevelName = FName(TEXT("/Game/Cigar_room/Maps/Cigar_room"));
     UGameplayStatics::OpenLevel(this, MainMenuLevelName);
@@ -455,6 +492,55 @@ void AChessPlayerController::Client_ShowGameOverScreen_Implementation(const FTex
     {
         UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GameOverWidgetClass не назначен в Blueprint!"));
     }
+}
+
+void AChessPlayerController::ShowLobbyUI()
+{
+    if (IsLocalController() && LobbyWidgetClass)
+    {
+        if (!LobbyWidgetInstance)
+        {
+            LobbyWidgetInstance = CreateWidget<ULobbyWidget>(this, LobbyWidgetClass);
+        }
+        if (LobbyWidgetInstance && !LobbyWidgetInstance->IsInViewport())
+        {
+            // Убираем стартовое меню, если оно вдруг есть
+            if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
+            {
+                StartMenuWidgetInstance->RemoveFromParent();
+            }
+
+            LobbyWidgetInstance->AddToViewport(10);
+            UpdateInputMode();
+        }
+    }
+    else if (IsLocalController())
+    {
+        UE_LOG(LogTemp, Error, TEXT("LobbyWidgetClass is not set in BP_ChessPlayerController!"));
+    }
+}
+
+void AChessPlayerController::HideLobbyUI()
+{
+    if (LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport())
+    {
+        LobbyWidgetInstance->RemoveFromParent();
+        LobbyWidgetInstance = nullptr;
+        UpdateInputMode();
+    }
+}
+
+void AChessPlayerController::LeaveLobby()
+{
+    // Просто возвращаемся в главное меню.
+    // ReturnToMainMenu() уже обрабатывает уничтожение сессии для хоста.
+    ReturnToMainMenu();
+}
+
+bool AChessPlayerController::IsHost() const
+{
+    // Простой способ проверить, является ли игрок хостом - это проверить NetMode.
+    return GetNetMode() == NM_ListenServer;
 }
 
 void AChessPlayerController::ToggleDebugInfo()
@@ -623,11 +709,12 @@ void AChessPlayerController::UpdateInputMode()
     const bool bProfileMenuVisible = PlayerProfileWidgetInstance && PlayerProfileWidgetInstance->IsInViewport();
     const bool bPromotionMenuVisible = PromotionMenuWidgetInstance && PromotionMenuWidgetInstance->IsInViewport();
     const bool bGameOverScreenVisible = GameOverWidgetInstance && GameOverWidgetInstance->IsInViewport();
+    const bool bLobbyVisible = LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport();
 
-    UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: Menu visibility states: Start=%d, Pause=%d, Settings=%d, Profile=%d, Promotion=%d, GameOver=%d"),
-        bStartMenuVisible, bPauseMenuVisible, bSettingsMenuVisible, bProfileMenuVisible, bPromotionMenuVisible, bGameOverScreenVisible);
+    UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: Menu visibility states: Start=%d, Pause=%d, Settings=%d, Profile=%d, Promotion=%d, GameOver=%d, Lobby=%d"),
+        (int32)bStartMenuVisible, (int32)bPauseMenuVisible, (int32)bSettingsMenuVisible, (int32)bProfileMenuVisible, (int32)bPromotionMenuVisible, (int32)bGameOverScreenVisible, (int32)bLobbyVisible);
 
-    if (bStartMenuVisible || bPauseMenuVisible || bSettingsMenuVisible || bProfileMenuVisible || bPromotionMenuVisible || bGameOverScreenVisible)
+    if (bStartMenuVisible || bPauseMenuVisible || bSettingsMenuVisible || bProfileMenuVisible || bPromotionMenuVisible || bGameOverScreenVisible || bLobbyVisible)
     {
         UE_LOG(LogTemp, Log, TEXT("UpdateInputMode: At least one menu is visible. Setting input mode to UI_ONLY."));
         SetInputModeForUI();
@@ -866,6 +953,34 @@ void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* Piec
     }
 }
 
+void AChessPlayerController::Server_RequestStartGame_Implementation()
+{
+    // Только хост может запустить игру
+    if (IsHost())
+    {
+        if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
+        {
+            // Проверяем, что в лобби есть два игрока
+            if (GS->PlayerArray.Num() >= 2)
+            {
+                // Выходим из состояния лобби
+                GS->SetIsInLobby(false);
+
+                // Начинаем игру (это вызовет Client_GameStarted на всех клиентах)
+                if (AChessGameMode* GM = GetChessGameMode())
+                {
+                    GM->StartNewGame();
+                }
+            }
+            else
+            {
+                // Недостаточно игроков
+                UE_LOG(LogTemp, Warning, TEXT("Cannot start game: Not enough players in the lobby."));
+            }
+        }
+    }
+}
+
 
 void AChessPlayerController::Server_SetPlayerProfile_Implementation(const FPlayerProfile& Profile)
 {
@@ -904,7 +1019,20 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
     if (GameState)
     {
-        LastValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
+        // Сначала получаем все псевдо-легальные ходы для этой фигуры
+        const TArray<FIntPoint> PseudoLegalMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
+        
+        LastValidMoves.Empty(); // Очищаем старый список
+
+        // Фильтруем ходы, чтобы оставить только те, которые не оставляют короля под шахом
+        for (const FIntPoint& Move : PseudoLegalMoves)
+        {
+            // IsMoveLegal симулирует ход и проверяет, не находится ли король под шахом.
+            if (GameState->IsMoveLegal(SelectedPiece, Move, ChessBoard))
+            {
+                LastValidMoves.Add(Move);
+            }
+        }
 
         // Подсвечиваем саму выбранную фигуру
         ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);

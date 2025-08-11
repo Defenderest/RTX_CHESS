@@ -30,6 +30,23 @@ void AChessGameState::OnRep_CurrentTurn()
     UE_LOG(LogTemp, Log, TEXT("AChessGameState: Current turn changed to %s (Client)"), (CurrentTurnColor == EPieceColor::White ? TEXT("White") : TEXT("Black")));
 }
 
+void AChessGameState::OnRep_LobbyStateChanged()
+{
+    // Вызывается на клиентах, когда состояние лобби меняется.
+    // Сообщаем локальному контроллеру, чтобы он показал/скрыл UI.
+    if (AChessPlayerController* PC = Cast<AChessPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+    {
+        if (bIsInLobby)
+        {
+            PC->ShowLobbyUI();
+        }
+        else
+        {
+            PC->HideLobbyUI();
+        }
+    }
+}
+
 void AChessGameState::OnRep_GamePhase()
 {
     // Логика, выполняемая при изменении CurrentGamePhase на клиентах
@@ -71,6 +88,8 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, bCanBlackCastleQueenSide);
     DOREPLIFETIME(AChessGameState, PawnToPromote);
     DOREPLIFETIME(AChessGameState, CurrentGameMode);
+    DOREPLIFETIME(AChessGameState, bIsInLobby);
+    DOREPLIFETIME(AChessGameState, LobbyTimeControl);
 }
 
 void AChessGameState::Tick(float DeltaSeconds)
@@ -323,6 +342,76 @@ bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Bo
     }
 
     return true; // Нет допустимых ходов, и игрок не в шахе, значит это пат
+}
+
+bool AChessGameState::IsMoveLegal(AChessPiece* PieceToMove, const FIntPoint& TargetPosition, const AChessBoard* Board)
+{
+    if (!PieceToMove || !Board)
+    {
+        return false;
+    }
+
+    const EPieceColor PlayerColor = PieceToMove->GetPieceColor();
+    const FIntPoint OriginalPosition = PieceToMove->GetBoardPosition();
+
+    // Определяем, какая фигура будет взята (если есть)
+    AChessPiece* PieceToRemoveTemporarily = GetPieceAtGridPosition(TargetPosition);
+
+    // Особый случай для взятия на проходе
+    if (PieceToMove->GetPieceType() == EPieceType::Pawn && TargetPosition == EnPassantTargetSquare)
+    {
+        if (!PieceToRemoveTemporarily) // Взятие на проходе возможно только на пустую клетку
+        {
+            PieceToRemoveTemporarily = GetEnPassantPawnToCapture();
+        }
+    }
+
+    // --- Симуляция хода ---
+    RemovePieceFromState(PieceToMove);
+    if (PieceToRemoveTemporarily)
+    {
+        RemovePieceFromState(PieceToRemoveTemporarily);
+    }
+
+    // Временно обновляем позицию фигуры
+    PieceToMove->SetBoardPosition(TargetPosition);
+    AddPieceToState(PieceToMove); // Добавляем на новую позицию
+
+    // Проверяем, останется ли игрок в шахе после этого хода
+    const bool bPlayerIsInCheckAfterMove = IsPlayerInCheck(PlayerColor, Board);
+
+    // --- Отмена симуляции ---
+    RemovePieceFromState(PieceToMove);
+    PieceToMove->SetBoardPosition(OriginalPosition);
+    AddPieceToState(PieceToMove);
+    if (PieceToRemoveTemporarily)
+    {
+        AddPieceToState(PieceToRemoveTemporarily);
+    }
+
+    // Ход легален, если он НЕ оставляет короля в шахе.
+    return !bPlayerIsInCheckAfterMove;
+}
+
+void AChessGameState::SetIsInLobby(bool bNewState)
+{
+    if (HasAuthority())
+    {
+        bIsInLobby = bNewState;
+        // На сервере вызываем вручную, так как OnRep не срабатывает для хоста
+        if (GetNetMode() != NM_Client)
+        {
+            OnRep_LobbyStateChanged();
+        }
+    }
+}
+
+void AChessGameState::SetLobbyTimeControl(ETimeControlType NewTimeControl)
+{
+    if (HasAuthority())
+    {
+        LobbyTimeControl = NewTimeControl;
+    }
 }
 
 // --- Full Game State Management ---

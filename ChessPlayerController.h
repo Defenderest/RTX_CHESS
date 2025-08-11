@@ -31,6 +31,7 @@ class UUserWidget;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UMaterialInterface;
+class ULobbyWidget;
 
 UENUM()
 enum class EChessSoundType : uint8
@@ -70,6 +71,19 @@ public:
     /** Возвращает игрока в главное меню. */
     void ReturnToMainMenu();
 
+    /** Показывает UI лобби. Вызывается из GameState. */
+    void ShowLobbyUI();
+
+    /** Скрывает UI лобби. */
+    void HideLobbyUI();
+
+    /** Покинуть лобби или уничтожить сессию, если хост. */
+    UFUNCTION(BlueprintCallable, Category = "Lobby")
+    void LeaveLobby();
+
+    /** Проверяет, является ли этот контроллер хостом сессии. */
+    UFUNCTION(BlueprintPure, Category = "Lobby")
+    bool IsHost() const;
 
     void ShowStartMenu();
 
@@ -114,6 +128,10 @@ public:
     /** [CLIENT] Shows game over screen. Called from server. */
     UFUNCTION(Client, Reliable)
     void Client_ShowGameOverScreen(const FText& ResultText, const FText& ReasonText);
+
+    /** [SERVER] Called from client (lobby widget) to start the game. */
+    UFUNCTION(Server, Reliable)
+    void Server_RequestStartGame();
 
     /** [SERVER] Called from client to finalize pawn promotion. */
     UFUNCTION(Server, Reliable, WithValidation)
@@ -176,6 +194,10 @@ protected:
     /** Класс виджета для экрана окончания игры. Назначается в Blueprint. */
     UPROPERTY(EditDefaultsOnly, Category = "UI")
     TSubclassOf<UGameOverWidget> GameOverWidgetClass;
+
+    /** Класс виджета для лобби. Назначается в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+    TSubclassOf<ULobbyWidget> LobbyWidgetClass;
 
     /** Музыка для главного меню. */
     UPROPERTY(EditDefaultsOnly, Category = "UI|Sound")
@@ -282,6 +304,9 @@ private:
 
     UPROPERTY()
     UGameOverWidget* GameOverWidgetInstance;
+
+    UPROPERTY()
+    ULobbyWidget* LobbyWidgetInstance;
 
     UPROPERTY()
     class UPlayerInfoWidget* PlayerInfoWidgetInstance;

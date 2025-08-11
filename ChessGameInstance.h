@@ -51,6 +51,8 @@ public:
 
 	void SavePlayerProfile();
 
+	FString GetSessionHostAddress() const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<class UUserWidget> LoadingScreenWidgetClass;
@@ -90,6 +92,8 @@ private:
     FTimerHandle FindSessionTimerHandle;
     bool bIsFindingSessions;
     bool bIsHost;
+
+    FString SessionHostAddress;
 
     UPROPERTY()
     TObjectPtr<class UUserWidget> LoadingScreenWidgetInstance;

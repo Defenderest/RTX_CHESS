@@ -41,6 +41,17 @@ public:
     UFUNCTION()
     void OnRep_GamePhase();
 
+    // --- Lobby Data ---
+    UPROPERTY(ReplicatedUsing = OnRep_LobbyStateChanged)
+    bool bIsInLobby;
+
+    UPROPERTY(Replicated)
+    ETimeControlType LobbyTimeControl;
+
+    UFUNCTION()
+    void OnRep_LobbyStateChanged();
+    // --- End Lobby Data ---
+
     UPROPERTY(ReplicatedUsing = OnRep_PlayerProfiles, BlueprintReadOnly, Category = "Chess Game State")
     FPlayerProfile WhitePlayerProfile;
 
@@ -151,6 +162,13 @@ public:
     // Board необходим для анализа возможных ходов
     UFUNCTION(BlueprintPure, Category = "Chess Game State")
     bool IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board); // Removed const
+
+    // Проверяет, является ли ход легальным (т.е. не оставляет короля под шахом)
+    bool IsMoveLegal(AChessPiece* PieceToMove, const FIntPoint& TargetPosition, const AChessBoard* Board);
+
+    // --- Lobby Management ---
+    void SetIsInLobby(bool bNewState);
+    void SetLobbyTimeControl(ETimeControlType NewTimeControl);
 
     // --- Pawn Promotion ---
     UFUNCTION(BlueprintPure, Category = "Chess Game State")

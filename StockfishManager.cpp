@@ -86,6 +86,8 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 M
 	if (!Request->ProcessRequest())
 	{
 		UE_LOG(LogTemp, Error, TEXT("StockfishManager::RequestBestMove: Failed to start HTTP request."));
+		// If request fails to even start, immediately try fallback
+		RequestBestMoveFromFallback(FEN, Depth);
 	}
 }
 
@@ -100,7 +102,8 @@ void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHtt
 {
 	if (!bWasSuccessful || !Response.IsValid())
 	{
-		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed or response was invalid."));
+		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed or response was invalid. Trying fallback."));
+		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 		return;
 	}
 
@@ -114,7 +117,8 @@ void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHtt
 
 	if (Response->GetResponseCode() != 200)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed with response code %d: %s"), Response->GetResponseCode(), *Response->GetContentAsString());
+		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed with response code %d: %s. Trying fallback."), Response->GetResponseCode(), *Response->GetContentAsString());
+		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 		return;
 	}
     	
@@ -133,12 +137,13 @@ void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHtt
 			FString ErrorMessage;
 			if (JsonObject->TryGetStringField(TEXT("error"), ErrorMessage))
 			{
-				UE_LOG(LogTemp, Error, TEXT("Lichess API returned an error: %s"), *ErrorMessage);
+				UE_LOG(LogTemp, Error, TEXT("Lichess API returned an error: %s. Trying fallback."), *ErrorMessage);
 			}
 			else
 			{
-				UE_LOG(LogTemp, Error, TEXT("Lichess API response did not contain a 'pvs' array or 'error' field. Response: %s"), *ResponseString);
+				UE_LOG(LogTemp, Error, TEXT("Lichess API response did not contain a 'pvs' array or 'error' field. Response: %s. Trying fallback."), *ResponseString);
 			}
+			RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 			return;
 		}
 
@@ -171,14 +176,17 @@ void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHtt
 		}
 		else
 		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to parse any valid moves from Lichess API 'pvs' data. Response: %s"), *ResponseString);
+			UE_LOG(LogTemp, Error, TEXT("Failed to parse any valid moves from Lichess API 'pvs' data. Response: %s. Trying fallback."), *ResponseString);
+			RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Lichess API. Response: %s"), *ResponseString);
+		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Lichess API. Response: %s. Trying fallback."), *ResponseString);
+		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 	}
 }
+
 
 void UStockfishManager::RequestBestMoveFromFallback(const FString& FEN, int32 Depth)
 {
