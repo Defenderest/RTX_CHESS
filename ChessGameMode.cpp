@@ -15,6 +15,7 @@
 #include "ChessPlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
+#include "RatingEngine.h"
 
 AChessGameMode::AChessGameMode()
 {
@@ -1140,16 +1141,31 @@ void AChessGameMode::HandleGameOver(EGamePhase FinalPhase, const FText& Reason)
     {
         WhiteProfile.GamesWon++;
         BlackProfile.GamesLost++;
+        // Обновляем рейтинг только для игр между людьми
+        if (CurrentGameMode == EGameModeType::PlayerVsPlayer)
+        {
+            RatingEngine::CalculateNewRatings(WhiteProfile, BlackProfile);
+        }
     }
     else if (FinalPhase == EGamePhase::BlackWins)
     {
         WhiteProfile.GamesLost++;
         BlackProfile.GamesWon++;
+        // Обновляем рейтинг только для игр между людьми
+        if (CurrentGameMode == EGameModeType::PlayerVsPlayer)
+        {
+            RatingEngine::CalculateNewRatings(BlackProfile, WhiteProfile);
+        }
     }
     else if (FinalPhase == EGamePhase::Stalemate || FinalPhase == EGamePhase::Draw)
     {
         WhiteProfile.GamesDrawn++;
         BlackProfile.GamesDrawn++;
+        // Обновляем рейтинг только для игр между людьми
+        if (CurrentGameMode == EGameModeType::PlayerVsPlayer)
+        {
+            RatingEngine::CalculateNewRatingsDraw(WhiteProfile, BlackProfile);
+        }
     }
     
     // Обновляем профили в GameState для репликации

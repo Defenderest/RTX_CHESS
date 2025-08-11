@@ -28,6 +28,9 @@ class USoundBase;
 class AMenuCameraActor;
 class UNiagaraSystem;
 class UUserWidget;
+class UStaticMesh;
+class UStaticMeshComponent;
+class UMaterialInterface;
 
 UENUM()
 enum class EChessSoundType : uint8
@@ -209,6 +212,18 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlight Colors")
     FLinearColor SelectedPieceHighlightColor;
 
+    /** Меш, используемый для отображения доступного хода. Настраивается в Blueprint. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlighting")
+    UStaticMesh* ValidMoveIndicatorMesh;
+
+    /** Масштаб для меша индикатора доступного хода. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlighting", meta = (EditCondition = "ValidMoveIndicatorMesh != nullptr"))
+    FVector ValidMoveIndicatorScale = FVector(1.0f);
+
+    /** Материал для меша индикатора доступного хода. */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Highlighting", meta = (EditCondition = "ValidMoveIndicatorMesh != nullptr"))
+    UMaterialInterface* ValidMoveIndicatorMaterial;
+
     /** Камера для главного меню. Может быть установлена в Blueprint для указания конкретной камеры на сцене. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Player Controller")
     TSoftObjectPtr<AMenuCameraActor> MenuCameraActor;
@@ -251,13 +266,6 @@ protected:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);
 
-    /** [SERVER] Requests valid moves for a given piece from the server. */
-    UFUNCTION(Server, Reliable, WithValidation)
-    void Server_RequestValidMoves(AChessPiece* ForPiece);
-
-    /** [CLIENT] Receives the valid moves from the server and highlights the squares. */
-    UFUNCTION(Client, Reliable)
-    void Client_ReceiveValidMoves(const TArray<FIntPoint>& Moves);
 
 private:
     UPROPERTY()
@@ -299,6 +307,10 @@ private:
 
     /** Хранит список валидных ходов для текущей выделенной фигуры. */
     TArray<FIntPoint> LastValidMoves;
+
+    /** Компоненты, используемые для визуализации доступных ходов. */
+    UPROPERTY()
+    TArray<UStaticMeshComponent*> ValidMoveIndicatorComponents;
 
     /** Sets up the UI and camera for active gameplay. Hides menus. */
     void SetupGameUI();

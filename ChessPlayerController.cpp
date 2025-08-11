@@ -31,6 +31,7 @@
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 DEFINE_LOG_CATEGORY(LogCameraManagement);
 
@@ -865,49 +866,6 @@ void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* Piec
     }
 }
 
-bool AChessPlayerController::Server_RequestValidMoves_Validate(AChessPiece* ForPiece)
-{
-    return ForPiece != nullptr;
-}
-
-void AChessPlayerController::Server_RequestValidMoves_Implementation(AChessPiece* ForPiece)
-{
-    if (!ForPiece) return;
-
-    // We must get the GameState and Board from the world on the server to ensure we use the authoritative versions.
-    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
-    AChessBoard* Board = Cast<AChessBoard>(UGameplayStatics::GetActorOfClass(GetWorld(), AChessBoard::StaticClass()));
-
-    if (GameState && Board)
-    {
-        TArray<FIntPoint> ValidMoves = ForPiece->GetValidMoves(GameState, Board);
-        Client_ReceiveValidMoves(ValidMoves);
-    }
-}
-
-void AChessPlayerController::Client_ReceiveValidMoves_Implementation(const TArray<FIntPoint>& Moves)
-{
-    // It's possible the player deselected the piece while waiting for the server's response.
-    if (!SelectedPiece || !ChessBoard)
-    {
-        return;
-    }
-
-    LastValidMoves = Moves;
-
-    if (LastValidMoves.Num() == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Client_ReceiveValidMoves: Server returned 0 valid moves for piece %s."), *GetNameSafe(SelectedPiece));
-    }
-    
-    for (const FIntPoint& Move : LastValidMoves)
-    {
-        ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
-    }
-    
-    // Also highlight the piece that these moves are for.
-    ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
-}
 
 void AChessPlayerController::Server_SetPlayerProfile_Implementation(const FPlayerProfile& Profile)
 {
@@ -941,9 +899,48 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     SelectedPiece = PieceToSelect;
     SelectedPiece->OnSelected();
 
-    // Запрашиваем валидные ходы с сервера вместо того, чтобы считать их на клиенте.
-    // Это предотвращает проблемы с рассинхронизацией состояния.
-    Server_RequestValidMoves(SelectedPiece);
+    // Вычисляем и отображаем валидные ходы локально на клиенте для мгновенной обратной связи.
+    // Сервер все равно проверит ход при его совершении.
+    AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
+    if (GameState)
+    {
+        LastValidMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
+
+        // Подсвечиваем саму выбранную фигуру
+        ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
+        // Подсвечиваем все валидные ходы
+        for (const FIntPoint& Move : LastValidMoves)
+        {
+            if (ValidMoveIndicatorMesh)
+            {
+                UStaticMeshComponent* IndicatorComponent = NewObject<UStaticMeshComponent>(ChessBoard);
+                if (IndicatorComponent)
+                {
+                    IndicatorComponent->SetStaticMesh(ValidMoveIndicatorMesh);
+                    if (ValidMoveIndicatorMaterial)
+                    {
+                        IndicatorComponent->SetMaterial(0, ValidMoveIndicatorMaterial);
+                    }
+                    IndicatorComponent->SetWorldScale3D(ValidMoveIndicatorScale);
+                    // Отключаем коллизию, чтобы индикаторы не мешали кликам
+                    IndicatorComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+                    // Регистрируем компонент, чтобы он появился в мире
+                    IndicatorComponent->RegisterComponent();
+                    // Прикрепляем к доске, чтобы он был частью ее иерархии
+                    IndicatorComponent->AttachToComponent(ChessBoard->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
+                    // Устанавливаем положение в центре клетки
+                    IndicatorComponent->SetWorldLocation(ChessBoard->GridToWorldPosition(Move));
+                    
+                    ValidMoveIndicatorComponents.Add(IndicatorComponent);
+                }
+            }
+            else
+            {
+                // Если меш не задан, используем старый метод подсветки цветом
+                ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
+            }
+        }
+    }
 }
 
 void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
@@ -967,8 +964,19 @@ void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
 
 void AChessPlayerController::ClearSelectionAndHighlights()
 {
+    // Уничтожаем и очищаем все индикаторы ходов
+    for (UStaticMeshComponent* Indicator : ValidMoveIndicatorComponents)
+    {
+        if (Indicator && !Indicator->IsBeingDestroyed())
+        {
+            Indicator->DestroyComponent();
+        }
+    }
+    ValidMoveIndicatorComponents.Empty();
+
     if (ChessBoard)
     {
+        // Эта функция теперь будет убирать только подсветку выбранной фигуры
         ChessBoard->ClearAllHighlights();
     }
     if (SelectedPiece)
