@@ -1,0 +1,15 @@
+.vs/
+.vsconfig
+Binaries/
+*.sln
+*RTX_CHESS.png
+
+# Папки с генерируемыми и временными файлами
+Binaries/
+Intermediate/
+Plugins/
+ThirdParty/
+Saved/
+Build/
+Config/
+.aider*

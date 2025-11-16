@@ -1,0 +1,597 @@
+{
+  "assetCategories": {
+    "surface": {
+      "rock": {
+        "rough": {}
+      }
+    }
+  },
+  "averageColor": "#000000",
+  "categories": [
+    "surface",
+    "rock",
+    "rough"
+  ],
+  "comp_version": 1,
+  "description": "",
+  "displacementBias": 0.603394,
+  "displacementCalibrationAccuracy": 0.990925,
+  "displacementScale": 1.788846,
+  "environment": {
+    "biome": "forest biome",
+    "region": "Africa"
+  },
+  "highest_available_res": 8192,
+  "id": "xfhsfao",
+  "json": {
+    "contentLength": 12575,
+    "uri": "xfhsfao.json"
+  },
+  "maps": [
+    {
+      "averageColor": "#F1F1F1",
+      "bitDepth": 32,
+      "colorSpace": "sRGB",
+      "contentLength": 201165009,
+      "maxIntensity": 255,
+      "mimeType": "image/x-exr",
+      "minIntensity": 181,
+      "name": "AO",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "ao",
+      "uri": "xfhsfao_8K_AO.exr"
+    },
+    {
+      "averageColor": "#F1F1F1",
+      "bitDepth": 8,
+      "colorSpace": "sRGB",
+      "contentLength": 36808064,
+      "maxIntensity": 255,
+      "mimeType": "image/jpeg",
+      "minIntensity": 181,
+      "name": "AO",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "ao",
+      "uri": "xfhsfao_8K_AO.jpg"
+    },
+    {
+      "averageColor": "#88593E",
+      "bitDepth": 16,
+      "colorSpace": "sRGB",
+      "contentLength": 227068260,
+      "maxIntensity": 116,
+      "mimeType": "image/x-exr",
+      "minIntensity": 79,
+      "name": "Basecolor",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "basecolor",
+      "uri": "xfhsfao_8K_Basecolor.exr"
+    },
+    {
+      "averageColor": "#88593E",
+      "bitDepth": 8,
+      "colorSpace": "sRGB",
+      "contentLength": 38508285,
+      "maxIntensity": 116,
+      "mimeType": "image/jpeg",
+      "minIntensity": 79,
+      "name": "Basecolor",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "basecolor",
+      "uri": "xfhsfao_8K_Basecolor.jpg"
+    },
+    {
+      "averageColor": "#808080",
+      "bitDepth": 32,
+      "colorSpace": "Linear",
+      "contentLength": 204163396,
+      "maxIntensity": 255,
+      "mimeType": "image/x-exr",
+      "minIntensity": 0,
+      "name": "Bump",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "bump",
+      "uri": "xfhsfao_8K_Bump.exr"
+    },
+    {
+      "averageColor": "#808080",
+      "bitDepth": 8,
+      "colorSpace": "Linear",
+      "contentLength": 21835664,
+      "maxIntensity": 255,
+      "mimeType": "image/jpeg",
+      "minIntensity": 0,
+      "name": "Bump",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "bump",
+      "uri": "xfhsfao_8K_Bump.jpg"
+    },
+    {
+      "averageColor": "#FFFFFF",
+      "bitDepth": 32,
+      "colorSpace": "sRGB",
+      "contentLength": 213602321,
+      "maxIntensity": 255,
+      "mimeType": "image/x-exr",
+      "minIntensity": 255,
+      "name": "Cavity",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "cavity",
+      "uri": "xfhsfao_8K_Cavity.exr"
+    },
+    {
+      "averageColor": "#FFFFFF",
+      "bitDepth": 8,
+      "colorSpace": "sRGB",
+      "contentLength": 47088823,
+      "maxIntensity": 255,
+      "mimeType": "image/jpeg",
+      "minIntensity": 255,
+      "name": "Cavity",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "cavity",
+      "uri": "xfhsfao_8K_Cavity.jpg"
+    },
+    {
+      "averageColor": "#828282",
+      "bitDepth": 32,
+      "colorSpace": "Linear",
+      "contentLength": 263978832,
+      "maxIntensity": 140,
+      "mimeType": "image/x-exr",
+      "minIntensity": 119,
+      "name": "Displacement",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "displacement",
+      "uri": "xfhsfao_8K_Displacement.exr"
+    },
+    {
+      "averageColor": "#828282",
+      "bitDepth": 8,
+      "colorSpace": "Linear",
+      "contentLength": 6444937,
+      "maxIntensity": 140,
+      "mimeType": "image/jpeg",
+      "minIntensity": 119,
+      "name": "Displacement",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "displacement",
+      "uri": "xfhsfao_8K_Displacement.jpg"
+    },
+    {
+      "averageColor": "#303030",
+      "bitDepth": 32,
+      "colorSpace": "Linear",
+      "contentLength": 169810411,
+      "maxIntensity": 58,
+      "mimeType": "image/x-exr",
+      "minIntensity": 35,
+      "name": "Gloss",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "gloss",
+      "uri": "xfhsfao_8K_Gloss.exr"
+    },
+    {
+      "averageColor": "#303030",
+      "bitDepth": 8,
+      "colorSpace": "Linear",
+      "contentLength": 24612615,
+      "maxIntensity": 58,
+      "mimeType": "image/jpeg",
+      "minIntensity": 35,
+      "name": "Gloss",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "gloss",
+      "uri": "xfhsfao_8K_Gloss.jpg"
+    },
+    {
+      "averageColor": "#8282FD",
+      "bitDepth": 16,
+      "colorSpace": "Linear",
+      "contentLength": 201249820,
+      "maxIntensity": 169,
+      "mimeType": "image/x-exr",
+      "minIntensity": 113,
+      "name": "Normal",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "normal",
+      "uri": "xfhsfao_8K_Normal.exr"
+    },
+    {
+      "averageColor": "#8282FD",
+      "bitDepth": 8,
+      "colorSpace": "Linear",
+      "contentLength": 80146683,
+      "maxIntensity": 169,
+      "mimeType": "image/jpeg",
+      "minIntensity": 113,
+      "name": "Normal",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "normal",
+      "uri": "xfhsfao_8K_Normal.jpg"
+    },
+    {
+      "averageColor": "#CFCFCF",
+      "bitDepth": 32,
+      "colorSpace": "Linear",
+      "contentLength": 155919217,
+      "maxIntensity": 220,
+      "mimeType": "image/x-exr",
+      "minIntensity": 197,
+      "name": "Roughness",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "roughness",
+      "uri": "xfhsfao_8K_Roughness.exr"
+    },
+    {
+      "averageColor": "#CFCFCF",
+      "bitDepth": 8,
+      "colorSpace": "Linear",
+      "contentLength": 23166439,
+      "maxIntensity": 220,
+      "mimeType": "image/jpeg",
+      "minIntensity": 197,
+      "name": "Roughness",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "roughness",
+      "uri": "xfhsfao_8K_Roughness.jpg"
+    },
+    {
+      "averageColor": "#383838",
+      "bitDepth": 16,
+      "colorSpace": "sRGB",
+      "contentLength": 239059393,
+      "maxIntensity": 56,
+      "mimeType": "image/x-exr",
+      "minIntensity": 56,
+      "name": "Specular",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "specular",
+      "uri": "xfhsfao_8K_Specular.exr"
+    },
+    {
+      "averageColor": "#383838",
+      "bitDepth": 8,
+      "colorSpace": "sRGB",
+      "contentLength": 28955823,
+      "maxIntensity": 56,
+      "mimeType": "image/jpeg",
+      "minIntensity": 56,
+      "name": "Specular",
+      "physicalSize": "2x2",
+      "resolution": "8192x8192",
+      "type": "specular",
+      "uri": "xfhsfao_8K_Specular.jpg"
+    }
+  ],
+  "meta": [
+    {
+      "key": "scanArea",
+      "name": "Scan Area",
+      "value": "2x2 m"
+    },
+    {
+      "key": "height",
+      "name": "Height",
+      "value": "0.016 m"
+    },
+    {
+      "key": "tileable",
+      "name": "Tileable",
+      "value": true
+    },
+    {
+      "key": "tiling_directions",
+      "name": "Tiling Directions",
+      "value": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "key": "texelDensity",
+      "name": "Texel Density",
+      "value": "4096 px/m"
+    },
+    {
+      "key": "calibration",
+      "name": "Calibration",
+      "value": "GretagMacbeth ColorChecker Color Rendition Chart"
+    },
+    {
+      "key": "scanner",
+      "name": "Scanner",
+      "value": "MKX"
+    }
+  ],
+  "models": [],
+  "name": "Dry Sand",
+  "pack": null,
+  "physicalSize": null,
+  "points": 2,
+  "previews": {
+    "images": [
+      {
+        "contentLength": 255964,
+        "resolution": "360x360",
+        "tags": [
+          "thumb"
+        ],
+        "uri": "xfhsfao_Grid_360.png"
+      },
+      {
+        "contentLength": 348310,
+        "resolution": "420x420",
+        "tags": [
+          "thumb"
+        ],
+        "uri": "xfhsfao_Grid_420.png"
+      },
+      {
+        "contentLength": 1057362,
+        "resolution": "720x720",
+        "tags": [
+          "thumb",
+          "retina"
+        ],
+        "uri": "xfhsfao_Grid_720.png"
+      },
+      {
+        "contentLength": 1453569,
+        "resolution": "840x840",
+        "tags": [
+          "thumb",
+          "retina"
+        ],
+        "uri": "xfhsfao_Grid_840.png"
+      },
+      {
+        "contentLength": 2682092,
+        "resolution": "1440x768",
+        "tags": [
+          "preview",
+          "clay"
+        ],
+        "uri": "xfhsfao_PopupClay_1440.png"
+      },
+      {
+        "contentLength": 5036613,
+        "resolution": "1920x1080",
+        "tags": [
+          "preview",
+          "clay"
+        ],
+        "uri": "xfhsfao_PopupClay_1920.png"
+      },
+      {
+        "contentLength": 10812951,
+        "resolution": "2880x1536",
+        "tags": [
+          "preview",
+          "clay",
+          "retina"
+        ],
+        "uri": "xfhsfao_PopupClay_2880.png"
+      },
+      {
+        "contentLength": 20930847,
+        "resolution": "3840x2160",
+        "tags": [
+          "preview",
+          "clay",
+          "retina"
+        ],
+        "uri": "xfhsfao_PopupClay_3840.png"
+      },
+      {
+        "contentLength": 3097836,
+        "resolution": "1440x768",
+        "tags": [
+          "preview",
+          "tiled"
+        ],
+        "uri": "xfhsfao_PopupTiled_1440.png"
+      },
+      {
+        "contentLength": 5805354,
+        "resolution": "1920x1080",
+        "tags": [
+          "preview",
+          "tiled"
+        ],
+        "uri": "xfhsfao_PopupTiled_1920.png"
+      },
+      {
+        "contentLength": 12413036,
+        "resolution": "2880x1536",
+        "tags": [
+          "preview",
+          "tiled",
+          "retina"
+        ],
+        "uri": "xfhsfao_PopupTiled_2880.png"
+      },
+      {
+        "contentLength": 23695624,
+        "resolution": "3840x2160",
+        "tags": [
+          "preview",
+          "tiled",
+          "retina"
+        ],
+        "uri": "xfhsfao_PopupTiled_3840.png"
+      },
+      {
+        "contentLength": 3121590,
+        "resolution": "1440x768",
+        "tags": [
+          "preview"
+        ],
+        "uri": "xfhsfao_Popup_1440.png"
+      },
+      {
+        "contentLength": 5839420,
+        "resolution": "1920x1080",
+        "tags": [
+          "preview"
+        ],
+        "uri": "xfhsfao_Popup_1920.png"
+      },
+      {
+        "contentLength": 12538620,
+        "resolution": "2880x1536",
+        "tags": [
+          "preview",
+          "retina"
+        ],
+        "uri": "xfhsfao_Popup_2880.png"
+      },
+      {
+        "contentLength": 24222021,
+        "resolution": "3840x2160",
+        "tags": [
+          "preview",
+          "retina"
+        ],
+        "uri": "xfhsfao_Popup_3840.png"
+      }
+    ],
+    "relativeSize": "1x1",
+    "scaleReferences": []
+  },
+  "process_date": "2024-04-16 11:59:18",
+  "properties": [],
+  "referencePreviews": {
+    "maps": [],
+    "models": []
+  },
+  "references": [],
+  "revised": false,
+  "revision": 0,
+  "semanticTags": {
+    "architectural_style": {},
+    "asset_type": "surface",
+    "city": "Islamabad",
+    "color": [
+      "Beige",
+      "Brown",
+      "Black",
+      "Gray",
+      "White"
+    ],
+    "contains": [
+      "Rock",
+      "wall"
+    ],
+    "country": "South Africa",
+    "descriptive": [
+      "Rough",
+      "Dull",
+      "weathered",
+      "cracked"
+    ],
+    "environment": [
+      "forest biome"
+    ],
+    "locations": {
+      "Africa": {
+        "South Africa": {
+          "Islamabad": {}
+        }
+      }
+    },
+    "maxSize": 2,
+    "minSize": 2,
+    "name": "Dry Sand",
+    "orientation": [
+      "wall",
+      "floor"
+    ],
+    "region": "Africa",
+    "state": [
+      "old"
+    ],
+    "subject_matter": "nature",
+    "theme": [
+      "Mountains",
+      "Hills",
+      "Outdoors",
+      "Mediterranean Forests",
+      "Woodlands",
+      "Kagga Kamma"
+    ]
+  },
+  "tags": [
+    "beige",
+    "brown",
+    "black",
+    "gray",
+    "white",
+    "mountains",
+    "hills",
+    "outdoors",
+    "mediterranean forests",
+    "woodlands",
+    "kagga kamma",
+    "rock",
+    "wall",
+    "rough",
+    "dull",
+    "weathered",
+    "cracked"
+  ],
+  "texelDensity": 4096,
+  "texture_type": "basic",
+  "ue_plugin_archives": [
+    {
+      "contentLength": 280933135,
+      "gltfVersion": "2.0",
+      "tier": 0,
+      "type": "gltf",
+      "uri": "ue_plugin_archives/tier_0/xfhsfao_tier_0.zip",
+      "version": 1
+    },
+    {
+      "contentLength": 89673396,
+      "gltfVersion": "2.0",
+      "tier": 1,
+      "type": "gltf",
+      "uri": "ue_plugin_archives/tier_1/xfhsfao_tier_1.zip",
+      "version": 1
+    },
+    {
+      "contentLength": 22165979,
+      "gltfVersion": "2.0",
+      "tier": 2,
+      "type": "gltf",
+      "uri": "ue_plugin_archives/tier_2/xfhsfao_tier_2.zip",
+      "version": 1
+    },
+    {
+      "contentLength": 1669634,
+      "gltfVersion": "2.0",
+      "tier": 3,
+      "type": "gltf",
+      "uri": "ue_plugin_archives/tier_3/xfhsfao_tier_3.zip",
+      "version": 1
+    }
+  ],
+  "version": 2
+}
