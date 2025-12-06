@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "ChessGameMode.h" // For ETimeControlType
+#include "Core/ChessGameMode.h" // For ETimeControlType
 #include "LobbyWidget.generated.h"
 
 class UTextBlock;

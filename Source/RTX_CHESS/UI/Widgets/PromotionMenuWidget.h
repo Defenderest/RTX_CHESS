@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "ChessPiece.h" // For EPieceType
+#include "Pieces/ChessPiece.h" // For EPieceType
 #include "PromotionMenuWidget.generated.h"
 
 // Forward declarations

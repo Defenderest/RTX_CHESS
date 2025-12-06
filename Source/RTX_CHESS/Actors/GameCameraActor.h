@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Camera/CameraActor.h"
-#include "ChessPiece.h"
+#include "Pieces/ChessPiece.h"
 #include "Net/UnrealNetwork.h"
 #include "GameCameraActor.generated.h"
 

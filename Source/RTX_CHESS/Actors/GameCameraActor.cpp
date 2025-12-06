@@ -1,4 +1,4 @@
-#include "GameCameraActor.h"
+#include "Actors/GameCameraActor.h"
 #include "Net/UnrealNetwork.h"
 
 AGameCameraActor::AGameCameraActor()

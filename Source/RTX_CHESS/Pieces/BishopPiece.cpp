@@ -1,6 +1,6 @@
-#include "BishopPiece.h"
-#include "ChessBoard.h" // Для AChessBoard
-#include "ChessGameState.h" // Для AChessGameState
+#include "Pieces/BishopPiece.h"
+#include "Board/ChessBoard.h" // Для AChessBoard
+#include "Core/ChessGameState.h" // Для AChessGameState
 
 ABishopPiece::ABishopPiece()
 {

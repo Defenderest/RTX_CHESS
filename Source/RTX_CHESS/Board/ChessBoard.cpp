@@ -1,6 +1,6 @@
-#include "ChessBoard.h"
-#include "ChessPiece.h" // Необходимо для AChessPiece
-#include "ChessGameState.h" // Потенциально необходимо для GetPieceAtGridPosition
+#include "Board/ChessBoard.h"
+#include "Pieces/ChessPiece.h" // Необходимо для AChessPiece
+#include "Core/ChessGameState.h" // Потенциально необходимо для GetPieceAtGridPosition
 #include "Kismet/GameplayStatics.h" // Потенциально необходимо для GetGameState
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "DrawDebugHelpers.h" // Для отладочной отрисовки

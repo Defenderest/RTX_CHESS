@@ -1,6 +1,6 @@
-#include "ChessPiece.h"
-#include "ChessBoard.h" // Для использования AChessBoard в GetValidMoves
-#include "ChessGameMode.h"
+#include "Pieces/ChessPiece.h"
+#include "Board/ChessBoard.h" // Для использования AChessBoard в GetValidMoves
+#include "Core/ChessGameMode.h"
 #include "Components/StaticMeshComponent.h" // Для UStaticMeshComponent
 #include "Components/SceneComponent.h"
 #include "Particles/ParticleSystemComponent.h"

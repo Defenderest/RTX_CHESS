@@ -1,4 +1,4 @@
-#include "PlayerPawn.h"
+#include "Actors/PlayerPawn.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Animation/AnimInstance.h"

@@ -1,6 +1,6 @@
-#include "KingPiece.h"
-#include "ChessBoard.h" // Для AChessBoard и его методов
-#include "ChessGameState.h" // Потенциально для проверки шаха при рокировке
+#include "Pieces/KingPiece.h"
+#include "Board/ChessBoard.h" // Для AChessBoard и его методов
+#include "Core/ChessGameState.h" // Потенциально для проверки шаха при рокировке
 
 AKingPiece::AKingPiece()
 {

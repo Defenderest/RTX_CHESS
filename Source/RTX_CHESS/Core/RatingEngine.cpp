@@ -1,4 +1,4 @@
-#include "RatingEngine.h"
+#include "Core/RatingEngine.h"
 #include "PlayerProfile.h" // Включаем полное определение структуры
 
 float RatingEngine::GetExpectedScore(int32 RatingA, int32 RatingB)

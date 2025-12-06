@@ -9,6 +9,8 @@ public class RTX_CHESS : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+        PrivateIncludePaths.Add(ModuleDirectory);
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Http", "Json", "JsonUtilities", "OnlineSubsystem", "Sockets", "Networking", "Niagara" });
 
         // Uncomment if you are using Slate UI

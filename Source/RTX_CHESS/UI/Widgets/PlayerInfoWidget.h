@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "PlayerProfile.h"
+#include "Core/PlayerProfile.h"
 #include "PlayerInfoWidget.generated.h"
 
 /**

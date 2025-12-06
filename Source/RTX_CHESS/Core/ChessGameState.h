@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
-#include "ChessPiece.h"
-#include "ChessGameMode.h"
-#include "PlayerProfile.h"
+#include "Pieces/ChessPiece.h"
+#include "Core/ChessGameMode.h"
+#include "Core/PlayerProfile.h"
 #include "Math/IntPoint.h"
 #include "Net/UnrealNetwork.h"
 #include "ChessGameState.generated.h"

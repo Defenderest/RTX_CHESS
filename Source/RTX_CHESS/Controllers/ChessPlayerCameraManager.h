@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Camera/PlayerCameraManager.h"
-#include "ChessPiece.h" // Включаем для доступа к EPieceColor
+#include "Pieces/ChessPiece.h" // Включаем для доступа к EPieceColor
 #include "ChessPlayerCameraManager.generated.h"
 
 UCLASS()

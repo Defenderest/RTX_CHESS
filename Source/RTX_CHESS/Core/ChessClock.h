@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "ChessPiece.h"
+#include "Pieces/ChessPiece.h"
 #include "ChessClock.generated.h"
 
 UENUM(BlueprintType)

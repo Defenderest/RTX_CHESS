@@ -1,8 +1,8 @@
-#include "GameOverWidget.h"
+#include "UI/Widgets/GameOverWidget.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
-#include "ChessPlayerController.h"
+#include "Controllers/ChessPlayerController.h"
 
 void UGameOverWidget::NativeConstruct()
 {

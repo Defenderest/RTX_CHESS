@@ -1,21 +1,21 @@
-#include "ChessGameMode.h"
+#include "Core/ChessGameMode.h"
 // #include "DatabaseManager.h"
-#include "PlayerPawn.h"
-#include "ChessPlayerController.h"
-#include "ChessPlayerState.h"
-#include "ChessGameInstance.h"
-#include "ChessGameState.h"
-#include "ChessBoard.h"
-#include "ChessPiece.h"
-#include "PawnPiece.h"
+#include "Actors/PlayerPawn.h"
+#include "Controllers/ChessPlayerController.h"
+#include "Core/ChessPlayerState.h"
+#include "Core/ChessGameInstance.h"
+#include "Core/ChessGameState.h"
+#include "Board/ChessBoard.h"
+#include "Pieces/ChessPiece.h"
+#include "Pieces/PawnPiece.h"
 #include "EngineUtils.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
-#include "StockfishManager.h"
-#include "ChessPlayerCameraManager.h"
+#include "Managers/StockfishManager.h"
+#include "Controllers/ChessPlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
-#include "RatingEngine.h"
+#include "Core/RatingEngine.h"
 
 AChessGameMode::AChessGameMode()
 {
@@ -216,6 +216,7 @@ void AChessGameMode::StartBotGame()
     if (StockfishManager)
     {
         UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Initializing API-based bot."));
+        StockfishManager->InitializeLocalEngine(); // Explicitly start the engine process here
         StockfishManager->OnBestMoveReceived.AddDynamic(this, &AChessGameMode::HandleBotMoveReceived);
     }
     else
@@ -658,7 +659,7 @@ void AChessGameMode::SetupBoardAndGameState(int32 StartTime, int32 Increment)
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Board and game state have been reset. White's turn."));
 }
 
-#include "ChessPlayerCameraManager.h"
+#include "Controllers/ChessPlayerCameraManager.h"
 #include "Kismet/GameplayStatics.h"
 
 // void AChessGameMode::RecordMove(const FString& MoveNotation)

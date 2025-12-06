@@ -1,10 +1,10 @@
-#include "ChessGameState.h"
+#include "Core/ChessGameState.h"
 #include "Net/UnrealNetwork.h" // Для DOREPLIFETIME
-#include "ChessBoard.h"        // Для использования AChessBoard в логике проверки шаха/мата
-#include "PawnPiece.h"         // Добавлено для определения APawnPiece
+#include "Board/ChessBoard.h"        // Для использования AChessBoard в логике проверки шаха/мата
+#include "Pieces/PawnPiece.h"         // Добавлено для определения APawnPiece
 #include "Kismet/GameplayStatics.h" // Для поиска AChessBoard
-#include "PlayerPawn.h"
-#include "ChessPlayerController.h"
+#include "Actors/PlayerPawn.h"
+#include "Controllers/ChessPlayerController.h"
 
 AChessGameState::AChessGameState()
 {

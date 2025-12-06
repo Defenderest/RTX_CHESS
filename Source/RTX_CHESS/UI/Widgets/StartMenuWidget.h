@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/EditableTextBox.h"
-#include "ChessGameMode.h" // For ETimeControlType
+#include "Core/ChessGameMode.h" // For ETimeControlType
 #include "StartMenuWidget.generated.h"
 
 class UWidgetSwitcher;

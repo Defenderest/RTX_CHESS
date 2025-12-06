@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "ChessPiece.h" // Для EPieceColor, EPieceType
+#include "RTX_CHESS/Pieces/ChessPiece.h" // Для EPieceColor, EPieceType
 #include "Math/IntPoint.h" // Для FIntPoint
 // #include "DatabaseManager.h"
 #include "ChessGameMode.generated.h"

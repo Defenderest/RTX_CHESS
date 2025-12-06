@@ -1,6 +1,6 @@
-#include "PlayerListEntryWidget.h"
+#include "UI/Widgets/PlayerListEntryWidget.h"
 #include "Components/TextBlock.h"
-#include "ChessPlayerState.h"
+#include "Core/ChessPlayerState.h"
 
 void UPlayerListEntryWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {

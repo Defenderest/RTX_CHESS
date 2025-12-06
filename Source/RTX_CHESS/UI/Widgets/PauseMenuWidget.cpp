@@ -1,8 +1,8 @@
-#include "PauseMenuWidget.h"
+#include "UI/Widgets/PauseMenuWidget.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
-#include "ChessPlayerController.h"
-#include "ChessBlueprintFunctionLibrary.h"
+#include "Controllers/ChessPlayerController.h"
+#include "Board/ChessBlueprintFunctionLibrary.h"
 
 void UPauseMenuWidget::NativeConstruct()
 {

@@ -1,9 +1,9 @@
 
-#include "StartMenuWidget.h"
+#include "UI/Widgets/StartMenuWidget.h"
 #include "Kismet/GameplayStatics.h"
-#include "ChessGameMode.h"
-#include "ChessPlayerController.h"
-#include "ChessGameInstance.h"
+#include "Core/ChessGameMode.h"
+#include "Controllers/ChessPlayerController.h"
+#include "Core/ChessGameInstance.h"
 #include "Components/WidgetSwitcher.h"
 #include "Components/Slider.h"
 #include "Components/ComboBoxString.h"

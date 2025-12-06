@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "PlayerProfile.h"
-#include "GraphicsSettingsData.h" // Добавляем структуру с настройками
+#include "UI/Data/GraphicsSettingsData.h" // Добавляем структуру с настройками
 #include "ChessSaveGame.generated.h"
 
 UCLASS()

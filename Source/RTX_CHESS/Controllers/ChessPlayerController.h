@@ -2,8 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "ChessPiece.h" 
-#include "PlayerProfile.h"
+#include "Pieces/ChessPiece.h" 
+#include "Core/PlayerProfile.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
 #include "Net/UnrealNetwork.h"

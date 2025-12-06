@@ -1,4 +1,4 @@
-#include "ChessClock.h"
+#include "Core/ChessClock.h"
 #include "Components/StaticMeshComponent.h"
 
 AChessClock::AChessClock()

@@ -1,6 +1,6 @@
-#include "KnightPiece.h"
-#include "ChessBoard.h" // Для AChessBoard
-#include "ChessGameState.h" // Для AChessGameState
+#include "Pieces/KnightPiece.h"
+#include "Board/ChessBoard.h" // Для AChessBoard
+#include "Core/ChessGameState.h" // Для AChessGameState
 
 AKnightPiece::AKnightPiece()
 {

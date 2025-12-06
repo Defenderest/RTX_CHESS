@@ -1,10 +1,10 @@
-#include "ChessPlayerCameraManager.h"
-#include "ChessBoard.h"
+#include "Controllers/ChessPlayerCameraManager.h"
+#include "Board/ChessBoard.h"
 #include "Kismet/GameplayStatics.h"
-#include "GameCameraActor.h"
+#include "Actors/GameCameraActor.h"
 #include "GameFramework/PlayerController.h"
-#include "ChessPlayerController.h"
-#include "ChessGameState.h"
+#include "Controllers/ChessPlayerController.h"
+#include "Core/ChessGameState.h"
 
 AChessPlayerCameraManager::AChessPlayerCameraManager()
 {

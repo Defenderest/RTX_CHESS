@@ -1,4 +1,4 @@
-#include "ChessPlayerState.h"
+#include "Core/ChessPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
 AChessPlayerState::AChessPlayerState()

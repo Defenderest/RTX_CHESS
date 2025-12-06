@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
-#include "PlayerProfile.h"
+#include "Core/PlayerProfile.h"
 #include "ChessPlayerState.generated.h"
 
 UCLASS()

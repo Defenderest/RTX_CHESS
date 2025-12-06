@@ -1,4 +1,4 @@
-#include "MenuCameraActor.h"
+#include "Actors/MenuCameraActor.h"
 #include "Kismet/KismetMathLibrary.h"
 
 AMenuCameraActor::AMenuCameraActor()

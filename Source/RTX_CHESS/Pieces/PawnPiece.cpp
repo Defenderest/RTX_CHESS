@@ -1,6 +1,6 @@
-#include "PawnPiece.h"
-#include "ChessBoard.h" // Для AChessBoard
-#include "ChessGameState.h" // Для AChessGameState
+#include "Pieces/PawnPiece.h"
+#include "Board/ChessBoard.h" // Для AChessBoard
+#include "Core/ChessGameState.h" // Для AChessGameState
 
 APawnPiece::APawnPiece()
 {

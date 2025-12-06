@@ -3,8 +3,8 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Interfaces/OnlineSessionInterface.h"
-#include "ChessGameMode.h" // For ETimeControlType
-#include "PlayerProfile.h"
+#include "Core/ChessGameMode.h" // For ETimeControlType
+#include "Core/PlayerProfile.h"
 #include "ChessGameInstance.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSessionCreatedDelegate, bool, bWasSuccessful);

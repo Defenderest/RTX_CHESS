@@ -1,5 +1,5 @@
-#include "ChessBlueprintFunctionLibrary.h"
-#include "ChessPlayerController.h"
+#include "Board/ChessBlueprintFunctionLibrary.h"
+#include "Controllers/ChessPlayerController.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
