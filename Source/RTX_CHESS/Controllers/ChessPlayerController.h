@@ -284,6 +284,22 @@ protected:
     /** Toggles the visibility of debug information. */
     void ToggleDebugInfo();
 
+    /** Mobile Touch Handlers */
+    void OnTouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location);
+    void OnTouchMoved(const ETouchIndex::Type FingerIndex, const FVector Location);
+    void OnTouchEnded(const ETouchIndex::Type FingerIndex, const FVector Location);
+
+    /** Touch state for mobile camera control */
+    FVector2D PreviousTouchLocation;
+    bool bIsTouchDragging;
+    
+    /** Double tap detection */
+    double LastTapTime;
+    FVector2D LastTapLocation;
+
+    /** Processes the hit result from a click or touch */
+    void ProcessHit(const FHitResult& HitResult);
+
     /** [SERVER] Attempts to move a piece. Called from client, runs on server. */
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_AttemptMove(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition);

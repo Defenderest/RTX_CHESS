@@ -44,6 +44,7 @@ void UStockfishManager::InitializeLocalEngine()
 void UStockfishManager::StartLocalProcess()
 {
     FString ContentDir = FPaths::ProjectContentDir();
+
     // Looking for stockfish.exe in Content/Stockfish/
     FString ExePath = FPaths::Combine(ContentDir, TEXT("Stockfish"), TEXT("stockfish.exe"));
     ExePath = FPaths::ConvertRelativePathToFull(ExePath);
@@ -91,21 +92,25 @@ void UStockfishManager::StartLocalProcess()
     if (EngineProcessHandle.IsValid())
     {
         bIsLocalEngineRunning = true;
+        bIsEngineReady = false;
+
         UE_LOG(LogTemp, Log, TEXT("StockfishManager: Local engine started successfully."));
 
-        // Do NOT close pipes here. We need to keep them open to communicate.
-        // They will be closed in StopLocalProcess.
-
-        // Start UCI mode
-        SendCommandToEngine(TEXT("uci"));
-        SendCommandToEngine(TEXT("isready"));
-
-        // Start polling timer (checks output 30 times a second)
-        if (UWorld* World = GetWorld())
-        {
-            World->GetTimerManager().SetTimer(OutputPollTimer, this, &UStockfishManager::PollEngineOutput, 0.03f, true);
-        }
-    }
+        // DO NOT CLOSE PIPES HERE.
+                    // Use a timer to send 'uci' after a short delay.
+                    if (UWorld* World = GetWorld())
+                    {
+                        FTimerHandle UciTimer;
+                        // Increased delay to 0.5s to ensure engine process is fully ready to receive input
+                        World->GetTimerManager().SetTimer(UciTimer, [this]()
+                        {
+                            UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending 'uci' handshake..."));
+                            SendCommandToEngine(TEXT("uci"));
+                        }, 0.5f, false);
+        
+                        // Start polling timer
+                        World->GetTimerManager().SetTimer(OutputPollTimer, this, &UStockfishManager::PollEngineOutput, 0.03f, true);
+                    }    }
     else
     {
         UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to launch Stockfish process."));
@@ -120,7 +125,7 @@ void UStockfishManager::StopLocalProcess()
     if (bIsLocalEngineRunning)
     {
         SendCommandToEngine(TEXT("quit"));
-        
+
         if (EngineProcessHandle.IsValid())
         {
             // Give it a moment to close gracefully
@@ -129,10 +134,12 @@ void UStockfishManager::StopLocalProcess()
             FPlatformProcess::CloseProc(EngineProcessHandle);
         }
 
-        // Close the handles
-        if (InPipeRead) FPlatformProcess::ClosePipe(InPipeRead, InPipeWrite);
-        if (OutPipeRead) FPlatformProcess::ClosePipe(OutPipeRead, OutPipeWrite);
-        
+        // Close the handles we kept open
+        // Note: InPipeRead and OutPipeWrite were closed in StartLocalProcess
+
+        if (InPipeWrite) FPlatformProcess::ClosePipe(nullptr, InPipeWrite);
+        if (OutPipeRead) FPlatformProcess::ClosePipe(OutPipeRead, nullptr);
+
         InPipeRead = InPipeWrite = OutPipeRead = OutPipeWrite = nullptr;
         bIsLocalEngineRunning = false;
 
@@ -145,18 +152,32 @@ void UStockfishManager::StopLocalProcess()
 
 void UStockfishManager::SendCommandToEngine(const FString& Command)
 {
-    if (bIsLocalEngineRunning && InPipeWrite)
+    if (bIsLocalEngineRunning && InPipeWrite && !Command.IsEmpty())
     {
-        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending Command: %s"), *Command);
+        // Use \n only, as some engines/platforms might double up \r with \r\n
+        FString CommandWithNewline = Command + TEXT("\n");
+        
+        auto AnsiString = StringCast<ANSICHAR>(*CommandWithNewline);
+        const ANSICHAR* Data = AnsiString.Get();
+        int32 BytesToWrite = AnsiString.Length();
 
-        // Windows console applications usually prefer \r\n
-        FString CommandWithNewline = Command + TEXT("\r\n");
-        
-        // Convert to ANSI (UTF-8 compatible for standard console apps)
-        FTCHARToUTF8 Utf8Converter(*CommandWithNewline);
-        
-        // Write to the Write end of the Input pipe
-        FPlatformProcess::WritePipe(InPipeWrite, (const uint8*)Utf8Converter.Get(), Utf8Converter.Length());
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending '%s' (%d bytes)"), *Command, BytesToWrite);
+
+        FString HexStr;
+        for (int32 i = 0; i < BytesToWrite; i++)
+        {
+            HexStr += FString::Printf(TEXT("%02X "), (uint8)Data[i]);
+        }
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Hex Bytes: %s"), *HexStr);
+
+        if (BytesToWrite > 0)
+        {
+            bool bSuccess = FPlatformProcess::WritePipe(InPipeWrite, (const uint8*)Data, BytesToWrite);
+            if (!bSuccess)
+            {
+                UE_LOG(LogTemp, Error, TEXT("StockfishManager: WritePipe failed!"));
+            }
+        }
     }
 }
 
@@ -168,13 +189,15 @@ void UStockfishManager::PollEngineOutput()
         FString Output = FPlatformProcess::ReadPipe(OutPipeRead);
         if (!Output.IsEmpty())
         {
+            // Log raw output for debugging
+            UE_LOG(LogTemp, Log, TEXT("StockfishManager: Raw Output Chunk: [[%s]]"), *Output);
+
             // Output can contain multiple lines
             TArray<FString> Lines;
-            Output.ParseIntoArray(Lines, TEXT("\n"), true); // Parse by newline, cull empty
+            Output.ParseIntoArray(Lines, TEXT("\n"), true);
 
             for (const FString& Line : Lines)
             {
-                // Clean up carriage returns if any and trim whitespace
                 FString CleanLine = Line.Replace(TEXT("\r"), TEXT(""));
                 CleanLine.TrimStartAndEndInline();
                 
@@ -191,7 +214,36 @@ void UStockfishManager::ProcessEngineOutputLine(const FString& Line)
 {
     UE_LOG(LogTemp, Log, TEXT("Stockfish Output Line: %s"), *Line);
 
-    // Looking for: "bestmove <move> ponder <move>" or just "bestmove <move>"
+    if (Line.Contains(TEXT("Unknown command")))
+    {
+         UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Stockfish reported error: [[%s]]. Check command formatting."), *Line);
+    }
+
+    // Handshake Logic
+    if (Line.Equals(TEXT("uciok"), ESearchCase::IgnoreCase))
+    {
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'uciok'. Sending 'isready'."));
+        SendCommandToEngine(TEXT("isready"));
+    }
+        else if (Line.Equals(TEXT("readyok"), ESearchCase::IgnoreCase))
+        {
+            UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'readyok'. Engine is ready."));
+            bIsEngineReady = true;
+    
+            // Clear the timeout timer since the engine is now responsive
+            if (UWorld* World = GetWorld())
+            {
+                World->GetTimerManager().ClearTimer(EngineHandshakeTimeoutTimer);
+            }
+            
+            if (bHasPendingRequest)
+            {
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Processing pending request..."));
+                bHasPendingRequest = false;
+                RequestBestMove(PendingFEN, PendingDepth, PendingMultiPV);
+            }
+        }
+
     if (Line.StartsWith(TEXT("bestmove")))
     {
         TArray<FString> Tokens;
@@ -242,10 +294,34 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 M
 
     if (bIsLocalEngineRunning)
     {
+        if (!bIsEngineReady)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Engine not ready yet. Queuing request for FEN: %s"), *FEN);
+            bHasPendingRequest = true;
+            PendingFEN = FEN;
+            PendingDepth = Depth;
+            PendingMultiPV = MultiPV;
+
+            // Start a timeout timer. If the engine doesn't become ready in 3 seconds, fall back to API.
+            if (UWorld* World = GetWorld())
+            {
+                World->GetTimerManager().SetTimer(EngineHandshakeTimeoutTimer, [this, FEN, Depth, MultiPV]()
+                {
+                    if (bHasPendingRequest)
+                    {
+                        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Engine handshake timed out (3s)! Falling back to Online API."));
+                        bHasPendingRequest = false;
+                        // Mark local engine as failed/not running so we don't try it again immediately
+                        bIsLocalEngineRunning = false; 
+                        StopLocalProcess(); // Clean up the stuck process
+                        RequestBestMoveFromAPI(FEN, Depth, MultiPV);
+                    }
+                }, 3.0f, false);
+            }
+            return;
+        }
+
         UE_LOG(LogTemp, Log, TEXT("StockfishManager: Calculating local move for FEN: %s (Depth: %d)"), *FEN, Depth);
-        
-        // Stop any previous search
-        SendCommandToEngine(TEXT("stop"));
         
         // Set position
         // If it's the start position, use "position startpos"
@@ -259,9 +335,6 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 M
         }
         
         // Start thinking
-        // Use movetime to ensure the bot returns a move within a reasonable timeframe (e.g., 2 seconds)
-        // Depth is good, but movetime guarantees a response.
-        // We can use both: go depth X movetime Y (engine stops at whichever comes first)
         int32 MoveTimeMs = 2000; // 2 seconds by default
         SendCommandToEngine(FString::Printf(TEXT("go depth %d movetime %d"), Depth, MoveTimeMs));
     }
@@ -288,7 +361,7 @@ void UStockfishManager::RequestBestMoveFromAPI(const FString& FEN, int32 Depth, 
 	Request->SetHeader(TEXT("User-Agent"), TEXT("X-UnrealEngine-Agent"));
 
 	// Use a lambda to capture the FEN and Depth for potential fallback
-	Request->OnProcessRequestComplete().BindLambda([this, FEN, Depth](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess)
+	Request->OnProcessRequestComplete().BindLambda([this, FEN, Depth](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess) 
 	{
 		this->OnBestMoveResponseReceived(Req, Resp, bSuccess, FEN, Depth);
 	});

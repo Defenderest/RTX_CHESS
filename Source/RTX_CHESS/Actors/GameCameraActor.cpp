@@ -4,7 +4,6 @@
 AGameCameraActor::AGameCameraActor()
 {
     bReplicates = true;
-    // Конструктор теперь пуст, так как настройки задаются через ссылки на акторы.
 }
 
 bool AGameCameraActor::GetCameraPerspectiveForColor(EPieceColor PlayerColor, FTransform& OutTransform, float& OutFOV) const

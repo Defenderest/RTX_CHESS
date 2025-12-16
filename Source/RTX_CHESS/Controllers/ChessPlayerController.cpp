@@ -57,9 +57,15 @@ AChessPlayerController::AChessPlayerController()
     GameOverWidgetInstance = nullptr;
     PlayerInfoWidgetInstance = nullptr;
 
-    // Устанавливаем цвета подсветки по умолчанию
-    ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Темно-зеленый
-    SelectedPieceHighlightColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Синий
+    // Mobile touch initialization
+    bIsTouchDragging = false;
+    PreviousTouchLocation = FVector2D::ZeroVector;
+    LastTapTime = 0.0;
+    LastTapLocation = FVector2D::ZeroVector;
+
+    // Set default highlight colors
+    ValidMoveHighlightColor = FLinearColor(0.1f, 0.5f, 0.1f, 1.0f); // Dark Green
+    SelectedPieceHighlightColor = FLinearColor(0.2f, 0.2f, 0.8f, 1.0f); // Blue
 }
 
 void AChessPlayerController::BeginPlay()
@@ -74,7 +80,7 @@ void AChessPlayerController::BeginPlay()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::BeginPlay: ChessMappingContext не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::BeginPlay: ChessMappingContext not assigned! Please assign it in the Player Controller Blueprint."));
         }
     }
 
@@ -84,13 +90,13 @@ void AChessPlayerController::BeginPlay()
         UE_LOG(LogTemp, Error, TEXT("AChessPlayerController::BeginPlay: ChessBoard actor not found!"));
     }
 
-    // Откладываем решение о том, что показывать, до тех пор, пока GameState точно не будет доступен.
-    // Это помогает избежать гонок состояний, когда BeginPlay контроллера игрока запускается
-    // до того, как GameState полностью инициализирован или реплицирован.
+    // Defer the decision of what to show until the GameState is definitely available.
+    // This helps avoid race conditions where the Player Controller's BeginPlay runs
+    // before the GameState is fully initialized or replicated.
     FTimerHandle TimerHandle;
     GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AChessPlayerController::DetermineInitialUI, 0.1f, false);
     
-    // Если мы клиент, отправляем наш профиль на сервер
+    // If we are a client, send our profile to the server
     if (IsLocalController() && GetNetMode() == NM_Client)
     {
         if (UChessGameInstance* GameInstance = GetGameInstance<UChessGameInstance>())
@@ -99,7 +105,7 @@ void AChessPlayerController::BeginPlay()
         }
     }
     
-    // Если мы хост, проверяем, нужно ли нам создавать лобби.
+    // If we are the host, check if we need to create a lobby.
     if (HasAuthority())
     {
         if (const AGameModeBase* GM = GetWorld()->GetAuthGameMode())
@@ -125,6 +131,11 @@ void AChessPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
 
+    // Bind legacy touch events for mobile support (in case Enhanced Input mappings are missing for touch)
+    InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &AChessPlayerController::OnTouchStarted);
+    InputComponent->BindTouch(EInputEvent::IE_Repeat, this, &AChessPlayerController::OnTouchMoved);
+    InputComponent->BindTouch(EInputEvent::IE_Released, this, &AChessPlayerController::OnTouchEnded);
+
     if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
     {
         if (ClickAction)
@@ -133,7 +144,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ClickAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ClickAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
 
         if (LookAction)
@@ -142,7 +153,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: LookAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: LookAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
 
         if (MoveCameraAction)
@@ -151,7 +162,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: MoveCameraAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: MoveCameraAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
 
         if (PauseAction)
@@ -160,7 +171,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PauseAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PauseAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
 
         if (PlayerInfoAction)
@@ -169,7 +180,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PlayerInfoAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: PlayerInfoAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
 
         if (ToggleDebugAction)
@@ -178,7 +189,7 @@ void AChessPlayerController::SetupInputComponent()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ToggleDebugAction не назначен! Пожалуйста, назначьте его в Blueprint контроллера игрока."));
+            UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetupInputComponent: ToggleDebugAction not assigned! Please assign it in the Player Controller Blueprint."));
         }
     }
 }
@@ -187,44 +198,49 @@ void AChessPlayerController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    // Синхронизируем рыскание (Yaw) ControlRotation с реальным вращением камеры.
-    // Тангаж (Pitch) будет управляться отдельно, чтобы избежать взгляда в потолок при старте.
+    // Synchronize ControlRotation Yaw with the actual camera rotation.
+    // Pitch is handled separately to avoid looking at the ceiling at start.
     if (bIsInputModeSetForGame)
     {
-        // ОПТИМИЗАЦИЯ: Этот блок кода должен выполняться, только когда игрок активно вращает камеру (зажата ПКМ).
-        // Это предотвращает ненужные вычисления в каждом кадре, когда камера статична.
-        if (PlayerCameraManager && IsInputKeyDown(EKeys::RightMouseButton))
+        // OPTIMIZATION: This code block should only run when the player is actively rotating the camera (Right Mouse Button held).
+        // This prevents unnecessary calculations every frame when the camera is static.
+        bool bIsRotateDown = IsInputKeyDown(EKeys::RightMouseButton);
+#if PLATFORM_ANDROID || PLATFORM_IOS
+        bIsRotateDown = bIsRotateDown || IsInputKeyDown(EKeys::LeftMouseButton);
+#endif
+
+        if (PlayerCameraManager && bIsRotateDown)
         {
             FRotator CurrentControlRotation = GetControlRotation();
 
-            // ПРАВИЛЬНЫЙ СПОСОБ СИНХРОНИЗАЦИИ YAW:
-            // 1. Получаем вектор, куда смотрит камера.
+            // CORRECT METHOD FOR YAW SYNCHRONIZATION:
+            // 1. Get the vector the camera is looking at.
             const FVector CameraForward = PlayerCameraManager->GetCameraRotation().Vector();
-            // 2. Преобразуем этот вектор во вращение. Этот метод правильно вычисляет Yaw, даже если есть Pitch.
+            // 2. Convert this vector to rotation. This method correctly calculates Yaw even if Pitch is present.
             const FRotator CameraDirectionAsRotator = CameraForward.Rotation();
-            // 3. Синхронизируем Yaw головы с Yaw камеры.
+            // 3. Synchronize head Yaw with camera Yaw.
             CurrentControlRotation.Yaw = CameraDirectionAsRotator.Yaw;
 
-            // Ограничиваем вертикальное вращение (тангаж) для реалистичного движения головы.
-            // -45 градусов вниз и +30 градусов вверх - хороший диапазон для сидящего человека.
+            // Limit vertical rotation (Pitch) for realistic head movement.
+            // -45 degrees down and +30 degrees up is a good range for a seated person.
             CurrentControlRotation.Pitch = FMath::Clamp(CurrentControlRotation.Pitch, -45.0f, 30.0f);
 
-            // Явно обнуляем крен (Roll), чтобы предотвратить искажения и скручивание головы.
+            // Explicitly zero out Roll to prevent head tilting/twisting.
             CurrentControlRotation.Roll = 0.0f;
             
             SetControlRotation(CurrentControlRotation);
         }
     }
 
-    // --- Отладочная информация на экране ---
+    // --- On-Screen Debug Information ---
     if (bShowDebugInfo && GEngine)
     {
-        // ОПТИМИЗАЦИЯ: Обновляем отладочную информацию реже, чем каждый кадр,
-        // так как это очень ресурсоемкая операция.
+        // OPTIMIZATION: Update debug info less frequently than every frame,
+        // as this is a resource-intensive operation.
         static float DebugInfoTimer = 0.0f;
         DebugInfoTimer += DeltaTime;
 
-        if (DebugInfoTimer > 0.1f) // Обновление ~10 раз в секунду
+        if (DebugInfoTimer > 0.1f) // Update ~10 times per second
         {
             DebugInfoTimer = 0.0f;
             
@@ -237,7 +253,7 @@ void AChessPlayerController::Tick(float DeltaTime)
                 GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Yellow, FString::Printf(TEXT("Game Phase: %s"), *GamePhaseStr));
                 GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Yellow, FString::Printf(TEXT("Current Turn: %s"), *CurrentTurnStr));
 
-                // Отображение времени
+                // Display Time
                 const int32 WhiteTimeInt = FMath::CeilToInt(GameState->WhiteTimeSeconds);
                 const FString WhiteTimeStr = (WhiteTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), WhiteTimeInt / 60, WhiteTimeInt % 60);
                 GEngine->AddOnScreenDebugMessage(5, 0.f, FColor::White, FString::Printf(TEXT("White Time: %s"), *WhiteTimeStr));
@@ -246,7 +262,7 @@ void AChessPlayerController::Tick(float DeltaTime)
                 const FString BlackTimeStr = (BlackTimeInt < 0) ? TEXT("Unlimited") : FString::Printf(TEXT("%02d:%02d"), BlackTimeInt / 60, BlackTimeInt % 60);
                 GEngine->AddOnScreenDebugMessage(6, 0.f, FColor::Black, FString::Printf(TEXT("Black Time: %s"), *BlackTimeStr));
 
-                // Отображение профилей
+                // Display Profiles
                 const FString WhiteProfileStr = FString::Printf(TEXT("White: %s (%d) [%s]"), *GameState->WhitePlayerProfile.PlayerName, GameState->WhitePlayerProfile.EloRating, *GameState->WhitePlayerProfile.Country);
                 GEngine->AddOnScreenDebugMessage(7, 0.f, FColor::White, WhiteProfileStr);
 
@@ -264,7 +280,7 @@ void AChessPlayerController::Tick(float DeltaTime)
             FString SelectedPieceStr = SelectedPiece ? GetNameSafe(SelectedPiece) : TEXT("None");
             GEngine->AddOnScreenDebugMessage(3, 0.f, FColor::Green, FString::Printf(TEXT("Selected Piece: %s"), *SelectedPieceStr));
 
-            // Отображение FPS
+            // Display FPS
             const float FPS = 1.0f / DeltaTime;
             GEngine->AddOnScreenDebugMessage(9, 0.f, FColor::Green, FString::Printf(TEXT("FPS: %.1f"), FPS));
 
@@ -290,28 +306,28 @@ void AChessPlayerController::Tick(float DeltaTime)
             }
         }
     }
-    // --- Конец отладочной информации ---
+    // --- End Debug Info ---
 }
 
 void AChessPlayerController::TogglePauseMenu()
 {
-    // Не позволяем открывать меню паузы, если мы не в игре или ждем выбора фигуры для пешки.
+    // Do not allow opening the pause menu if we are not in game or awaiting pawn promotion choice.
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState) return;
 
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase == EGamePhase::WaitingToStart || CurrentPhase == EGamePhase::AwaitingPromotion)
     {
-        // Не открывать меню паузы в этих состояниях. Можно добавить и другие, например GameOver, если он появится.
+        // Do not open the pause menu in these states. Others can be added, e.g., GameOver, if needed.
         return;
     }
 
-    // Если меню уже открыто, закрываем его
+    // If menu is already open, close it
     if (PauseMenuWidgetInstance && PauseMenuWidgetInstance->IsInViewport())
     {
         PauseMenuWidgetInstance->RemoveFromParent();
     }
-    else // Иначе, открываем
+    else // Otherwise, open it
     {
         if (PauseMenuWidgetClass)
         {
@@ -322,12 +338,12 @@ void AChessPlayerController::TogglePauseMenu()
             
             if (PauseMenuWidgetInstance)
             {
-                PauseMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+                PauseMenuWidgetInstance->AddToViewport(10); // High Z-order to be on top of everything
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PauseMenuWidgetClass не назначен в Blueprint!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PauseMenuWidgetClass not assigned in Blueprint!"));
         }
     }
     UpdateInputMode();
@@ -335,12 +351,12 @@ void AChessPlayerController::TogglePauseMenu()
 
 void AChessPlayerController::ToggleGraphicsSettingsMenu()
 {
-    // Если меню уже открыто, закрываем его
+    // If menu is already open, close it
     if (GraphicsSettingsWidgetInstance && GraphicsSettingsWidgetInstance->IsInViewport())
     {
         GraphicsSettingsWidgetInstance->RemoveFromParent();
     }
-    else // Иначе, открываем
+    else // Otherwise, open it
     {
         if (GraphicsSettingsWidgetClass)
         {
@@ -351,12 +367,12 @@ void AChessPlayerController::ToggleGraphicsSettingsMenu()
             
             if (GraphicsSettingsWidgetInstance)
             {
-                GraphicsSettingsWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+                GraphicsSettingsWidgetInstance->AddToViewport(10); // High Z-order to be on top of everything
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GraphicsSettingsWidgetClass не назначен в Blueprint!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GraphicsSettingsWidgetClass not assigned in Blueprint!"));
         }
     }
     UpdateInputMode();
@@ -366,7 +382,7 @@ void AChessPlayerController::TogglePlayerInfoWidget()
 {
     UE_LOG(LogTemp, Log, TEXT("Player Info Widget toggled via key press."));
 
-    // Не позволяем открывать этот виджет, если мы в главном меню.
+    // Do not allow opening this widget if we are in the main menu.
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState)
     {
@@ -381,12 +397,12 @@ void AChessPlayerController::TogglePlayerInfoWidget()
         return;
     }
 
-    // Если виджет уже показан, скрываем его.
+    // If widget is already shown, hide it.
     if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
     {
         PlayerInfoWidgetInstance->RemoveFromParent();
     }
-    else // Иначе, показываем.
+    else // Otherwise, show it.
     {
         if (PlayerInfoWidgetClass)
         {
@@ -402,28 +418,28 @@ void AChessPlayerController::TogglePlayerInfoWidget()
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerInfoWidgetClass не назначен в Blueprint!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerInfoWidgetClass not assigned in Blueprint!"));
         }
     }
-    // Мы не вызываем UpdateInputMode(), так как этот виджет - просто оверлей и не должен менять режим ввода.
+    // We do not call UpdateInputMode() because this widget is just an overlay and should not change input mode.
 }
 
 void AChessPlayerController::ToggleProfileWidget()
 {
-    // Если виджет профиля уже открыт, закрываем его и показываем главное меню.
+    // If profile widget is already open, close it and show main menu.
     if (PlayerProfileWidgetInstance && PlayerProfileWidgetInstance->IsInViewport())
     {
         PlayerProfileWidgetInstance->RemoveFromParent();
 
-        // Показываем главное меню снова, если оно существует.
+        // Show main menu again if it exists.
         if (StartMenuWidgetInstance)
         {
             StartMenuWidgetInstance->SetVisibility(ESlateVisibility::Visible);
         }
     }
-    else // Иначе, открываем виджет профиля и скрываем главное меню.
+    else // Otherwise, open profile widget and hide main menu.
     {
-        // Скрываем главное меню, если оно сейчас на экране.
+        // Hide main menu if it is currently on screen.
         if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
         {
             StartMenuWidgetInstance->SetVisibility(ESlateVisibility::Collapsed);
@@ -438,12 +454,12 @@ void AChessPlayerController::ToggleProfileWidget()
             
             if (PlayerProfileWidgetInstance)
             {
-                PlayerProfileWidgetInstance->AddToViewport(11); // Z-order выше, чем у других меню
+                PlayerProfileWidgetInstance->AddToViewport(11); // Z-order higher than other menus
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerProfileWidgetClass не назначен в Blueprint!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerProfileWidgetClass not assigned in Blueprint!"));
         }
     }
     UpdateInputMode();
@@ -452,7 +468,7 @@ void AChessPlayerController::ToggleProfileWidget()
 void AChessPlayerController::ReturnToMainMenu()
 {
     UChessGameInstance* GI = GetGameInstance<UChessGameInstance>();
-    // Если мы хост, мы должны уничтожить сессию.
+    // If we are host, we must destroy the session.
     if (GI && IsHost())
     {
         IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
@@ -466,7 +482,7 @@ void AChessPlayerController::ReturnToMainMenu()
         }
     }
     
-    // Используем тот же уровень, что и в StartMenuWidget, для консистентности.
+    // Use the same level as in StartMenuWidget for consistency.
     const FName MainMenuLevelName = FName(TEXT("/Game/Cigar_room/Maps/Cigar_room"));
     UGameplayStatics::OpenLevel(this, MainMenuLevelName);
 }
@@ -484,13 +500,13 @@ void AChessPlayerController::Client_ShowGameOverScreen_Implementation(const FTex
         {
             GameOverWidgetInstance->SetResultText(ResultText);
             GameOverWidgetInstance->SetReasonText(ReasonText);
-            GameOverWidgetInstance->AddToViewport(20); // Наивысший Z-order, чтобы быть поверх всего
+            GameOverWidgetInstance->AddToViewport(20); // Highest Z-order to be on top of everything
             UpdateInputMode();
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GameOverWidgetClass не назначен в Blueprint!"));
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: GameOverWidgetClass not assigned in Blueprint!"));
     }
 }
 
@@ -504,7 +520,7 @@ void AChessPlayerController::ShowLobbyUI()
         }
         if (LobbyWidgetInstance && !LobbyWidgetInstance->IsInViewport())
         {
-            // Убираем стартовое меню, если оно вдруг есть
+            // Remove start menu if it exists
             if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
             {
                 StartMenuWidgetInstance->RemoveFromParent();
@@ -533,14 +549,14 @@ void AChessPlayerController::HideLobbyUI()
 
 void AChessPlayerController::LeaveLobby()
 {
-    // Просто возвращаемся в главное меню.
-    // ReturnToMainMenu() уже обрабатывает уничтожение сессии для хоста.
+    // Simply return to main menu.
+    // ReturnToMainMenu() already handles session destruction for host.
     ReturnToMainMenu();
 }
 
 bool AChessPlayerController::IsHost() const
 {
-    // Простой способ проверить, является ли игрок хостом - это проверить NetMode.
+    // Simple way to check if player is host - check NetMode.
     return GetNetMode() == NM_ListenServer;
 }
 
@@ -572,16 +588,16 @@ void AChessPlayerController::SetMenuCamera()
 {
     AMenuCameraActor* CameraToSet = nullptr;
 
-    // Сначала пытаемся использовать камеру, указанную в свойстве Blueprint через TSoftObjectPtr.
+    // First, try to use the camera specified in the Blueprint property via TSoftObjectPtr.
     if (MenuCameraActor.IsValid())
     {
         UE_LOG(LogCameraManagement, Log, TEXT("Attempting to load Menu Camera from Soft Ptr reference."));
-        // Принудительно загружаем объект, на который указывает Soft Ptr.
-        // Это необходимо, так как на момент вызова BeginPlay объект может быть еще не загружен.
+        // Force load the object pointed to by Soft Ptr.
+        // This is necessary because the object might not be loaded yet when BeginPlay is called.
         CameraToSet = MenuCameraActor.LoadSynchronous();
     }
 
-    // Если камера не была задана в Blueprint, ищем первую попавшуюся на сцене как запасной вариант.
+    // If the camera was not set in Blueprint, look for the first one in the scene as a fallback.
     if (!CameraToSet)
     {
         UE_LOG(LogCameraManagement, Log, TEXT("Menu Camera not loaded from properties. Searching for one in the world."));
@@ -615,7 +631,7 @@ void AChessPlayerController::ShowStartMenu()
 
         if (StartMenuWidgetInstance)
         {
-            StartMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+            StartMenuWidgetInstance->AddToViewport(10); // High Z-order to be on top of everything
             UpdateInputMode();
             SetMenuCamera();
 
@@ -633,28 +649,33 @@ void AChessPlayerController::ShowStartMenu()
 
 void AChessPlayerController::HandleLook(const FInputActionValue& Value)
 {
-    // Эта функция зарезервирована, но в настоящее время не используется.
-    // Вращение камеры обрабатывается в HandleCameraMove.
+    // This function is reserved but currently unused.
+    // Camera rotation is handled in HandleCameraMove.
 }
 
 void AChessPlayerController::HandleCameraMove(const FInputActionValue& Value)
 {
-    // Не обрабатываем ввод для камеры, если мы не в игровом режиме (например, в меню)
+    // Do not handle camera input if we are not in game mode (e.g. in a menu)
     if (!bIsInputModeSetForGame) return;
 
-    // Вращаем камеру, только если зажата правая кнопка мыши
-    if (IsInputKeyDown(EKeys::RightMouseButton))
+    bool bIsRotateDown = IsInputKeyDown(EKeys::RightMouseButton);
+#if PLATFORM_ANDROID || PLATFORM_IOS
+    bIsRotateDown = bIsRotateDown || IsInputKeyDown(EKeys::LeftMouseButton);
+#endif
+
+    // Rotate camera only if Right Mouse Button is held (or LMB on mobile)
+    if (bIsRotateDown)
     {
         const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
-        // Добавляем ввод для тангажа (Pitch) напрямую в ControlRotation.
-        // Рыскание (Yaw) синхронизируется с камерой в функции Tick.
-        // Инвертируем ось Y, так как движение мыши вверх обычно соответствует отрицательному значению.
+        // Add pitch input directly to ControlRotation.
+        // Yaw is synchronized with the camera in the Tick function.
+        // Invert Y axis because moving mouse up usually corresponds to negative value.
         AddPitchInput(LookAxisVector.Y * -1.0f);
     
         if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
         {
-            // Эта функция вращает саму камеру.
+            // This function rotates the camera itself.
             CamManager->AddCameraRotationInput(LookAxisVector);
         }
     }
@@ -729,13 +750,13 @@ void AChessPlayerController::UpdateInputMode()
 
 void AChessPlayerController::Client_GameStarted_Implementation()
 {
-    bHasGameStarted_Client = true; // Устанавливаем флаг, что игра началась на клиенте
+    bHasGameStarted_Client = true; // Set flag that game has started on client
     SetupGameUI();
 
-    // Устанавливаем игровую камеру и ее перспективу здесь.
-    // Этот RPC вызывается с задержкой из GameMode, что дает время для репликации
-    // PlayerColor. Это предотвращает "дрожание" камеры при старте за черных.
-    // OnRep_PlayerColor исправит перспективу, если цвет придет с опозданием.
+    // Set game camera and its perspective here.
+    // This RPC is called with a delay from GameMode, allowing time for PlayerColor
+    // to replicate. This prevents camera "jitters" at start when playing as Black.
+    // OnRep_PlayerColor will fix perspective if color arrives late.
     SetGameCamera();
     if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
     {
@@ -750,16 +771,16 @@ void AChessPlayerController::Client_GameStarted_Implementation()
 
 void AChessPlayerController::OnRep_PlayerColor()
 {
-    // Эта функция вызывается на клиенте, когда свойство PlayerColor реплицируется с сервера.
+    // This function is called on the client when PlayerColor property is replicated from the server.
     FString MyColorStr = (PlayerColor == EPieceColor::White) ? TEXT("White") : TEXT("Black");
     if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, FString::Printf(TEXT("The server has assigned you the color: %s"), *MyColorStr));
     }
     
-    // Переключаем камеру на правильную перспективу, ТОЛЬКО ЕСЛИ игра уже началась (т.е. Client_GameStarted был вызван).
-    // Это предотвращает переключение камеры, пока мы находимся в главном меню, и исправляет перспективу,
-    // если Client_GameStarted был вызван до репликации цвета.
+    // Switch camera to correct perspective ONLY IF the game has already started (i.e., Client_GameStarted was called).
+    // This prevents camera switching while in the main menu and fixes perspective
+    // if Client_GameStarted was called before color replication.
     if (bHasGameStarted_Client)
     {
         if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
@@ -783,8 +804,8 @@ void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void AChessPlayerController::DetermineInitialUI()
 {
-    // Если виджет лобби уже отображается, не нужно ничего делать.
-    // Это предотвращает повторное открытие главного меню поверх лобби.
+    // If lobby widget is already shown, do nothing.
+    // This prevents re-opening the main menu over the lobby.
     if (LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport())
     {
         return;
@@ -793,19 +814,19 @@ void AChessPlayerController::DetermineInitialUI()
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState)
     {
-        // Если GameState все еще недействителен, это серьезная проблема.
+        // If GameState is still invalid, this is a serious issue.
         UE_LOG(LogTemp, Fatal, TEXT("AChessPlayerController::DetermineInitialUI: AChessGameState is NULL! Check GameMode Override in World Settings."));
         return;
     }
 
     if (GameState->GetGamePhase() == EGamePhase::WaitingToStart)
     {
-        // Мы находимся в главном меню или на экране ожидания
+        // We are in the main menu or waiting screen.
         ShowStartMenu();
     }
     else
     {
-        // Игра уже идет, настраиваем игровой интерфейс
+        // Game is already in progress, setup game UI.
         SetupGameUI();
     }
 }
@@ -825,20 +846,19 @@ void AChessPlayerController::SetupGameUI()
     MenuMusicComponent = nullptr;
 
     UpdateInputMode();
-    // Камера теперь устанавливается в Client_GameStarted, чтобы гарантировать,
-    // что цвет игрока уже реплицирован.
+    // Camera is now set in Client_GameStarted to ensure that PlayerColor is already replicated.
 }
 
 void AChessPlayerController::SetPlayerColor(EPieceColor NewColor)
 {
-    // Эта функция должна вызываться только на сервере (в GameMode).
+    // This function should only be called on the server (in GameMode).
     if (HasAuthority())
     {
         PlayerColor = NewColor;
 
-        // OnRep-функции не вызываются на сервере, поэтому мы вызываем ее вручную
-        // для локального контроллера сервера (хоста в listen-server игре).
-        // Мы не должны вызывать ее для прокси-контроллера клиента на сервере.
+        // OnRep functions are not called on the server, so we call it manually
+        // for the server's local controller (host in listen-server game).
+        // We should not call it for client proxy controllers on the server.
         if (IsLocalController())
         {
             OnRep_PlayerColor();
@@ -853,99 +873,200 @@ EPieceColor AChessPlayerController::GetPlayerColor() const
 
 void AChessPlayerController::OnClickStarted()
 {
-    // --- 1. Предварительные проверки состояния игры ---
+    // Determine what we clicked on
+    FHitResult HitResult;
+    bool bHit = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+#if PLATFORM_ANDROID || PLATFORM_IOS
+    if (!bHit)
+    {
+        bHit = GetHitResultUnderFinger(ETouchIndex::Touch1, ECC_Visibility, false, HitResult);
+    }
+#endif
+
+    // Process the hit (or lack thereof)
+    ProcessHit(HitResult);
+}
+
+void AChessPlayerController::ProcessHit(const FHitResult& HitResult)
+{
+    // --- 1. Preliminary Game State Checks ---
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
     if (!GameState)
     {
-        UE_LOG(LogTemp, Warning, TEXT("OnClickStarted ABORTED: GameState is NULL."));
+        UE_LOG(LogTemp, Warning, TEXT("ProcessHit ABORTED: GameState is NULL."));
         return;
     }
 
     if (GameState->GetCurrentTurnColor() != PlayerColor)
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Not player's turn."));
+        UE_LOG(LogTemp, Log, TEXT("ProcessHit ABORTED: Not player's turn."));
         return;
     }
 
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase == EGamePhase::AwaitingPromotion)
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Awaiting promotion."));
+        UE_LOG(LogTemp, Log, TEXT("ProcessHit ABORTED: Awaiting promotion."));
         return;
     }
     if (CurrentPhase != EGamePhase::InProgress && CurrentPhase != EGamePhase::Check)
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted ABORTED: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
+        UE_LOG(LogTemp, Log, TEXT("ProcessHit ABORTED: Cannot move in current game phase: %s"), *UEnum::GetValueAsString(CurrentPhase));
         return;
     }
 
     if (!ChessBoard)
     {
-        UE_LOG(LogTemp, Error, TEXT("OnClickStarted ABORTED: ChessBoard reference is NULL."));
+        UE_LOG(LogTemp, Error, TEXT("ProcessHit ABORTED: ChessBoard reference is NULL."));
         return;
     }
 
-    // --- 2. ВОЗВРАЩЕНИЕ К КЛАССИЧЕСКОМУ МЕТОДУ: Определение клетки по курсору мыши ---
-    FHitResult HitResult;
-    // Используем канал ECC_Visibility, так как меши фигур и доска блокируют его.
-    if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+    // Use ECC_Visibility channel as piece meshes and board block it.
+    if (!HitResult.bBlockingHit)
     {
-        // Кликнули в пустое место, не на доску и не на фигуру
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on empty space. Clearing selection."));
+        // Clicked on empty space, not on board or piece
+        UE_LOG(LogTemp, Log, TEXT("ProcessHit: Clicked on empty space. Clearing selection."));
         ClearSelectionAndHighlights();
         return;
     }
 
-    // --- 3. Основная логика выбора и хода, основанная на состоянии ---
+    // --- 3. Main Selection and Move Logic Based on State ---
     const FIntPoint HitGridPosition = ChessBoard->WorldToGridPosition(HitResult.Location);
     if (!ChessBoard->IsValidGridPosition(HitGridPosition))
     {
-        UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked outside of valid board grid. Clearing selection."));
+        UE_LOG(LogTemp, Log, TEXT("ProcessHit: Clicked outside of valid board grid. Clearing selection."));
         ClearSelectionAndHighlights();
         return;
     }
 
-    // Для определения фигуры используем GameState, так как это авторитетный источник.
+    // Use GameState to determine piece, as it is the authoritative source.
     AChessPiece* PieceOnSquare = GameState->GetPieceAtGridPosition(HitGridPosition);
-    UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked on grid (%d, %d). Piece on square: %s"), HitGridPosition.X, HitGridPosition.Y, *GetNameSafe(PieceOnSquare));
+    UE_LOG(LogTemp, Log, TEXT("ProcessHit: Clicked on grid (%d, %d). Piece on square: %s"), HitGridPosition.X, HitGridPosition.Y, *GetNameSafe(PieceOnSquare));
 
-    if (PieceOnSquare) // Кликнули на клетку, где стоит фигура
+    if (PieceOnSquare) // Clicked on a square with a piece
     {
-        if (PieceOnSquare->GetPieceColor() == PlayerColor) // Это наша фигура
+        if (PieceOnSquare->GetPieceColor() == PlayerColor) // It's our piece
         {
-            // Логика выбора/перевыбора/отмены выбора обрабатывается в этой функции
+            // Logic for selection/re-selection/deselection is handled in this function
             HandlePieceSelection(PieceOnSquare);
         }
-        else // Это фигура противника
+        else // It's an enemy piece
         {
-            if (SelectedPiece) // Если у нас уже выбрана фигура, это попытка взятия
+            if (SelectedPiece) // If we have a piece selected, this is a capture attempt
             {
                 HandleBoardClick(HitGridPosition);
             }
-            else // Если ничего не выбрано, клик по врагу ничего не делает
+            else // If nothing selected, clicking enemy does nothing
             {
-                UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked enemy piece with no selection. No action."));
+                UE_LOG(LogTemp, Log, TEXT("ProcessHit: Clicked enemy piece with no selection. No action."));
             }
         }
     }
-    else // Кликнули на пустую клетку
+    else // Clicked on an empty square
     {
-        if (SelectedPiece) // Если у нас выбрана фигура, это попытка хода
+        if (SelectedPiece) // If we have a piece selected, this is a move attempt
         {
             HandleBoardClick(HitGridPosition);
         }
-        else // Если ничего не выбрано, клик по пустой клетке ничего не делает, но сбрасывает подсветку
+        else // If nothing selected, clicking empty square does nothing but clear highlights
         {
-            UE_LOG(LogTemp, Log, TEXT("OnClickStarted: Clicked empty square with no selection. Clearing highlights."));
+            UE_LOG(LogTemp, Log, TEXT("ProcessHit: Clicked empty square with no selection. Clearing highlights."));
             ClearSelectionAndHighlights();
         }
     }
 }
 
+void AChessPlayerController::OnTouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
+{
+    // Only handle first finger
+    if (FingerIndex != ETouchIndex::Touch1) return;
+
+    PreviousTouchLocation = FVector2D(Location.X, Location.Y);
+    bIsTouchDragging = false;
+}
+
+void AChessPlayerController::OnTouchMoved(const ETouchIndex::Type FingerIndex, const FVector Location)
+{
+    // Only handle first finger
+    if (FingerIndex != ETouchIndex::Touch1) return;
+
+    // Determine if we dragged enough to count as a move/camera rotation
+    FVector2D CurrentTouchLocation(Location.X, Location.Y);
+    FVector2D Delta = CurrentTouchLocation - PreviousTouchLocation;
+
+    // Threshold to start dragging (avoid jitter on taps)
+    if (!bIsTouchDragging && Delta.SizeSquared() < 100.0f) // 10 pixels threshold squared (approx)
+    {
+        return;
+    }
+    
+    bIsTouchDragging = true;
+
+    // Apply sensitivity factor.
+    // Touch screen coords can be large, so we scale down.
+    const float TouchSensitivity = 0.2f; 
+    FVector2D LocalRotationInput = Delta * TouchSensitivity;
+
+    // Use the existing camera rotation logic
+    // Pitch (Y axis of screen moves pitch)
+    AddPitchInput(LocalRotationInput.Y * -1.0f);
+    
+    if (AChessPlayerCameraManager* CamManager = Cast<AChessPlayerCameraManager>(PlayerCameraManager))
+    {
+        CamManager->AddCameraRotationInput(LocalRotationInput);
+    }
+
+    PreviousTouchLocation = CurrentTouchLocation;
+}
+
+void AChessPlayerController::OnTouchEnded(const ETouchIndex::Type FingerIndex, const FVector Location)
+{
+    if (FingerIndex != ETouchIndex::Touch1) return;
+
+    // If we didn't drag, treat it as a click/tap
+    if (!bIsTouchDragging)
+    {
+        const double CurrentTime = FPlatformTime::Seconds();
+        const FVector2D CurrentTapLocation(Location.X, Location.Y);
+        
+        bool bIsDoubleTap = false;
+
+        // Check for double tap
+        if (LastTapTime > 0.0)
+        {
+            const double TimeDiff = CurrentTime - LastTapTime;
+            const float DistanceSq = FVector2D::DistSquared(CurrentTapLocation, LastTapLocation);
+
+            // Thresholds: 0.3s for time, 50 pixels for distance (2500 sq)
+            if (TimeDiff < 0.3 && DistanceSq < 2500.0f)
+            {
+                bIsDoubleTap = true;
+                TogglePauseMenu();
+                
+                // Reset to avoid detecting a "triple tap" as another double tap
+                LastTapTime = 0.0; 
+            }
+        }
+
+        if (!bIsDoubleTap)
+        {
+            FHitResult HitResult;
+            bool bHit = GetHitResultAtScreenPosition(CurrentTapLocation, ECC_Visibility, false, HitResult);
+            ProcessHit(HitResult);
+
+            // Update for next tap check
+            LastTapTime = CurrentTime;
+            LastTapLocation = CurrentTapLocation;
+        }
+    }
+    
+    bIsTouchDragging = false;
+}
 
 bool AChessPlayerController::Server_AttemptMove_Validate(AChessPiece* PieceToMove, const FIntPoint& TargetGridPosition)
 {
-    // Простая валидация, чтобы предотвратить отправку некорректных данных от клиента.
+    // Simple validation to prevent sending invalid data from client.
     return PieceToMove != nullptr;
 }
 
@@ -954,27 +1075,27 @@ void AChessPlayerController::Server_AttemptMove_Implementation(AChessPiece* Piec
     AChessGameMode* GameMode = GetChessGameMode();
     if (GameMode)
     {
-        // GameMode->AttemptMove выполнит ход, если он валиден.
-        // Если ход невалиден, он просто вернет false, и положение фигуры на сервере не изменится.
-        // Репликация положения актора позаботится о том, чтобы на клиенте фигура вернулась на место.
+        // GameMode->AttemptMove will execute the move if valid.
+        // If invalid, it returns false, and server state remains unchanged.
+        // Actor replication will ensure client piece snaps back.
         GameMode->AttemptMove(PieceToMove, TargetGridPosition, this);
     }
 }
 
 void AChessPlayerController::Server_RequestStartGame_Implementation()
 {
-    // Только хост может запустить игру
+    // Only host can start the game
     if (IsHost())
     {
         if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
         {
-            // Проверяем, что в лобби есть два игрока
+            // Check if there are two players in lobby
             if (GS->PlayerArray.Num() >= 2)
             {
-                // Выходим из состояния лобби
+                // Exit lobby state
                 GS->SetIsInLobby(false);
 
-                // Начинаем игру (это вызовет Client_GameStarted на всех клиентах)
+                // Start game (this triggers Client_GameStarted on all clients)
                 if (AChessGameMode* GM = GetChessGameMode())
                 {
                     GM->StartNewGame();
@@ -982,7 +1103,7 @@ void AChessPlayerController::Server_RequestStartGame_Implementation()
             }
             else
             {
-                // Недостаточно игроков
+                // Not enough players
                 UE_LOG(LogTemp, Warning, TEXT("Cannot start game: Not enough players in the lobby."));
             }
         }
@@ -992,7 +1113,7 @@ void AChessPlayerController::Server_RequestStartGame_Implementation()
 
 void AChessPlayerController::Server_SetPlayerProfile_Implementation(const FPlayerProfile& Profile)
 {
-    // Вызывается на сервере, когда клиент отправляет информацию о своем профиле.
+    // Called on server when client sends their profile info.
     if (AChessPlayerState* PS = GetPlayerState<AChessPlayerState>())
     {
         PS->SetPlayerProfile(Profile);
@@ -1006,14 +1127,14 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
         return;
     }
 
-    // Если мы кликаем на уже выделенную фигуру, снимаем выделение
+    // If clicking on already selected piece, deselect it
     if (SelectedPiece == PieceToSelect)
     {
         ClearSelectionAndHighlights();
         return;
     }
 
-    // Если была выбрана другая фигура, сначала очищаем старое выделение
+    // If another piece was selected, clear old selection first
     if (SelectedPiece)
     {
         ClearSelectionAndHighlights();
@@ -1022,29 +1143,29 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
     SelectedPiece = PieceToSelect;
     SelectedPiece->OnSelected();
 
-    // Вычисляем и отображаем валидные ходы локально на клиенте для мгновенной обратной связи.
-    // Сервер все равно проверит ход при его совершении.
+    // Calculate and display valid moves locally on client for instant feedback.
+    // Server will still verify the move when executed.
     AChessGameState* GameState = GetWorld()->GetGameState<AChessGameState>();
     if (GameState)
     {
-        // Сначала получаем все псевдо-легальные ходы для этой фигуры
+        // First get all pseudo-legal moves for this piece
         const TArray<FIntPoint> PseudoLegalMoves = SelectedPiece->GetValidMoves(GameState, ChessBoard);
         
-        LastValidMoves.Empty(); // Очищаем старый список
+        LastValidMoves.Empty(); // Clear old list
 
-        // Фильтруем ходы, чтобы оставить только те, которые не оставляют короля под шахом
+        // Filter moves to keep only those that don't leave king in check
         for (const FIntPoint& Move : PseudoLegalMoves)
         {
-            // IsMoveLegal симулирует ход и проверяет, не находится ли король под шахом.
+            // IsMoveLegal simulates move and checks for check.
             if (GameState->IsMoveLegal(SelectedPiece, Move, ChessBoard))
             {
                 LastValidMoves.Add(Move);
             }
         }
 
-        // Подсвечиваем саму выбранную фигуру
+        // Highlight the selected piece itself
         ChessBoard->HighlightSquare(SelectedPiece->GetBoardPosition(), SelectedPieceHighlightColor);
-        // Подсвечиваем все валидные ходы
+        // Highlight all valid moves
         for (const FIntPoint& Move : LastValidMoves)
         {
             if (ValidMoveIndicatorMesh)
@@ -1058,13 +1179,13 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
                         IndicatorComponent->SetMaterial(0, ValidMoveIndicatorMaterial);
                     }
                     IndicatorComponent->SetWorldScale3D(ValidMoveIndicatorScale);
-                    // Отключаем коллизию, чтобы индикаторы не мешали кликам
+                    // Disable collision so indicators don't block clicks
                     IndicatorComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-                    // Регистрируем компонент, чтобы он появился в мире
+                    // Register component so it appears in world
                     IndicatorComponent->RegisterComponent();
-                    // Прикрепляем к доске, чтобы он был частью ее иерархии
+                    // Attach to board so it's part of its hierarchy
                     IndicatorComponent->AttachToComponent(ChessBoard->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
-                    // Устанавливаем положение в центре клетки
+                    // Set location to center of square
                     IndicatorComponent->SetWorldLocation(ChessBoard->GridToWorldPosition(Move));
                     
                     ValidMoveIndicatorComponents.Add(IndicatorComponent);
@@ -1072,7 +1193,7 @@ void AChessPlayerController::HandlePieceSelection(AChessPiece* PieceToSelect)
             }
             else
             {
-                // Если меш не задан, используем старый метод подсветки цветом
+                // If mesh not set, use old color highlight method
                 ChessBoard->HighlightSquare(Move, ValidMoveHighlightColor);
             }
         }
@@ -1090,17 +1211,17 @@ void AChessPlayerController::HandleBoardClick(const FIntPoint& GridPosition)
     {
         Server_AttemptMove(SelectedPiece, GridPosition);
 
-        // Снимаем выделение только ПОСЛЕ того, как отправили валидный ход на сервер.
-        // Это обеспечивает правильную обратную связь для игрока.
+        // Deselect only AFTER sending valid move to server.
+        // This ensures correct feedback for player.
         ClearSelectionAndHighlights();
     }
-    // Если игрок кликнул на невалидную клетку, мы больше не будем снимать выделение.
-    // Это позволит ему выбрать другую клетку без необходимости заново выбирать фигуру.
+    // If player clicked invalid square, we do NOT deselect.
+    // This allows choosing another square without re-selecting the piece.
 }
 
 void AChessPlayerController::ClearSelectionAndHighlights()
 {
-    // Уничтожаем и очищаем все индикаторы ходов
+    // Destroy and clear all move indicators
     for (UStaticMeshComponent* Indicator : ValidMoveIndicatorComponents)
     {
         if (Indicator && !Indicator->IsBeingDestroyed())
@@ -1112,7 +1233,7 @@ void AChessPlayerController::ClearSelectionAndHighlights()
 
     if (ChessBoard)
     {
-        // Эта функция теперь будет убирать только подсветку выбранной фигуры
+        // This function now only clears highlight of the selected piece
         ChessBoard->ClearAllHighlights();
     }
     if (SelectedPiece)
@@ -1132,15 +1253,15 @@ void AChessPlayerController::Client_ShowPromotionMenu_Implementation(APawnPiece*
             PromotionMenuWidgetInstance = CreateWidget<UPromotionMenuWidget>(this, PromotionMenuWidgetClass);
             if (PromotionMenuWidgetInstance)
             {
-                // Привязываем обработчик к событию выбора
+                // Bind handler to selection event
                 PromotionMenuWidgetInstance->OnPromotionPieceSelected.AddDynamic(this, &AChessPlayerController::HandlePromotionSelection);
             }
         }
 
         if (PromotionMenuWidgetInstance && !PromotionMenuWidgetInstance->IsInViewport())
         {
-            PawnAwaitingPromotion = PawnForPromotion; // Сохраняем пешку для отправки на сервер
-            PromotionMenuWidgetInstance->AddToViewport(10); // Высокий Z-order, чтобы быть поверх всего
+            PawnAwaitingPromotion = PawnForPromotion; // Save pawn to send to server
+            PromotionMenuWidgetInstance->AddToViewport(10); // High Z-order to be on top of everything
             UpdateInputMode();
         }
     }
@@ -1157,7 +1278,7 @@ void AChessPlayerController::HandlePromotionSelection(EPieceType SelectedType)
         Server_CompletePawnPromotion(PawnAwaitingPromotion, SelectedType);
     }
     
-    // Скрываем меню выбора и обновляем режим ввода
+    // Hide selection menu and update input mode
     if (PromotionMenuWidgetInstance)
     {
         PromotionMenuWidgetInstance->RemoveFromParent();
@@ -1169,7 +1290,7 @@ void AChessPlayerController::HandlePromotionSelection(EPieceType SelectedType)
 
 bool AChessPlayerController::Server_CompletePawnPromotion_Validate(APawnPiece* PawnToPromote, EPieceType PromoteToType)
 {
-    // Простая валидация: пешка должна существовать, а тип фигуры быть допустимым для превращения.
+    // Simple validation: pawn must exist, and type must be valid for promotion.
     return PawnToPromote != nullptr && (PromoteToType == EPieceType::Queen || PromoteToType == EPieceType::Rook || PromoteToType == EPieceType::Bishop || PromoteToType == EPieceType::Knight);
 }
 
@@ -1197,34 +1318,34 @@ void AChessPlayerController::Client_PlaySound_Implementation(EChessSoundType Sou
 
     if (SoundToPlay)
     {
-        // Воспроизводим звук локально для этого игрока
+        // Play sound locally for this player
         UGameplayStatics::PlaySound2D(this, SoundToPlay);
     }
 }
 
 void AChessPlayerController::Client_PlayCaptureEffect_Implementation(AChessPiece* CapturedPiece, const FVector& Location, const FVector& Scale, const FVector& CellBoundingBox, float Lifetime, float Density)
 {
-    // 1. Показываем дым
+    // 1. Show smoke
     if (CaptureEffect)
     {
-        // Спавним систему Niagara, применяя указанный масштаб.
+        // Spawn Niagara system, applying specified scale.
         UNiagaraComponent* NiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
             GetWorld(),
             CaptureEffect,
             Location,
             FRotator::ZeroRotator,
-            Scale, // Устанавливаем общий масштаб компонента.
-            false, // bAutoDestroy - управляем временем жизни вручную
+            Scale, // Set overall component scale.
+            false, // bAutoDestroy - manage lifetime manually
             true   // bAutoActivate
         );
 
         if (NiagaraComponent)
         {
-            // Устанавливаем дополнительные параметры, если они используются в эффекте Niagara.
+            // Set additional parameters if used in Niagara effect.
             NiagaraComponent->SetVariableFloat(TEXT("User.Density"), Density);
             
-            // Если передан валидный размер ограничивающего объема, устанавливаем его.
-            // Это требует, чтобы сам эффект Niagara был настроен на использование этого параметра.
+            // If valid bounding box size passed, set it.
+            // Requires Niagara effect to be configured to use this parameter.
             if (!CellBoundingBox.IsZero())
             {
                 NiagaraComponent->SetVariableVec3(TEXT("User.CellBoundingBox"), CellBoundingBox);
@@ -1235,7 +1356,7 @@ void AChessPlayerController::Client_PlayCaptureEffect_Implementation(AChessPiece
                 UE_LOG(LogTemp, Log, TEXT("Spawned CaptureEffect with Scale=%s and Density=%f"), *Scale.ToString(), Density);
             }
 
-            // Устанавливаем таймер на удаление дыма.
+            // Set timer to destroy smoke.
             if (Lifetime > 0.f)
             {
                 TWeakObjectPtr<UNiagaraComponent> WeakEmitter = NiagaraComponent;
@@ -1251,7 +1372,7 @@ void AChessPlayerController::Client_PlayCaptureEffect_Implementation(AChessPiece
         }
     }
 
-    // 2. Сразу же скрываем взятую фигуру
+    // 2. Immediately hide captured piece
     if (CapturedPiece)
     {
         CapturedPiece->SetActorHiddenInGame(true);

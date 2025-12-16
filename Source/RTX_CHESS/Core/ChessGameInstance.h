@@ -76,7 +76,7 @@ protected:
 	// --- Internal Methods ---
 	void CreateSession(const FString& SessionName);
 	void FindSessions();
-	void JoinSession(const FOnlineSessionSearchResult& SearchResult);
+	void JoinFoundSession(const FOnlineSessionSearchResult& SearchResult);
 	void LoadPlayerProfile();
 
 	/** Применяет настройки графики из CurrentSaveGame к UGameUserSettings. */

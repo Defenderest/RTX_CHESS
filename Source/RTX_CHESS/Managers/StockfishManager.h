@@ -62,7 +62,16 @@ private:
     void* OutPipeWrite = nullptr;// Engine's Stdout
 
     bool bIsLocalEngineRunning = false;
+    bool bIsEngineReady = false; // True only after 'readyok' is received
+    
+    // Pending request storage
+    bool bHasPendingRequest = false;
+    FString PendingFEN;
+    int32 PendingDepth = 10;
+    int32 PendingMultiPV = 1;
+
     FTimerHandle OutputPollTimer;
+    FTimerHandle EngineHandshakeTimeoutTimer;
 
     void StartLocalProcess();
     void StopLocalProcess();
