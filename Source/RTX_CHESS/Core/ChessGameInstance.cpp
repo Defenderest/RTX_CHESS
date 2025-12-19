@@ -260,7 +260,7 @@ void UChessGameInstance::FindSessions()
     }
 }
 
-void UChessGameInstance::JoinSession(const FOnlineSessionSearchResult& SearchResult)
+void UChessGameInstance::JoinFoundSession(const FOnlineSessionSearchResult& SearchResult)
 {
     if (!SessionInterface.IsValid())
     {
@@ -434,7 +434,7 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
             
             bIsFindingSessions = false; // Search process is complete.
             GetWorld()->GetTimerManager().ClearTimer(FindSessionTimerHandle);
-            JoinSession(SearchResult);
+            JoinFoundSession(SearchResult);
             bFoundMatch = true;
         }
         

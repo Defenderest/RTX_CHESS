@@ -10,10 +10,23 @@
 #include "Misc/FileHelper.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
+#include "Async/Async.h"
+
+// Include for Windows Interactive Process
+#include "Misc/InteractiveProcess.h"
+
+#if PLATFORM_ANDROID
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <signal.h>
+#endif
 
 UStockfishManager::UStockfishManager()
 {
-	// Initialize a simple opening book to provide move variety in the early game.
 	OpeningBook.Add(TEXT("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"), 
 		{ TEXT("e2e4"), TEXT("d2d4"), TEXT("c2c4"), TEXT("g1f3") });
 
@@ -22,9 +35,6 @@ UStockfishManager::UStockfishManager()
 
 	OpeningBook.Add(TEXT("rnbqkbnr/pppppppp/8/8/3P4/8/PPPPPPPP/RNBQKBNR"),
 		{ TEXT("g8f6"), TEXT("d7d5") });
-
-    // Do not start process in constructor. It causes issues with CDO and Editor previews.
-    // InitializeLocalEngine will be called explicitly by GameMode.
 }
 
 void UStockfishManager::BeginDestroy()
@@ -44,8 +54,93 @@ void UStockfishManager::InitializeLocalEngine()
 void UStockfishManager::StartLocalProcess()
 {
     FString ContentDir = FPaths::ProjectContentDir();
-    // Looking for stockfish.exe in Content/Stockfish/
-    FString ExePath = FPaths::Combine(ContentDir, TEXT("Stockfish"), TEXT("stockfish.exe"));
+    FString ExePath;
+
+    // Reset pipe handles
+    InPipeRead = nullptr;
+    InPipeWrite = nullptr;
+    OutPipeRead = nullptr;
+    OutPipeWrite = nullptr;
+
+#if PLATFORM_ANDROID
+    // --- ANDROID IMPLEMENTATION (Custom Fork/Exec) ---
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Starting Android process logic..."));
+
+    FString BinaryName = TEXT("stockfish_android");
+    FString SourcePath = FPaths::Combine(ContentDir, TEXT("Stockfish"), BinaryName);
+    FString DestDir = FPaths::ProjectSavedDir();
+    ExePath = FPaths::Combine(DestDir, BinaryName);
+    
+    // Copy Binary
+    bool bFileExists = FPaths::FileExists(ExePath);
+    if (!bFileExists || IFileManager::Get().Copy(*ExePath, *SourcePath) != COPY_OK)
+    {
+         if (!FPaths::FileExists(ExePath))
+         {
+             UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to copy android binary to %s"), *ExePath);
+             return; 
+         }
+    }
+
+    // Permissions
+    const char* PathAnsi = TCHAR_TO_UTF8(*ExePath);
+    chmod(PathAnsi, 0755);
+
+    // Pipes
+    int pipe_in[2];  
+    int pipe_out[2]; 
+
+    if (pipe(pipe_in) != 0 || pipe(pipe_out) != 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to create pipes on Android."));
+        return;
+    }
+
+    // Fork
+    pid_t pid = fork();
+
+    if (pid == -1)
+    {
+         UE_LOG(LogTemp, Error, TEXT("StockfishManager: fork() failed."));
+         close(pipe_in[0]); close(pipe_in[1]);
+         close(pipe_out[0]); close(pipe_out[1]);
+         return;
+    }
+    else if (pid == 0)
+    {
+        // Child
+        dup2(pipe_in[0], STDIN_FILENO);
+        dup2(pipe_out[1], STDOUT_FILENO);
+        
+        close(pipe_in[0]); close(pipe_in[1]);
+        close(pipe_out[0]); close(pipe_out[1]);
+
+        execl(PathAnsi, PathAnsi, (char*)NULL);
+        _exit(127);
+    }
+    else
+    {
+        // Parent
+        AndroidPID = (int)pid;
+        close(pipe_in[0]); 
+        close(pipe_out[1]); 
+
+        InPipeWrite = (void*)(intptr_t)pipe_in[1];
+        OutPipeRead = (void*)(intptr_t)pipe_out[0];
+
+        int flags = fcntl(pipe_out[0], F_GETFL, 0);
+        fcntl(pipe_out[0], F_SETFL, flags | O_NONBLOCK);
+
+        bIsLocalEngineRunning = true;
+        bIsEngineReady = false;
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Android process started. PID: %d"), AndroidPID);
+    }
+
+#else
+    // --- WINDOWS IMPLEMENTATION (FInteractiveProcess) ---
+    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Starting Windows/PC process logic (FInteractiveProcess)..."));
+
+    ExePath = FPaths::Combine(ContentDir, TEXT("Stockfish"), TEXT("stockfish.exe"));
     ExePath = FPaths::ConvertRelativePathToFull(ExePath);
 
     if (!FPaths::FileExists(ExePath))
@@ -57,61 +152,70 @@ void UStockfishManager::StartLocalProcess()
 
     UE_LOG(LogTemp, Log, TEXT("StockfishManager: Found Stockfish at %s. Launching process..."), *ExePath);
 
-    // Create pipe for Input (We Write -> Child Reads)
-    if (!FPlatformProcess::CreatePipe(InPipeRead, InPipeWrite))
+    // Create FInteractiveProcess
+    // Note: We pass TEXT("") as params to ensure no garbage is passed
+    FInteractiveProcess* Proc = new FInteractiveProcess(ExePath, TEXT(""), true);
+
+    if (Proc)
     {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to create Input pipe."));
-        return;
-    }
-
-    // Create pipe for Output (Child Writes -> We Read)
-    if (!FPlatformProcess::CreatePipe(OutPipeRead, OutPipeWrite))
-    {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to create Output pipe."));
-        FPlatformProcess::ClosePipe(InPipeRead, InPipeWrite);
-        return;
-    }
-
-    // Set Working Directory to the folder containing the exe
-    FString WorkingDir = FPaths::GetPath(ExePath);
-
-    EngineProcessHandle = FPlatformProcess::CreateProc(
-        *ExePath,
-        nullptr, // Params
-        false,   // Launch detached (FALSE for pipes to work reliably)
-        true,    // Launch hidden
-        true,    // Launch really hidden
-        nullptr, // Priority
-        0,       // Priority mod
-        *WorkingDir, // Working dir
-        OutPipeWrite, // Child Stdout (Write end of Output pipe)
-        InPipeRead    // Child Stdin  (Read end of Input pipe)
-    );
-
-    if (EngineProcessHandle.IsValid())
-    {
-        bIsLocalEngineRunning = true;
-        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Local engine started successfully."));
-
-        // Do NOT close pipes here. We need to keep them open to communicate.
-        // They will be closed in StopLocalProcess.
-
-        // Start UCI mode
-        SendCommandToEngine(TEXT("uci"));
-        SendCommandToEngine(TEXT("isready"));
-
-        // Start polling timer (checks output 30 times a second)
-        if (UWorld* World = GetWorld())
+        // Bind Output Delegate
+        Proc->OnOutput().BindLambda([this](const FString& Output)
         {
-            World->GetTimerManager().SetTimer(OutputPollTimer, this, &UStockfishManager::PollEngineOutput, 0.03f, true);
+            // FInteractiveProcess runs on a background thread.
+            // We must dispatch to Game Thread for logging and UObject interaction.
+            AsyncTask(ENamedThreads::GameThread, [this, Output]()
+            {
+                // Process output line by line (it might come in chunks)
+                TArray<FString> Lines;
+                Output.ParseIntoArray(Lines, TEXT("\n"), true);
+                for (const FString& Line : Lines)
+                {
+                    FString CleanLine = Line.Replace(TEXT("\r"), TEXT(""));
+                    CleanLine.TrimStartAndEndInline();
+                    if (!CleanLine.IsEmpty())
+                    {
+                         ProcessEngineOutputLine(CleanLine);
+                    }
+                }
+            });
+        });
+
+        // Launch
+        if (Proc->Launch())
+        {
+            ProcessHandler = Proc;
+            bIsLocalEngineRunning = true;
+            bIsEngineReady = false;
+            UE_LOG(LogTemp, Log, TEXT("StockfishManager: Local engine started successfully via FInteractiveProcess."));
+        }
+        else
+        {
+             UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to launch FInteractiveProcess."));
+             delete Proc;
+             ProcessHandler = nullptr;
+             bIsLocalEngineRunning = false;
+             return;
         }
     }
-    else
+#endif
+
+    // --- Common Setup ---
+    if (bIsLocalEngineRunning)
     {
-        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Failed to launch Stockfish process."));
-        FPlatformProcess::ClosePipe(InPipeRead, InPipeWrite);
-        FPlatformProcess::ClosePipe(OutPipeRead, OutPipeWrite);
-        InPipeRead = InPipeWrite = OutPipeRead = OutPipeWrite = nullptr;
+         if (UWorld* World = GetWorld())
+        {
+            FTimerHandle UciTimer;
+            World->GetTimerManager().SetTimer(UciTimer, [this]()
+            {
+                UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending 'uci' handshake..."));
+                SendCommandToEngine(TEXT("uci"));
+            }, 0.5f, false);
+
+#if PLATFORM_ANDROID
+            // Only poll manually on Android
+            World->GetTimerManager().SetTimer(OutputPollTimer, this, &UStockfishManager::PollEngineOutput, 0.03f, true);
+#endif
+        }
     }
 }
 
@@ -121,19 +225,32 @@ void UStockfishManager::StopLocalProcess()
     {
         SendCommandToEngine(TEXT("quit"));
         
-        if (EngineProcessHandle.IsValid())
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Stopping local process..."));
+
+#if PLATFORM_ANDROID
+        if (AndroidPID != -1)
         {
-            // Give it a moment to close gracefully
             FPlatformProcess::Sleep(0.1f);
-            FPlatformProcess::TerminateProc(EngineProcessHandle);
-            FPlatformProcess::CloseProc(EngineProcessHandle);
+            kill(AndroidPID, SIGTERM);
+            int status;
+            waitpid(AndroidPID, &status, WNOHANG); 
+            AndroidPID = -1;
         }
 
-        // Close the handles
-        if (InPipeRead) FPlatformProcess::ClosePipe(InPipeRead, InPipeWrite);
-        if (OutPipeRead) FPlatformProcess::ClosePipe(OutPipeRead, OutPipeWrite);
-        
-        InPipeRead = InPipeWrite = OutPipeRead = OutPipeWrite = nullptr;
+        if (InPipeWrite) close((int)(intptr_t)InPipeWrite);
+        if (OutPipeRead) close((int)(intptr_t)OutPipeRead);
+        InPipeWrite = OutPipeRead = nullptr;
+#else
+        // Windows Cleanup
+        if (ProcessHandler)
+        {
+            FInteractiveProcess* Proc = (FInteractiveProcess*)ProcessHandler;
+            // Destructor calls Cancel(true) which terminates the process
+            delete Proc; 
+            ProcessHandler = nullptr;
+        }
+#endif
+
         bIsLocalEngineRunning = false;
 
         if (UWorld* World = GetWorld())
@@ -145,39 +262,57 @@ void UStockfishManager::StopLocalProcess()
 
 void UStockfishManager::SendCommandToEngine(const FString& Command)
 {
-    if (bIsLocalEngineRunning && InPipeWrite)
-    {
-        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending Command: %s"), *Command);
+    if (!bIsLocalEngineRunning || Command.IsEmpty()) return;
 
-        // Windows console applications usually prefer \r\n
-        FString CommandWithNewline = Command + TEXT("\r\n");
-        
-        // Convert to ANSI (UTF-8 compatible for standard console apps)
-        FTCHARToUTF8 Utf8Converter(*CommandWithNewline);
-        
-        // Write to the Write end of the Input pipe
-        FPlatformProcess::WritePipe(InPipeWrite, (const uint8*)Utf8Converter.Get(), Utf8Converter.Length());
+#if PLATFORM_ANDROID
+    if (InPipeWrite)
+    {
+        FString CommandWithNewline = Command + TEXT("\n");
+        auto AnsiString = StringCast<ANSICHAR>(*CommandWithNewline);
+        const ANSICHAR* Data = AnsiString.Get();
+        int32 BytesToWrite = AnsiString.Length();
+
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager (Android): Sending '%s'"), *Command);
+
+        if (BytesToWrite > 0)
+        {
+            write((int)(intptr_t)InPipeWrite, Data, BytesToWrite);
+        }
     }
+#else
+    if (ProcessHandler)
+    {
+        FInteractiveProcess* Proc = (FInteractiveProcess*)ProcessHandler;
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager (Win): Sending '%s'"), *Command);
+        // FInteractiveProcess handles encoding/writing safely
+        Proc->SendWhenReady(Command + TEXT("\n"));
+    }
+#endif
 }
 
 void UStockfishManager::PollEngineOutput()
 {
+    // Only used on Android
+#if PLATFORM_ANDROID
     if (bIsLocalEngineRunning && OutPipeRead)
     {
-        // Read from the Read end of the Output pipe
-        FString Output = FPlatformProcess::ReadPipe(OutPipeRead);
-        if (!Output.IsEmpty())
+        char buffer[4096];
+        ssize_t bytesRead = read((int)(intptr_t)OutPipeRead, buffer, sizeof(buffer) - 1);
+        
+        if (bytesRead > 0)
         {
-            // Output can contain multiple lines
+            buffer[bytesRead] = '\0';
+            FString Output = UTF8_TO_TCHAR(buffer);
+            
+            UE_LOG(LogTemp, Log, TEXT("StockfishManager: Raw Output Chunk: [[%s]]"), *Output);
+
             TArray<FString> Lines;
-            Output.ParseIntoArray(Lines, TEXT("\n"), true); // Parse by newline, cull empty
+            Output.ParseIntoArray(Lines, TEXT("\n"), true);
 
             for (const FString& Line : Lines)
             {
-                // Clean up carriage returns if any and trim whitespace
                 FString CleanLine = Line.Replace(TEXT("\r"), TEXT(""));
                 CleanLine.TrimStartAndEndInline();
-                
                 if (!CleanLine.IsEmpty())
                 {
                      ProcessEngineOutputLine(CleanLine);
@@ -185,13 +320,40 @@ void UStockfishManager::PollEngineOutput()
             }
         }
     }
+#endif
 }
 
 void UStockfishManager::ProcessEngineOutputLine(const FString& Line)
 {
     UE_LOG(LogTemp, Log, TEXT("Stockfish Output Line: %s"), *Line);
 
-    // Looking for: "bestmove <move> ponder <move>" or just "bestmove <move>"
+    if (Line.Contains(TEXT("Unknown command")))
+    {
+         UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Stockfish reported error: [[%s]]."), *Line);
+    }
+
+    if (Line.Equals(TEXT("uciok"), ESearchCase::IgnoreCase))
+    {
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'uciok'. Sending 'isready'."));
+        SendCommandToEngine(TEXT("isready"));
+    }
+    else if (Line.Equals(TEXT("readyok"), ESearchCase::IgnoreCase))
+    {
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Received 'readyok'. Engine is ready."));
+        bIsEngineReady = true;
+
+        if (UWorld* World = GetWorld())
+        {
+            World->GetTimerManager().ClearTimer(EngineHandshakeTimeoutTimer);
+        }
+        
+        if (bHasPendingRequest)
+        {
+            bHasPendingRequest = false;
+            RequestBestMove(PendingFEN, PendingDepth, PendingMultiPV);
+        }
+    }
+
     if (Line.StartsWith(TEXT("bestmove")))
     {
         TArray<FString> Tokens;
@@ -208,13 +370,9 @@ void UStockfishManager::ProcessEngineOutputLine(const FString& Line)
 
 void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 MultiPV)
 {
-	if (FEN.IsEmpty())
-	{
-		UE_LOG(LogTemp, Error, TEXT("StockfishManager::RequestBestMove: FEN string is empty."));
-		return;
-	}
+	if (FEN.IsEmpty()) return;
 
-	// --- Opening Move Variability ---
+	// Opening Book Logic
 	TArray<FString> FenParts;
 	FEN.ParseIntoArray(FenParts, TEXT(" "), true);
 	if (FenParts.Num() > 0)
@@ -222,33 +380,55 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 M
 		const FString& BoardState = FenParts[0];
 		if (OpeningBook.Contains(BoardState))
 		{
-			UE_LOG(LogTemp, Log, TEXT("StockfishManager: Position found in opening book. Using for variability."));
 			const TArray<FString>& PossibleMoves = OpeningBook.FindChecked(BoardState);
 			const FString ChosenMove = PossibleMoves[FMath::RandRange(0, PossibleMoves.Num() - 1)];
 
-			FTimerHandle DummyTimerHandle;
 			if (UWorld* World = GetWorld())
 			{
-				World->GetTimerManager().SetTimer(DummyTimerHandle, [this, ChosenMove]()
+                FTimerHandle DummyTimer;
+				World->GetTimerManager().SetTimer(DummyTimer, [this, ChosenMove]()
 				{
-					UE_LOG(LogTemp, Log, TEXT("StockfishManager: Opening move chosen: %s"), *ChosenMove);
 					OnBestMoveReceived.Broadcast(ChosenMove);
 				}, 0.1f, false);
 				return; 
 			}
 		}
 	}
-	// --- End Opening Move Variability ---
 
     if (bIsLocalEngineRunning)
     {
-        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Calculating local move for FEN: %s (Depth: %d)"), *FEN, Depth);
+        if (!bIsEngineReady)
+        {
+            bHasPendingRequest = true;
+            PendingFEN = FEN;
+            PendingDepth = Depth;
+            PendingMultiPV = MultiPV;
+
+            if (UWorld* World = GetWorld())
+            {
+                World->GetTimerManager().SetTimer(EngineHandshakeTimeoutTimer, [this, FEN, Depth, MultiPV]()
+                {
+                    if (bHasPendingRequest)
+                    {
+                        UE_LOG(LogTemp, Error, TEXT("StockfishManager: Engine handshake timed out! Using API."));
+                        bHasPendingRequest = false;
+                        bIsLocalEngineRunning = false; 
+                        StopLocalProcess(); 
+                        RequestBestMoveFromAPI(FEN, Depth, MultiPV);
+                    }
+                }, 3.0f, false);
+            }
+            return;
+        }
+
+        UE_LOG(LogTemp, Log, TEXT("StockfishManager: Local Calc: %s"), *FEN);
+
+        // Set Difficulty/Skill Level
+        // Stockfish supports "Skill Level" option from 0 to 20.
+        // We use the passed Depth as a proxy for this skill level.
+        int32 SkillLevel = FMath::Clamp(Depth, 0, 20);
+        SendCommandToEngine(FString::Printf(TEXT("setoption name Skill Level value %d"), SkillLevel));
         
-        // Stop any previous search
-        SendCommandToEngine(TEXT("stop"));
-        
-        // Set position
-        // If it's the start position, use "position startpos"
         if (FEN.Contains(TEXT("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")))
         {
              SendCommandToEngine(TEXT("position startpos"));
@@ -258,45 +438,33 @@ void UStockfishManager::RequestBestMove(const FString& FEN, int32 Depth, int32 M
              SendCommandToEngine(FString::Printf(TEXT("position fen %s"), *FEN));
         }
         
-        // Start thinking
-        // Use movetime to ensure the bot returns a move within a reasonable timeframe (e.g., 2 seconds)
-        // Depth is good, but movetime guarantees a response.
-        // We can use both: go depth X movetime Y (engine stops at whichever comes first)
-        int32 MoveTimeMs = 2000; // 2 seconds by default
-        SendCommandToEngine(FString::Printf(TEXT("go depth %d movetime %d"), Depth, MoveTimeMs));
+        SendCommandToEngine(FString::Printf(TEXT("go depth %d movetime 2000"), Depth));
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("StockfishManager: Local engine not running. Fallback to API."));
         RequestBestMoveFromAPI(FEN, Depth, MultiPV);
     }
 }
 
 void UStockfishManager::RequestBestMoveFromAPI(const FString& FEN, int32 Depth, int32 MultiPV)
 {
-	// The Lichess API uses GET requests with URL parameters
 	const FString Url = FString::Printf(TEXT("%s?fen=%s&multiPv=%d"), 
 		*ApiEndpoint, 
 		*FGenericPlatformHttp::UrlEncode(FEN), 
 		MultiPV);
-
-	UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending GET request to URL: %s"), *Url);
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(Url);
 	Request->SetVerb(TEXT("GET"));
 	Request->SetHeader(TEXT("User-Agent"), TEXT("X-UnrealEngine-Agent"));
 
-	// Use a lambda to capture the FEN and Depth for potential fallback
-	Request->OnProcessRequestComplete().BindLambda([this, FEN, Depth](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess)
+	Request->OnProcessRequestComplete().BindLambda([this, FEN, Depth](FHttpRequestPtr Req, FHttpResponsePtr Resp, bool bSuccess) 
 	{
 		this->OnBestMoveResponseReceived(Req, Resp, bSuccess, FEN, Depth);
 	});
 
 	if (!Request->ProcessRequest())
 	{
-		UE_LOG(LogTemp, Error, TEXT("StockfishManager::RequestBestMove: Failed to start HTTP request."));
-		// If request fails to even start, immediately try fallback
 		RequestBestMoveFromFallback(FEN, Depth);
 	}
 }
@@ -304,109 +472,58 @@ void UStockfishManager::RequestBestMoveFromAPI(const FString& FEN, int32 Depth, 
 void UStockfishManager::TestRequestWithKnownFEN()
 {
     const FString TestFEN = TEXT("8/1P1R4/n1r2B2/3Pp3/1k4P1/6K1/Bppr1P2/2q5 w - - 0 1");
-    UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending test request with known FEN: %s"), *TestFEN);
     RequestBestMove(TestFEN, 10, 1);
 }
 
 void UStockfishManager::OnBestMoveResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful, FString OriginalFEN, int32 OriginalDepth)
 {
-	if (!bWasSuccessful || !Response.IsValid())
+	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() != 200)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed or response was invalid. Trying fallback."));
-		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
-		return;
-	}
-
-	// Check for 404 Not Found, which means Lichess doesn't have a cloud eval for this position.
-	if (Response->GetResponseCode() == 404)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Lichess API returned 404 (No cloud evaluation available). Switching to fallback API."));
-		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
-		return;
-	}
-
-	if (Response->GetResponseCode() != 200)
-	{
-		UE_LOG(LogTemp, Error, TEXT("Lichess API request failed with response code %d: %s. Trying fallback."), Response->GetResponseCode(), *Response->GetContentAsString());
 		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 		return;
 	}
     	
 	const FString ResponseString = Response->GetContentAsString();
-	UE_LOG(LogTemp, Log, TEXT("Lichess API Response: %s"), *ResponseString);
-
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseString);
 
 	if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
 	{
 		const TArray<TSharedPtr<FJsonValue>>* PvsArray;
-		if (!JsonObject->TryGetArrayField(TEXT("pvs"), PvsArray))
+		if (JsonObject->TryGetArrayField(TEXT("pvs"), PvsArray))
 		{
-			// Lichess might return an error object
-			FString ErrorMessage;
-			if (JsonObject->TryGetStringField(TEXT("error"), ErrorMessage))
-			{
-				UE_LOG(LogTemp, Error, TEXT("Lichess API returned an error: %s. Trying fallback."), *ErrorMessage);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("Lichess API response did not contain a 'pvs' array or 'error' field. Response: %s. Trying fallback."), *ResponseString);
-			}
-			RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
-			return;
-		}
-
-		TArray<FString> BestMoves;
-		for (const TSharedPtr<FJsonValue>& PvValue : *PvsArray)
-		{
-			const TSharedPtr<FJsonObject> PvObject = PvValue->AsObject();
-			if (PvObject.IsValid())
-			{
-				FString MovesString;
-				if (PvObject->TryGetStringField(TEXT("moves"), MovesString) && !MovesString.IsEmpty())
-				{
-					// The "moves" string is a space-separated list of UCI moves, e.g., "e2e4 e7e5 g1f3"
-					TArray<FString> UciMoves;
-					MovesString.ParseIntoArray(UciMoves, TEXT(" "), true);
-					if (UciMoves.Num() > 0)
-					{
-						BestMoves.Add(UciMoves[0]);
-					}
-				}
-			}
-		}
-
-		if (BestMoves.Num() > 0)
-		{
-			// Randomly choose one of the best moves returned by the API
-			const FString ChosenMove = BestMoves[FMath::RandRange(0, BestMoves.Num() - 1)];
-			UE_LOG(LogTemp, Log, TEXT("Lichess API - %d moves received. Randomly selected move: %s"), BestMoves.Num(), *ChosenMove);
-			OnBestMoveReceived.Broadcast(ChosenMove);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to parse any valid moves from Lichess API 'pvs' data. Response: %s. Trying fallback."), *ResponseString);
-			RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
+            TArray<FString> BestMoves;
+            for (const TSharedPtr<FJsonValue>& PvValue : *PvsArray)
+            {
+                const TSharedPtr<FJsonObject> PvObject = PvValue->AsObject();
+                if (PvObject.IsValid())
+                {
+                    FString MovesString;
+                    if (PvObject->TryGetStringField(TEXT("moves"), MovesString))
+                    {
+                        TArray<FString> UciMoves;
+                        MovesString.ParseIntoArray(UciMoves, TEXT(" "), true);
+                        if (UciMoves.Num() > 0) BestMoves.Add(UciMoves[0]);
+                    }
+                }
+            }
+            if (BestMoves.Num() > 0)
+            {
+                OnBestMoveReceived.Broadcast(BestMoves[FMath::RandRange(0, BestMoves.Num() - 1)]);
+                return;
+            }
 		}
 	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Lichess API. Response: %s. Trying fallback."), *ResponseString);
-		RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
-	}
+    RequestBestMoveFromFallback(OriginalFEN, OriginalDepth);
 }
 
 
 void UStockfishManager::RequestBestMoveFromFallback(const FString& FEN, int32 Depth)
 {
-	// Fallback API uses GET requests with fen and depth. MultiPV is not supported/reliable.
 	const FString Url = FString::Printf(TEXT("%s?fen=%s&depth=%d"),
 		*FallbackApiEndpoint,
 		*FGenericPlatformHttp::UrlEncode(FEN),
 		Depth);
-
-	UE_LOG(LogTemp, Log, TEXT("StockfishManager: Sending GET request to FALLBACK URL: %s"), *Url);
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(Url);
@@ -414,65 +531,28 @@ void UStockfishManager::RequestBestMoveFromFallback(const FString& FEN, int32 De
 	Request->SetHeader(TEXT("User-Agent"), TEXT("X-UnrealEngine-Agent"));
 	Request->OnProcessRequestComplete().BindUObject(this, &UStockfishManager::OnFallbackBestMoveResponseReceived);
 
-	if (!Request->ProcessRequest())
-	{
-		UE_LOG(LogTemp, Error, TEXT("StockfishManager::RequestBestMoveFromFallback: Failed to start HTTP request."));
-	}
+	Request->ProcessRequest();
 }
 
 void UStockfishManager::OnFallbackBestMoveResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
-	if (!bWasSuccessful || !Response.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Fallback Stockfish API request failed or response was invalid."));
-		return;
-	}
-
-	if (Response->GetResponseCode() != 200)
-	{
-		UE_LOG(LogTemp, Error, TEXT("Fallback Stockfish API request failed with response code %d: %s"), Response->GetResponseCode(), *Response->GetContentAsString());
-		return;
-	}
+	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() != 200) return;
 
 	const FString ResponseString = Response->GetContentAsString();
-	UE_LOG(LogTemp, Log, TEXT("Fallback Stockfish API Response: %s"), *ResponseString);
-
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseString);
 
 	if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
 	{
-		bool bSuccess = false;
-		if (!JsonObject->TryGetBoolField("success", bSuccess) || !bSuccess)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Fallback Stockfish API returned an error. Response: %s"), *ResponseString);
-			return;
-		}
-
 		FString BestMoveString;
-		if (!JsonObject->TryGetStringField("bestmove", BestMoveString) || BestMoveString.IsEmpty())
+		if (JsonObject->TryGetStringField("bestmove", BestMoveString))
 		{
-			UE_LOG(LogTemp, Error, TEXT("Fallback Stockfish API response did not contain a 'bestmove' field or it was empty. Response: %s"), *ResponseString);
-			return;
+			TArray<FString> Tokens;
+			BestMoveString.ParseIntoArray(Tokens, TEXT(" "), true);
+			if (Tokens.Num() >= 2 && Tokens[0] == TEXT("bestmove"))
+			{
+				OnBestMoveReceived.Broadcast(Tokens[1]);
+			}
 		}
-
-		// The 'bestmove' field contains a string like "bestmove e2e4 ponder e7e5" or just "bestmove e2e4"
-		TArray<FString> Tokens;
-		BestMoveString.ParseIntoArray(Tokens, TEXT(" "), true);
-
-		if (Tokens.Num() >= 2 && Tokens[0] == TEXT("bestmove"))
-		{
-			const FString Move = Tokens[1];
-			UE_LOG(LogTemp, Log, TEXT("Fallback Stockfish API - Best move parsed: %s"), *Move);
-			OnBestMoveReceived.Broadcast(Move);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to parse best move from fallback 'bestmove' string: %s"), *BestMoveString);
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON response from Fallback Stockfish API. Response: %s"), *ResponseString);
 	}
 }

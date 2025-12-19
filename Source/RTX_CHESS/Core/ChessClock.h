@@ -23,6 +23,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 	// Updates the rotation of the clock hands based on the current time
 	void UpdateClockHands();

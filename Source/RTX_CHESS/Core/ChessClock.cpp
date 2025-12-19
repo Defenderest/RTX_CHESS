@@ -60,6 +60,47 @@ AChessClock::AChessClock()
 	BlackSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
 }
 
+void AChessClock::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (WhiteMinuteHandPivot)
+	{
+		WhiteMinuteHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
+	}
+	if (WhiteSecondHandPivot)
+	{
+		WhiteSecondHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
+	}
+	if (BlackMinuteHandPivot)
+	{
+		BlackMinuteHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
+	}
+	if (BlackSecondHandPivot)
+	{
+		BlackSecondHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
+	}
+
+	if (WhiteMinuteHandMesh)
+	{
+		WhiteMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
+	}
+	if (WhiteSecondHandMesh)
+	{
+		WhiteSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
+	}
+	if (BlackMinuteHandMesh)
+	{
+		BlackMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
+	}
+	if (BlackSecondHandMesh)
+	{
+		BlackSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
+	}
+
+	UpdateClockHands();
+}
+
 void AChessClock::BeginPlay()
 {
 	Super::BeginPlay();

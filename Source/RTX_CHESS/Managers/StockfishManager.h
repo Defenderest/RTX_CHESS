@@ -62,7 +62,16 @@ private:
     void* OutPipeWrite = nullptr;// Engine's Stdout
 
     bool bIsLocalEngineRunning = false;
+    bool bIsEngineReady = false; // True only after 'readyok' is received
+    
+    // Pending request storage
+    bool bHasPendingRequest = false;
+    FString PendingFEN;
+    int32 PendingDepth = 10;
+    int32 PendingMultiPV = 1;
+
     FTimerHandle OutputPollTimer;
+    FTimerHandle EngineHandshakeTimeoutTimer;
 
     void StartLocalProcess();
     void StopLocalProcess();
@@ -82,4 +91,10 @@ private:
     // --- Properties ---
     const FString ApiEndpoint = TEXT("https://lichess.org/api/cloud-eval");
     const FString FallbackApiEndpoint = TEXT("https://stockfish.online/api/s/v2.php");
+
+    // Process ID for manual process management on Android/Linux
+    int AndroidPID = -1;
+    
+    // Opaque pointer for FInteractiveProcess on Windows
+    void* ProcessHandler = nullptr;
 };
