@@ -91,4 +91,10 @@ private:
     // --- Properties ---
     const FString ApiEndpoint = TEXT("https://lichess.org/api/cloud-eval");
     const FString FallbackApiEndpoint = TEXT("https://stockfish.online/api/s/v2.php");
+
+    // Process ID for manual process management on Android/Linux
+    int AndroidPID = -1;
+    
+    // Opaque pointer for FInteractiveProcess on Windows
+    void* ProcessHandler = nullptr;
 };
