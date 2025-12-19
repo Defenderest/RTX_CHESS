@@ -15,14 +15,18 @@ void UStartMenuWidget::NativeConstruct()
     SelectedTimeControl = ETimeControlType::Unlimited;
     GameLevelName = TEXT("/Game/Cigar_room/Maps/Cigar_room");
 
-    // Альтернативный способ получения виджета: поиск по имени.
-    // Этот метод не требует привязки через "Is Variable" или BindWidget.
-    SessionNameInput = Cast<UEditableTextBox>(GetWidgetFromName(TEXT("SessionNameInput")));
-    if (!SessionNameInput)
-    {
-        // Это не критическая ошибка, а предупреждение для разработчика.
-        UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти EditableTextBox с именем 'SessionNameInput'. Убедитесь, что виджет с таким именем существует на панели OnlineMenuPanel."));
-    }
+	OnlineMenuPanel = Cast<UWidget>(GetWidgetFromName(TEXT("OnlineMenuPanel")));
+	if (!OnlineMenuPanel)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UStartMenuWidget: Не удалось найти виджет 'OnlineMenuPanel'. Проверьте имя в дизайнере."));
+	}
+	else
+	{
+		// По умолчанию скрываем меню онлайн-игры
+		OnlineMenuPanel->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	// Инициализация кнопок выбора цвета для локальной игры
 
     ColorSelectionSlider = Cast<USlider>(GetWidgetFromName(TEXT("PlayerColorSlider")));
     if (ColorSelectionSlider)
@@ -133,9 +137,33 @@ void UStartMenuWidget::OnBackToMainMenuClicked()
 
 void UStartMenuWidget::OnOnlineGameClicked()
 {
+    UE_LOG(LogTemp, Log, TEXT("OnOnlineGameClicked called."));
+    
+    if (MainMenuSwitcher)
+    {
+        UE_LOG(LogTemp, Log, TEXT("MainMenuSwitcher is valid. Current Index: %d"), MainMenuSwitcher->GetActiveWidgetIndex());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("MainMenuSwitcher is NULL!"));
+    }
+
+    if (OnlineMenuPanel)
+    {
+         UE_LOG(LogTemp, Log, TEXT("OnlineMenuPanel is valid. Visibility: %d"), (int32)OnlineMenuPanel->GetVisibility());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("OnlineMenuPanel is NULL!"));
+    }
+
     if (MainMenuSwitcher && OnlineMenuPanel)
     {
+        // Принудительно включаем видимость, так как в NativeConstruct мы её выключали
+        OnlineMenuPanel->SetVisibility(ESlateVisibility::Visible);
+        
         MainMenuSwitcher->SetActiveWidget(OnlineMenuPanel);
+        UE_LOG(LogTemp, Log, TEXT("SetActiveWidget called. New Index should be OnlineMenuPanel."));
     }
     else
     {
@@ -172,26 +200,14 @@ void UStartMenuWidget::OnHostGameClicked()
 
 void UStartMenuWidget::OnJoinGameClicked()
 {
-    if (SessionNameInput && !SessionNameInput->GetText().IsEmpty())
-    {
-        const FString IpAddress = SessionNameInput->GetText().ToString();
-        HideMenu();
-
-        if (APlayerController* PlayerController = GetOwningPlayer())
-        {
-            UE_LOG(LogTemp, Log, TEXT("Attempting to join game by IP: %s"), *IpAddress);
-            PlayerController->ClientTravel(IpAddress, ETravelType::TRAVEL_Absolute);
-        }
-        else
-        {
-             UE_LOG(LogTemp, Error, TEXT("Could not get PlayerController to join by IP."));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("IP address field is empty. Cannot join game."));
-        // При желании можно показать пользователю сообщение в UI
-    }
+	UE_LOG(LogTemp, Log, TEXT("Join Session Clicked. Opening Steam Overlay to find games..."));
+	
+	if (UChessGameInstance* GameInstance = Cast<UChessGameInstance>(GetGameInstance()))
+	{
+		// Для Steam мы ищем сессии автоматически или через оверлей, имя вводить не нужно.
+		// Передаем пустую строку или дефолтное имя, так как логика поиска переписана в GameInstance.
+		GameInstance->FindAndJoinSession(TEXT("Chess Game"));
+	}
 }
 
 void UStartMenuWidget::OnPlayerColorSliderChanged(float Value)

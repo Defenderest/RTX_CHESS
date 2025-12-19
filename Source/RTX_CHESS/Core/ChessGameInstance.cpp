@@ -13,6 +13,18 @@
 #include "Blueprint/UserWidget.h"
 #include "Modules/ModuleManager.h"
 #include "Framework/Application/SlateApplication.h"
+#include "OnlineSubsystemUtils.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+
+#include "GameFramework/PlayerState.h"
+#include "Engine/Texture2D.h"
+
+// --- Steam Includes ---
+#pragma push_macro("h")
+#undef h
+#include "steam/steam_api.h"
+#pragma pop_macro("h")
+// ----------------------
 
 // Helper function to convert EOnJoinSessionCompleteResult::Type to FString
 FString GetJoinSessionResultString(EOnJoinSessionCompleteResult::Type Result)
@@ -236,8 +248,8 @@ void UChessGameInstance::FindSessions()
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] --- Starting session search (Attempt %d/%d) ---"), FindSessionRetryCount, MAX_FIND_SESSION_RETRIES);
 
     SessionSearch = MakeShareable(new FOnlineSessionSearch());
-    SessionSearch->bIsLanQuery = true;
-    SessionSearch->MaxSearchResults = 1; // We are looking for a specific session
+    SessionSearch->bIsLanQuery = false;
+    SessionSearch->MaxSearchResults = 20; // Increase max results to find more Steam lobbies
     SessionSearch->QuerySettings.Set(FName(TEXT("ROOM_NAME_KEY")), SessionNameToFind, EOnlineComparisonOp::Equals);
 
     UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSearch object created. IsLANQuery=%d. MaxResults=%d. Searching for ROOM_NAME_KEY='%s'."), SessionSearch->bIsLanQuery, SessionSearch->MaxSearchResults, *SessionNameToFind);
@@ -288,14 +300,14 @@ void UChessGameInstance::CreateSession(const FString& SessionName)
     OnCreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 
     TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-    SessionSettings->bIsLANMatch = true;
+    SessionSettings->bIsLANMatch = false;
     SessionSettings->NumPublicConnections = 2;
     SessionSettings->bShouldAdvertise = true;
-    SessionSettings->bUsesPresence = false;
-    SessionSettings->bUseLobbiesIfAvailable = false;
+    SessionSettings->bUsesPresence = true;
+    SessionSettings->bUseLobbiesIfAvailable = true;
     SessionSettings->bAllowJoinInProgress = true;
     SessionSettings->Set(FName(TEXT("ROOM_NAME_KEY")), SessionName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured. ROOM_NAME_KEY = %s"), *SessionName);
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] SessionSettings configured for STEAM. ROOM_NAME_KEY = %s"), *SessionName);
 	
     ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
     if(LocalPlayer)
@@ -329,55 +341,12 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
 
         UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Session '%s' created successfully. Traveling to '%s'..."), *SessionName.ToString(), *TravelURL);
 
-        // --- Get and display local IP address, prioritizing VPN addresses ---
-        FString DisplayIP = TEXT("Not Found");
-        TArray<TSharedPtr<FInternetAddr>> Addresses;
-        ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalAdapterAddresses(Addresses);
-
-        // First, look for a Radmin VPN IP (typically in 26.x.x.x range)
-        for (const auto& Addr : Addresses)
+        // --- Steam Session Created ---
+        SessionHostAddress = TEXT("Steam Session");
+        if (GEngine)
         {
-            if (Addr.IsValid())
-            {
-                const FString CurrentIP = Addr->ToString(false);
-                if (!CurrentIP.StartsWith(TEXT("127.")) && CurrentIP.StartsWith(TEXT("26.")))
-                {
-                    DisplayIP = CurrentIP;
-                    break;
-                }
-            }
-        }
-
-        // If no Radmin IP was found, find the first valid non-loopback IPv4
-        if (DisplayIP == TEXT("Not Found"))
-        {
-            for (const auto& Addr : Addresses)
-            {
-                if (Addr.IsValid() && Addr->GetProtocolType() == FNetworkProtocolTypes::IPv4)
-                {
-                    const FString CurrentIP = Addr->ToString(false);
-                    if (!CurrentIP.StartsWith(TEXT("127.")))
-                    {
-                        DisplayIP = CurrentIP;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (DisplayIP != TEXT("Not Found"))
-        {
-            SessionHostAddress = FString::Printf(TEXT("%s:7777"), *DisplayIP);
-            if (GEngine)
-            {
-                // The default Unreal port is 7777.
-                GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, FString::Printf(TEXT("Server started. Share this IP with LAN/VPN players: %s"), *SessionHostAddress));
-                UE_LOG(LogTemp, Log, TEXT("Displaying Server IP for LAN/VPN: %s"), *SessionHostAddress);
-            }
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Could not determine a suitable local IP address to display."));
+             GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, TEXT("Steam Lobby Created! Open Overlay (Shift+Tab) to invite friends."));
+             UE_LOG(LogTemp, Log, TEXT("Steam Lobby Created. Ready for invites."));
         }
 
         GetWorld()->ServerTravel(TravelURL);
@@ -633,4 +602,146 @@ void UChessGameInstance::ApplyGraphicsSettings()
 		Settings.ShadowQuality,
 		Settings.TextureQuality,
 		Settings.EffectsQuality);
+}
+
+void UChessGameInstance::TryLoadSteamInfo()
+{
+	if (!CurrentSaveGame) return;
+
+	FString SteamName = GetSteamPersonaName();
+	if (!SteamName.IsEmpty() && SteamName != TEXT("Player") && SteamName != CurrentSaveGame->PlayerProfile.PlayerName)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Updating profile name from Steam: %s"), *SteamName);
+		CurrentSaveGame->PlayerProfile.PlayerName = SteamName;
+		SavePlayerProfile();
+	}
+}
+
+FString UChessGameInstance::GetSteamPersonaName() const
+{
+	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+	if (Subsystem && Subsystem->GetIdentityInterface().IsValid())
+	{
+		// Получаем имя текущего локального пользователя (индекс 0)
+		FString NickName = Subsystem->GetIdentityInterface()->GetPlayerNickname(0);
+		if (!NickName.IsEmpty())
+		{
+			return NickName;
+		}
+	}
+	return TEXT("");
+}
+
+UTexture2D* UChessGameInstance::GetSteamAvatar(APlayerState* PlayerState)
+{
+    if (!PlayerState) return nullptr;
+
+    // Проверяем, запущен ли Steam вообще
+    if (!SteamAPI_Init())
+    {
+        // Не спамим логами, если Steam выключен
+        return nullptr;
+    }
+
+    const FUniqueNetIdRepl& UniqueNetIdRepl = PlayerState->GetUniqueId();
+    if (!UniqueNetIdRepl.IsValid())
+    {
+        // Для ботов это нормально, для игроков - нет
+        return nullptr;
+    }
+
+    // Получаем "сырой" ID
+    uint64 ID = 0;
+    
+    // Пытаемся достать ID безопасно
+    if (UniqueNetIdRepl.GetUniqueNetId().IsValid())
+    {
+        // ВАЖНО: В Unreal 5 формат хранения ID может отличаться, но для Steam обычно это uint64
+        // Пробуем строковое преобразование для диагностики (ЗАКОММЕНТИРОВАНО ИЗ-ЗА ОШИБКИ ЛИНКОВКИ)
+        // FString IdStr = UniqueNetIdRepl.ToString();
+        // UE_LOG(LogTemp, Log, TEXT("[GetSteamAvatar] Player %s has ID String: %s"), *PlayerState->GetPlayerName(), *IdStr);
+        
+        // Хаки для получения uint64 из FUniqueNetId (зависит от версии UE и подсистемы)
+        // Если это SteamNetId, то Bytes хранят uint64
+        if (UniqueNetIdRepl.GetUniqueNetId()->GetSize() >= sizeof(uint64))
+        {
+            ID = *((uint64*)UniqueNetIdRepl.GetUniqueNetId()->GetBytes());
+        }
+    }
+
+    CSteamID SteamID;
+    
+    // Логика определения: Это Я или Другой?
+    if (ID > 0)
+    {
+        SteamID = CSteamID(ID);
+    }
+    else
+    {
+        // Если ID = 0 (например, локальный тест без сети), пробуем взять СВОЙ ID
+        // Но только если это локальный игрок!
+        // Проверка:
+        bool bIsLocal = false;
+        if (PlayerState->GetOwner() == GetFirstLocalPlayerController())
+        {
+            bIsLocal = true;
+        }
+
+        if (bIsLocal)
+        {
+             SteamID = SteamUser()->GetSteamID();
+             // UE_LOG(LogTemp, Log, TEXT("[GetSteamAvatar] ID was 0, but verified as Local Player. Using SteamUser()->GetSteamID(): %llu"), SteamID.ConvertToUint64());
+        }
+        else
+        {
+             // Если это удаленный игрок и ID=0, мы ничего не можем сделать
+             return nullptr;
+        }
+    }
+
+    // Запрашиваем аватар
+    int PictureHandle = SteamFriends()->GetMediumFriendAvatar(SteamID);
+
+    if (PictureHandle == 0) 
+    {
+        // Это ОЧЕНЬ частая ситуация. Steam еще не скачал картинку.
+        // Он вернет 0, а когда скачает - пришлет коллбек (мы его не слушаем, просто пробуем снова через 0.5с в виджете)
+        // UE_LOG(LogTemp, Warning, TEXT("[GetSteamAvatar] Avatar for %llu not ready yet (Handle=0). Will retry."), SteamID.ConvertToUint64());
+        return nullptr;
+    }
+    
+    if (PictureHandle == -1)
+    {
+         UE_LOG(LogTemp, Error, TEXT("[GetSteamAvatar] Failed to get avatar handle for %llu"), SteamID.ConvertToUint64());
+         return nullptr;
+    }
+
+    uint32 Width = 0;
+    uint32 Height = 0;
+    if (SteamUtils()->GetImageSize(PictureHandle, &Width, &Height))
+    {
+        if (Width > 0 && Height > 0)
+        {
+            uint8* AvatarRGBA = new uint8[Width * Height * 4];
+            if (SteamUtils()->GetImageRGBA(PictureHandle, AvatarRGBA, Width * Height * 4))
+            {
+                UTexture2D* AvatarTexture = UTexture2D::CreateTransient(Width, Height, PF_R8G8B8A8);
+                if (AvatarTexture)
+                {
+                    FTexture2DMipMap& Mip = AvatarTexture->GetPlatformData()->Mips[0];
+                    void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
+                    FMemory::Memcpy(Data, AvatarRGBA, Width * Height * 4);
+                    Mip.BulkData.Unlock();
+                    AvatarTexture->UpdateResource();
+                    
+                    UE_LOG(LogTemp, Log, TEXT("[GetSteamAvatar] SUCCESS! Avatar loaded for %s (%llu). Size: %dx%d"), *PlayerState->GetPlayerName(), SteamID.ConvertToUint64(), Width, Height);
+                }
+                delete[] AvatarRGBA;
+                return AvatarTexture;
+            }
+            delete[] AvatarRGBA;
+        }
+    }
+
+    return nullptr;
 }

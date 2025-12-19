@@ -38,6 +38,10 @@
 		{
 			"Name": "LudusAI",
 			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemSteam",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [

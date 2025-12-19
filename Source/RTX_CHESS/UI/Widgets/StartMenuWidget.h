@@ -127,14 +127,10 @@ protected:
      *  2. Не забудьте в `MainMenuPanel` настроить кнопку "Сетевая игра", чтобы она по клику вызывала `OnOnlineGameClicked` и открывала эту новую панель.
      *
      ***************************************************************************************************/
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UPanelWidget> OnlineMenuPanel;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UWidget> OnlineMenuPanel;
 
-    /** Поле для ввода IP-адреса сервера для присоединения. Находится в NativeConstruct по имени. */
-    UPROPERTY()
-    TObjectPtr<UEditableTextBox> SessionNameInput;
-
-    /** Слайдер для выбора цвета игрока в игре против бота. Находится в NativeConstruct по имени "PlayerColorSlider". */
+	// --- Кнопки для выбора цвета при игре локально ---
     UPROPERTY()
     TObjectPtr<USlider> ColorSelectionSlider;
 

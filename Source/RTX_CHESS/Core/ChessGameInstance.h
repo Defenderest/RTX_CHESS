@@ -51,6 +51,18 @@ public:
 
 	void SavePlayerProfile();
 
+	// --- Steam Integration ---
+	
+	UFUNCTION(BlueprintCallable, Category = "Steam")
+	void TryLoadSteamInfo();
+
+	UFUNCTION(BlueprintPure, Category = "Steam")
+	FString GetSteamPersonaName() const;
+
+	/** Пытается загрузить аватарку Steam для указанного игрока (через PlayerState). Возвращает null, если не вышло. */
+	UFUNCTION(BlueprintCallable, Category = "Steam")
+	UTexture2D* GetSteamAvatar(class APlayerState* PlayerState);
+
 	FString GetSessionHostAddress() const;
 
 protected:
