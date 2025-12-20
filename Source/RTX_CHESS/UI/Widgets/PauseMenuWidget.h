@@ -12,7 +12,7 @@ class RTX_CHESS_API UPauseMenuWidget : public UUserWidget
     GENERATED_BODY()
 
 protected:
-    virtual void NativeConstruct() override;
+    virtual void NativeOnInitialized() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
     UPROPERTY(meta = (BindWidget))

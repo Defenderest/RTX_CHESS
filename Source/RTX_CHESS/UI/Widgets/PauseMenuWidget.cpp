@@ -4,9 +4,9 @@
 #include "Controllers/ChessPlayerController.h"
 #include "Board/ChessBlueprintFunctionLibrary.h"
 
-void UPauseMenuWidget::NativeConstruct()
+void UPauseMenuWidget::NativeOnInitialized()
 {
-    Super::NativeConstruct();
+    Super::NativeOnInitialized();
 
     if (ResumeButton)
     {
