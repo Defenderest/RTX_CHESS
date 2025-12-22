@@ -27,6 +27,8 @@ public:
     // Логика включает движение вперед, первый двойной ход, взятие по диагонали и ан пассан (опционально).
     virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 
+    virtual bool IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const override;
+
     // bHasMoved теперь наследуется от AChessPiece
     virtual void NotifyMoveCompleted_Implementation() override;
 };

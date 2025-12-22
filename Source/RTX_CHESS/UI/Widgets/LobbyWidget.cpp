@@ -2,8 +2,9 @@
 #include "Controllers/ChessPlayerController.h"
 #include "Core/ChessGameState.h"
 #include "Core/ChessGameInstance.h"
+#include "Core/ChessPlayerState.h"
 #include "Components/TextBlock.h"
-#include "Components/ListView.h"
+#include "Components/Image.h"
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerState.h"
@@ -24,22 +25,20 @@ void ULobbyWidget::NativeConstruct()
     UpdateLobbyInfo();
 }
 
+void ULobbyWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+    Super::NativeTick(MyGeometry, InDeltaTime);
+    UpdateLobbyInfo();
+}
+
 void ULobbyWidget::UpdateLobbyInfo()
 {
     AChessPlayerController* PC = GetOwningPlayer<AChessPlayerController>();
     AChessGameState* GS = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
+    UChessGameInstance* GI = Cast<UChessGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 
-    if (!PC || !GS)
-    {
-        return;
-    }
+    if (!PC || !GS || !GI) return;
     
-    // --- Update Lobby IP ---
-    if (IpAddressText)
-    {
-        IpAddressText->SetText(FText::FromString(GetLobbyIPAddress()));
-    }
-
     // --- Update Time Control ---
     if (TimeControlText)
     {
@@ -53,25 +52,63 @@ void ULobbyWidget::UpdateLobbyInfo()
         }
         TimeControlText->SetText(FText::FromString(TCString));
     }
+
+    // --- Пошук та оновлення даних гравців (Білі) ---
+    if (WhitePlayerNameText) WhitePlayerNameText->SetText(FText::FromString(GS->WhitePlayerProfile.PlayerName));
+    if (WhitePlayerRatingText) WhitePlayerRatingText->SetText(FText::AsNumber(GS->WhitePlayerProfile.EloRating));
     
-    // --- Update Player List ---
-    if (PlayerListView)
+    // --- Пошук та оновлення даних гравців (Чорні) ---
+    if (BlackPlayerNameText) BlackPlayerNameText->SetText(FText::FromString(GS->BlackPlayerProfile.PlayerName));
+    if (BlackPlayerRatingText) BlackPlayerRatingText->SetText(FText::AsNumber(GS->BlackPlayerProfile.EloRating));
+
+    // --- Завантаження аватарів через Steam ---
+    for (APlayerState* PS : GS->PlayerArray)
     {
-        PlayerListView->ClearListItems();
-        for (APlayerState* PS : GS->PlayerArray)
+        if (AChessPlayerState* ChessPS = Cast<AChessPlayerState>(PS))
         {
-            if (PS)
+            UTexture2D* Avatar = GI->GetSteamAvatar(PS);
+            if (Avatar)
             {
-                PlayerListView->AddItem(PS);
+                if (GS->WhitePlayerProfile.PlayerName == ChessPS->GetPlayerProfile().PlayerName && WhitePlayerAvatar)
+                {
+                    WhitePlayerAvatar->SetBrushFromTexture(Avatar);
+                }
+                else if (GS->BlackPlayerProfile.PlayerName == ChessPS->GetPlayerProfile().PlayerName && BlackPlayerAvatar)
+                {
+                    BlackPlayerAvatar->SetBrushFromTexture(Avatar);
+                }
             }
         }
     }
+
+    if (GamePhaseText)
+    {
+        FString PhaseStr = UEnum::GetValueAsString(GS->GetGamePhase());
+        PhaseStr.Split(TEXT("::"), nullptr, &PhaseStr);
+        GamePhaseText->SetText(FText::FromString(PhaseStr));
+    }
+
+    if (FullmoveText)
+    {
+        FString FullHistory = "";
+        for (const FString& Move : GS->MoveHistory)
+        {
+            FullHistory += Move + "\n";
+        }
+        
+        if (FullHistory.IsEmpty())
+        {
+            FullHistory = "No moves yet.";
+        }
+
+        FullmoveText->SetText(FText::FromString(FullHistory));
+    }
     
-    // --- Update Button Visibility ---
+    // --- Керування кнопками ---
     if (StartGameButton)
     {
-        // Только хост может начать игру.
-        StartGameButton->SetVisibility(PC->IsHost() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+        // Показуємо старт лише в лобі і лише хосту
+        StartGameButton->SetVisibility((PC->IsHost() && GS->bIsInLobby) ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
     }
 }
 

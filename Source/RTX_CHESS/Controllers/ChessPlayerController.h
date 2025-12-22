@@ -59,12 +59,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void ToggleGraphicsSettingsMenu();
 
-    /** Toggles the player info widget. */
     UFUNCTION(BlueprintCallable, Category = "UI")
     void TogglePlayerInfoWidget();
 
+    /** Forces the Player Info widget to be shown. */
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ShowPlayerInfoWidget();
 
-    /** Toggles the player profile widget. */
     UFUNCTION(BlueprintCallable, Category = "UI")
     void ToggleProfileWidget();
 
@@ -130,6 +131,9 @@ public:
     void Client_ShowGameOverScreen(const FText& ResultText, const FText& ReasonText);
 
     /** [SERVER] Called from client (lobby widget) to start the game. */
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_SetLobbyColorPreference(int32 NewColorIndex);
+
     UFUNCTION(Server, Reliable)
     void Server_RequestStartGame();
 
@@ -137,8 +141,10 @@ public:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_CompletePawnPromotion(APawnPiece* PawnToPromote, EPieceType PromoteToType);
 
-    /** [SERVER] Called from client to set the player's profile data on their PlayerState. */
-    UFUNCTION(Server, Reliable)
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_SetLobbyTimeControl(ETimeControlType NewTime);
+
+    UFUNCTION(Server, Reliable, WithValidation)
     void Server_SetPlayerProfile(const FPlayerProfile& Profile);
 
 protected:

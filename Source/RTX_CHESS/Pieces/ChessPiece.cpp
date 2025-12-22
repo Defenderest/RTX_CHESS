@@ -307,13 +307,17 @@ void AChessPiece::SetPieceMesh(UStaticMesh* NewMesh)
 
 TArray<FIntPoint> AChessPiece::GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const
 {
-    // Базовая реализация: фигура не имеет допустимых ходов.
-    // Эта функция должна быть переопределена в дочерних классах для каждого типа фигуры.
-    UE_LOG(LogTemp, Warning, TEXT("AChessPiece::GetValidMoves: Base implementation called for %s %s at (%d, %d). This should be overridden in derived classes. No valid moves returned."),
-           (PieceColor == EPieceColor::White ? TEXT("White") : TEXT("Black")),
-           *UEnum::GetValueAsString(TypeOfPiece),
-           BoardPosition.X, BoardPosition.Y);
+    // Default implementation returns an empty array. 
+    // Subclasses (Pawn, Rook, etc.) will override this.
     return TArray<FIntPoint>();
+}
+
+bool AChessPiece::IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const
+{
+    // Для большинства фигур (кроме пешки) клетка атакована, если на нее можно сходить.
+    // Мы используем GetValidMoves, но предполагаем, что в подклассах для дальнобойных фигур 
+    // мы не будем делать сложных проверок внутри GetValidMoves.
+    return GetValidMoves(GameState, Board).Contains(TargetSquare);
 }
 
 void AChessPiece::OnSelected_Implementation()

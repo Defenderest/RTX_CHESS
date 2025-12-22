@@ -48,6 +48,9 @@ public:
     UPROPERTY(Replicated)
     ETimeControlType LobbyTimeControl;
 
+    UPROPERTY(Replicated)
+    int32 LobbyColorPreference; // 0=White, 1=Random, 2=Black
+
     UFUNCTION()
     void OnRep_LobbyStateChanged();
     // --- End Lobby Data ---
@@ -113,6 +116,9 @@ public:
     // Pawn awaiting promotion.
     UPROPERTY(Replicated)
     TObjectPtr<APawnPiece> PawnToPromote;
+
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Chess Game State")
+    TArray<FString> MoveHistory;
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

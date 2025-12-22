@@ -26,4 +26,6 @@ public:
     // Возвращает массив допустимых ходов для Коня с учетом текущего состояния доски.
     // Конь движется "L"-образно: две клетки в одном направлении (горизонтально или вертикально) и затем одну клетку перпендикулярно.
     virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
+
+    virtual bool IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const override;
 };

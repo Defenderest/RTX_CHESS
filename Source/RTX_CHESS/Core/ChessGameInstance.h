@@ -84,6 +84,7 @@ protected:
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
 
 	// --- Internal Methods ---
 	void CreateSession(const FString& SessionName);
@@ -120,9 +121,11 @@ private:
     FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
     FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
     FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
+    FOnSessionUserInviteAcceptedDelegate OnSessionUserInviteAcceptedDelegate;
 
     FDelegateHandle OnCreateSessionCompleteDelegateHandle;
     FDelegateHandle OnDestroySessionCompleteDelegateHandle;
     FDelegateHandle OnFindSessionsCompleteDelegateHandle;
     FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+    FDelegateHandle OnSessionUserInviteAcceptedDelegateHandle;
 };

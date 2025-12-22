@@ -1,21 +1,16 @@
 #include "Core/ChessClock.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/ChessGameState.h"
+#include "Kismet/GameplayStatics.h"
 
 AChessClock::AChessClock()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	WhitePlayerTimeSeconds = 300.f;
-	BlackPlayerTimeSeconds = 300.f;
-	ActivePlayerColor = EPieceColor::White;
-	bIsClockRunning = true;
-
 	HandRotationAxis = EClockHandRotationAxis::Roll;
-
-	WhiteClockHandsPivotLocation = FVector::ZeroVector;
-	BlackClockHandsPivotLocation = FVector::ZeroVector;
-	MinuteHandMeshOffset = FVector::ZeroVector;
-	SecondHandMeshOffset = FVector::ZeroVector;
+	WhitePlayerTimeSeconds = 0.f;
+	BlackPlayerTimeSeconds = 0.f;
+	bIsClockRunning = false;
 
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	RootComponent = SceneRoot;
@@ -23,104 +18,51 @@ AChessClock::AChessClock()
 	ClockBodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ClockBodyMesh"));
 	ClockBodyMesh->SetupAttachment(RootComponent);
 
+	// Ініціалізація білих стрілок
 	WhiteMinuteHandPivot = CreateDefaultSubobject<USceneComponent>(TEXT("WhiteMinuteHandPivot"));
 	WhiteMinuteHandPivot->SetupAttachment(ClockBodyMesh);
-
 	WhiteMinuteHandMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WhiteMinuteHandMesh"));
 	WhiteMinuteHandMesh->SetupAttachment(WhiteMinuteHandPivot);
 
 	WhiteSecondHandPivot = CreateDefaultSubobject<USceneComponent>(TEXT("WhiteSecondHandPivot"));
 	WhiteSecondHandPivot->SetupAttachment(ClockBodyMesh);
-
 	WhiteSecondHandMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WhiteSecondHandMesh"));
 	WhiteSecondHandMesh->SetupAttachment(WhiteSecondHandPivot);
 
+	// Ініціалізація чорних стрілок
 	BlackMinuteHandPivot = CreateDefaultSubobject<USceneComponent>(TEXT("BlackMinuteHandPivot"));
 	BlackMinuteHandPivot->SetupAttachment(ClockBodyMesh);
-
 	BlackMinuteHandMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BlackMinuteHandMesh"));
 	BlackMinuteHandMesh->SetupAttachment(BlackMinuteHandPivot);
 
 	BlackSecondHandPivot = CreateDefaultSubobject<USceneComponent>(TEXT("BlackSecondHandPivot"));
 	BlackSecondHandPivot->SetupAttachment(ClockBodyMesh);
-
 	BlackSecondHandMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BlackSecondHandMesh"));
 	BlackSecondHandMesh->SetupAttachment(BlackSecondHandPivot);
-
-	WhiteMinuteHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
-	WhiteSecondHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
-
-	BlackMinuteHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
-	BlackSecondHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
-
-	WhiteMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
-	WhiteSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
-	
-	BlackMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
-	BlackSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
 }
 
 void AChessClock::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-
-	if (WhiteMinuteHandPivot)
-	{
-		WhiteMinuteHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
-	}
-	if (WhiteSecondHandPivot)
-	{
-		WhiteSecondHandPivot->SetRelativeLocation(WhiteClockHandsPivotLocation);
-	}
-	if (BlackMinuteHandPivot)
-	{
-		BlackMinuteHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
-	}
-	if (BlackSecondHandPivot)
-	{
-		BlackSecondHandPivot->SetRelativeLocation(BlackClockHandsPivotLocation);
-	}
-
-	if (WhiteMinuteHandMesh)
-	{
-		WhiteMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
-	}
-	if (WhiteSecondHandMesh)
-	{
-		WhiteSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
-	}
-	if (BlackMinuteHandMesh)
-	{
-		BlackMinuteHandMesh->SetRelativeLocation(MinuteHandMeshOffset);
-	}
-	if (BlackSecondHandMesh)
-	{
-		BlackSecondHandMesh->SetRelativeLocation(SecondHandMeshOffset);
-	}
-
 	UpdateClockHands();
 }
 
 void AChessClock::BeginPlay()
 {
 	Super::BeginPlay();
-	UpdateClockHands();
 }
 
 void AChessClock::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsClockRunning)
+	if (AChessGameState* GS = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr)
 	{
-		if (ActivePlayerColor == EPieceColor::White)
-		{
-			WhitePlayerTimeSeconds = FMath::Max(0.f, WhitePlayerTimeSeconds - DeltaTime);
-		}
-		else
-		{
-			BlackPlayerTimeSeconds = FMath::Max(0.f, BlackPlayerTimeSeconds - DeltaTime);
-		}
+		WhitePlayerTimeSeconds = GS->WhiteTimeSeconds;
+		BlackPlayerTimeSeconds = GS->BlackTimeSeconds;
+		
+		const EGamePhase CurrentPhase = GS->GetGamePhase();
+		bIsClockRunning = (CurrentPhase == EGamePhase::InProgress || CurrentPhase == EGamePhase::Check);
 	}
 	
 	UpdateClockHands();
@@ -128,61 +70,33 @@ void AChessClock::Tick(float DeltaTime)
 
 void AChessClock::UpdateClockHands()
 {
-	if (WhiteMinuteHandPivot && WhiteSecondHandPivot)
+	auto RotateSide = [&](USceneComponent* MinPivot, USceneComponent* SecPivot, float Seconds)
 	{
-		const float SecondHandAngle = (FMath::Fmod(WhitePlayerTimeSeconds, 60.f) / 60.f) * -360.f;
-		const float MinuteHandAngle = (FMath::Fmod(WhitePlayerTimeSeconds, 3600.f) / 3600.f) * -360.f;
+		if (!MinPivot || !SecPivot) return;
 
-		FRotator SecondHandRotator;
-		FRotator MinuteHandRotator;
+		// Якщо час необмежений (-1), ставимо на 0
+		float DisplayTime = FMath::Max(0.f, Seconds);
+
+		const float SecAngle = (FMath::Fmod(DisplayTime, 60.f) / 60.f) * 360.f;
+		const float MinAngle = (FMath::Fmod(DisplayTime, 3600.f) / 3600.f) * 360.f;
+
+		FRotator SecRot(0, 0, 0), MinRot(0, 0, 0);
 
 		switch (HandRotationAxis)
 		{
 		case EClockHandRotationAxis::Pitch:
-			SecondHandRotator = FRotator(SecondHandAngle, 0.f, 0.f);
-			MinuteHandRotator = FRotator(MinuteHandAngle, 0.f, 0.f);
-			break;
+			SecRot.Pitch = SecAngle; MinRot.Pitch = MinAngle; break;
 		case EClockHandRotationAxis::Yaw:
-			SecondHandRotator = FRotator(0.f, SecondHandAngle, 0.f);
-			MinuteHandRotator = FRotator(0.f, MinuteHandAngle, 0.f);
-			break;
+			SecRot.Yaw = SecAngle; MinRot.Yaw = MinAngle; break;
 		case EClockHandRotationAxis::Roll:
 		default:
-			SecondHandRotator = FRotator(0.f, 0.f, SecondHandAngle);
-			MinuteHandRotator = FRotator(0.f, 0.f, MinuteHandAngle);
-			break;
+			SecRot.Roll = SecAngle; MinRot.Roll = MinAngle; break;
 		}
 
-		WhiteSecondHandPivot->SetRelativeRotation(SecondHandRotator);
-		WhiteMinuteHandPivot->SetRelativeRotation(MinuteHandRotator);
-	}
+		SecPivot->SetRelativeRotation(SecRot);
+		MinPivot->SetRelativeRotation(MinRot);
+	};
 
-	if (BlackMinuteHandPivot && BlackSecondHandPivot)
-	{
-		const float SecondHandAngle = (FMath::Fmod(BlackPlayerTimeSeconds, 60.f) / 60.f) * -360.f;
-		const float MinuteHandAngle = (FMath::Fmod(BlackPlayerTimeSeconds, 3600.f) / 3600.f) * -360.f;
-
-		FRotator SecondHandRotator;
-		FRotator MinuteHandRotator;
-
-		switch (HandRotationAxis)
-		{
-		case EClockHandRotationAxis::Pitch:
-			SecondHandRotator = FRotator(SecondHandAngle, 0.f, 0.f);
-			MinuteHandRotator = FRotator(MinuteHandAngle, 0.f, 0.f);
-			break;
-		case EClockHandRotationAxis::Yaw:
-			SecondHandRotator = FRotator(0.f, SecondHandAngle, 0.f);
-			MinuteHandRotator = FRotator(0.f, MinuteHandAngle, 0.f);
-			break;
-		case EClockHandRotationAxis::Roll:
-		default:
-			SecondHandRotator = FRotator(0.f, 0.f, SecondHandAngle);
-			MinuteHandRotator = FRotator(0.f, 0.f, MinuteHandAngle);
-			break;
-		}
-		
-		BlackSecondHandPivot->SetRelativeRotation(SecondHandRotator);
-		BlackMinuteHandPivot->SetRelativeRotation(MinuteHandRotator);
-	}
+	RotateSide(WhiteMinuteHandPivot, WhiteSecondHandPivot, WhitePlayerTimeSeconds);
+	RotateSide(BlackMinuteHandPivot, BlackSecondHandPivot, BlackPlayerTimeSeconds);
 }

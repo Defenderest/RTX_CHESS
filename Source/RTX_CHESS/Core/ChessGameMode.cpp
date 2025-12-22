@@ -91,34 +91,39 @@ void AChessGameMode::BeginPlay()
     const FString IsBotGameValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("bIsBotGame"));
     if (IsBotGameValue.ToBool())
     {
-        // Устанавливаем цвет игрока из параметров запуска, если он был передан
+        CurrentGameMode = EGameModeType::PlayerVsBot;
+        if (AChessGameState* GS = GetCurrentGameState())
+        {
+            GS->SetCurrentGameMode(CurrentGameMode);
+            GS->SetIsInLobby(false); // Для бота лобі НЕ потрібне
+        }
+
+        // Устанавливаем цвет игрока из параметров запуска
         const FString ColorChoiceValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("ColorChoice"));
         if (!ColorChoiceValue.IsEmpty())
         {
             const int32 ChoiceIndex = FCString::Atoi(*ColorChoiceValue);
             SetPlayerColorForBotGameFromInt(ChoiceIndex);
-            UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Player color preference set to index %d from launch options."), ChoiceIndex);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: ColorChoice option not found for bot game. Using default random color."));
         }
 
-        // Запускаем игру против бота
+        // Устанавливаем контроль времени из параметров запуска
+        const FString BotTimeControlOpt = UGameplayStatics::ParseOption(this->OptionsString, TEXT("TimeControl"));
+        if (!BotTimeControlOpt.IsEmpty())
+        {
+            const int32 TimeControlIndex = FCString::Atoi(*BotTimeControlOpt);
+            CurrentTimeControl = (ETimeControlType)TimeControlIndex;
+        }
+
+        // СТАРТУЄМО ГРУ З БОТОМ АВТОМАТИЧНО
         StartBotGame();
 
-        // Устанавливаем уровень сложности бота из параметров запуска
+        // Устанавливаем уровень сложности бота
         if (StockfishManager)
         {
             const FString SkillLevelValue = UGameplayStatics::ParseOption(this->OptionsString, TEXT("SkillLevel"));
             if (!SkillLevelValue.IsEmpty())
             {
                 BotSkillLevel = FCString::Atoi(*SkillLevelValue);
-                UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Bot skill level set to %d from launch options."), BotSkillLevel);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("AChessGameMode: SkillLevel option not found for bot game. Using default skill level."));
             }
         }
     }
@@ -187,6 +192,7 @@ void AChessGameMode::StartBotGame()
     if (CurrentGS)
     {
         CurrentGS->SetCurrentGameMode(CurrentGameMode);
+        CurrentGS->LobbyTimeControl = CurrentTimeControl; // СИНХРОНІЗАЦІЯ ЧАСУ
     }
     UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Bot game."));
 
@@ -332,27 +338,24 @@ void AChessGameMode::PostLogin(APlayerController* NewPlayer)
     AChessPlayerController* ChessController = Cast<AChessPlayerController>(NewPlayer);
     if (ChessController)
     {
-        NumberOfPlayers++;
-        // Логика для ботов была перенесена в StartBotGame
+        // Логика для PvP
         if (CurrentGameMode == EGameModeType::PlayerVsPlayer)
         {
-            if (NumberOfPlayers == 1)
+            AChessGameState* CurrentGS = GetCurrentGameState();
+            if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
             {
-                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player 1 joined. Waiting for Player 2."));
-            }
-            else if (NumberOfPlayers == 2)
-            {
-                AChessGameState* CurrentGS = GetCurrentGameState();
-                if (CurrentGS && CurrentGS->GetGamePhase() == EGamePhase::WaitingToStart)
+                NumberOfPlayers++;
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player %d joined. Total players: %d"), NumberOfPlayers, NumberOfPlayers);
+
+                if (NumberOfPlayers == 2)
                 {
-                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Two players present. Starting PvP game."));
-                    StartNewGame();
+                    UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Two players present. Setting lobby state, waiting for host to start manually."));
+                    CurrentGS->SetIsInLobby(true);
                 }
             }
             else
             {
-                // Логика для наблюдателей
-                UE_LOG(LogTemp, Warning, TEXT("AChessGameMode::PostLogin: More than 2 players joined. Player %d is a spectator."), NumberOfPlayers);
+                UE_LOG(LogTemp, Log, TEXT("AChessGameMode::PostLogin: Player joined but game is already in progress or GameState is null."));
             }
         }
     }
@@ -551,8 +554,10 @@ void AChessGameMode::StartNewGame()
     if (CurrentGS)
     {
         CurrentGS->SetCurrentGameMode(CurrentGameMode);
+        // Если в лобби было выбрано время, используем его
+        CurrentTimeControl = CurrentGS->LobbyTimeControl;
     }
-    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game."));
+    UE_LOG(LogTemp, Log, TEXT("AChessGameMode: Starting new Player vs Player game. Time Control: %d"), (int32)CurrentTimeControl);
 
     int32 StartTime, Increment;
     GetTimeControlSettings(CurrentTimeControl, StartTime, Increment);
@@ -598,8 +603,17 @@ void AChessGameMode::StartNewGame()
         {
             CurrentGS->WhitePlayerProfile = PS->GetPlayerProfile();
         }
-        WhitePlayer->Client_GameStarted();
-        RestartPlayer(WhitePlayer);
+        
+        // Delay to allow PlayerColor replication
+        FTimerHandle TimerHandle;
+        GetWorldTimerManager().SetTimer(TimerHandle, [this, WhitePlayer]()
+        {
+            if (WhitePlayer)
+            {
+                WhitePlayer->Client_GameStarted();
+                RestartPlayer(WhitePlayer);
+            }
+        }, 0.2f, false);
     }
 
     if (BlackPlayer)
@@ -610,8 +624,17 @@ void AChessGameMode::StartNewGame()
         {
             CurrentGS->BlackPlayerProfile = PS->GetPlayerProfile();
         }
-        BlackPlayer->Client_GameStarted();
-        RestartPlayer(BlackPlayer);
+        
+        // Delay to allow PlayerColor replication
+        FTimerHandle TimerHandle;
+        GetWorldTimerManager().SetTimer(TimerHandle, [this, BlackPlayer]()
+        {
+            if (BlackPlayer)
+            {
+                BlackPlayer->Client_GameStarted();
+                RestartPlayer(BlackPlayer);
+            }
+        }, 0.2f, false);
     }
 
     if (CurrentGS)
@@ -1100,9 +1123,41 @@ bool AChessGameMode::AttemptMove(AChessPiece* PieceToMove, const FIntPoint& Targ
     GameBoard->ClearAllHighlights();
 
     // Создаем простую нотацию хода до вызова EndTurn
-    const FString MoveNotation = FString::Printf(TEXT("%c%d%c%d"),
+    FString PieceChar = "";
+    switch (PieceToMove->GetPieceType())
+    {
+        case EPieceType::King: PieceChar = "K"; break;
+        case EPieceType::Queen: PieceChar = "Q"; break;
+        case EPieceType::Rook: PieceChar = "R"; break;
+        case EPieceType::Bishop: PieceChar = "B"; break;
+        case EPieceType::Knight: PieceChar = "N"; break;
+        default: PieceChar = ""; break;
+    }
+
+    const FString MoveNotation = FString::Printf(TEXT("%s%c%d-%c%d"),
+        *PieceChar,
         'a' + OriginalPosition.X, OriginalPosition.Y + 1,
         'a' + TargetGridPosition.X, TargetGridPosition.Y + 1);
+
+    if (CurrentGS)
+    {
+        if (PieceToMove->GetPieceColor() == EPieceColor::White)
+        {
+            FString FullMoveStr = FString::Printf(TEXT("%d. %s"), CurrentGS->GetFullmoveNumber(), *MoveNotation);
+            CurrentGS->MoveHistory.Add(FullMoveStr);
+        }
+        else
+        {
+            if (CurrentGS->MoveHistory.Num() > 0)
+            {
+                CurrentGS->MoveHistory[CurrentGS->MoveHistory.Num() - 1] += FString::Printf(TEXT(" %s"), *MoveNotation);
+            }
+            else
+            {
+                CurrentGS->MoveHistory.Add(FString::Printf(TEXT("... %s"), *MoveNotation));
+            }
+        }
+    }
 
     EndTurn();
 

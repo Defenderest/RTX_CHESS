@@ -15,6 +15,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "OnlineSubsystemUtils.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 
 #include "GameFramework/PlayerState.h"
 #include "Engine/Texture2D.h"
@@ -79,6 +80,8 @@ void UChessGameInstance::Init()
 			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnDestroySessionComplete);
 			OnFindSessionsCompleteDelegate = FOnFindSessionsCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnFindSessionsComplete);
 			OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UChessGameInstance::OnJoinSessionComplete);
+			OnSessionUserInviteAcceptedDelegate = FOnSessionUserInviteAcceptedDelegate::CreateUObject(this, &UChessGameInstance::OnSessionUserInviteAccepted);
+			OnSessionUserInviteAcceptedDelegateHandle = SessionInterface->AddOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegate);
 		}
 		else
 		{
@@ -106,6 +109,12 @@ void UChessGameInstance::Init()
 void UChessGameInstance::Shutdown()
 {
 	Super::Shutdown();
+	
+	if (SessionInterface.IsValid())
+	{
+		SessionInterface->ClearOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegateHandle);
+	}
+	
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
 }
@@ -349,6 +358,17 @@ void UChessGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuc
              UE_LOG(LogTemp, Log, TEXT("Steam Lobby Created. Ready for invites."));
         }
 
+        // --- Open Invite UI (Steam/External) ---
+        IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+        if (OnlineSub)
+        {
+            IOnlineExternalUIPtr ExternalUI = OnlineSub->GetExternalUIInterface();
+            if (ExternalUI.IsValid())
+            {
+                ExternalUI->ShowInviteUI(0, SessionName);
+            }
+        }
+
         GetWorld()->ServerTravel(TravelURL);
     }
     else
@@ -435,6 +455,35 @@ void UChessGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
     {
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegateHandle);
         UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnFindSessionsComplete delegate handle cleared."));
+    }
+}
+
+void UChessGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
+{
+    UE_LOG(LogTemp, Log, TEXT("[NetworkSession] OnSessionUserInviteAccepted called. Success: %d"), bWasSuccessful);
+
+    if (bWasSuccessful)
+    {
+        UE_LOG(LogTemp, Log, TEXT("[NetworkSession] Invitation accepted! Joining invited session..."));
+        
+        // Ensure we are not the host of another session
+        if (bIsHost)
+        {
+             UE_LOG(LogTemp, Warning, TEXT("[NetworkSession] We are currently hosting a session. Destroying it to join invite..."));
+             // Ideally we should destroy the session first, but for now we proceed to join (JoinFoundSession might fail or we might need to chain logic).
+             // To keep it simple and robust:
+             if (SessionInterface.IsValid())
+             {
+                 SessionInterface->DestroySession(NAME_GameSession);
+             }
+             bIsHost = false;
+        }
+
+        JoinFoundSession(InviteResult);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[NetworkSession] Failed to accept invite."));
     }
 }
 

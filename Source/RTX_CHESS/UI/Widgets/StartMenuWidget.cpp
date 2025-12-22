@@ -195,6 +195,12 @@ void UStartMenuWidget::OnHostGameClicked()
         const FString SessionName = TEXT("ChessGameSession");
         HideMenu();
         GameInstance->HostSession(SessionName, GameLevelName, SelectedTimeControl);
+
+        // Показываем виджет информации об игроке сразу после начала хостинга
+        if (AChessPlayerController* PC = GetOwningPlayer<AChessPlayerController>())
+        {
+            PC->ShowPlayerInfoWidget();
+        }
     }
 }
 

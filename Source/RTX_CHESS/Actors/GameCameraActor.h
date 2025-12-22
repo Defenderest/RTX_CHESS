@@ -53,7 +53,7 @@ protected:
 
     /** Camera rotation speed (in degrees per second) for manual control. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera|Controls", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float ManualRotationSpeed = 45.f;
+    float ManualRotationSpeed = 2.f;
 
     /** Minimum vertical offset (Pitch) from the base position in degrees (looking down). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Camera|Controls", meta = (UIMin = "-89.0", UIMax = "0.0"))

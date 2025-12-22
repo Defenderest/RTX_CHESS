@@ -50,3 +50,13 @@ TArray<FIntPoint> AKnightPiece::GetValidMoves(const AChessGameState* GameState, 
 
     return ValidMoves;
 }
+
+bool AKnightPiece::IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const
+{
+    FIntPoint CurrentPos = GetBoardPosition();
+    int32 Dx = FMath::Abs(CurrentPos.X - TargetSquare.X);
+    int32 Dy = FMath::Abs(CurrentPos.Y - TargetSquare.Y);
+
+    // Конь атакует клетку, если разница координат (1,2) или (2,1)
+    return (Dx == 1 && Dy == 2) || (Dx == 2 && Dy == 1);
+}

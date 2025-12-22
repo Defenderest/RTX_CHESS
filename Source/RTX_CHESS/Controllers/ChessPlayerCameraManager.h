@@ -40,6 +40,11 @@ private:
     FRotator TargetCameraRotation;
     float TargetCameraFOV;
 
+    // Текущие параметры камеры для интерполяции (чтобы не зависеть от OutVT)
+    FVector CurrentCameraLocation;
+    FRotator CurrentCameraRotation;
+    float CurrentCameraFOV;
+
     // Текущее смещение вращения камеры, заданное игроком
     FRotator CurrentRotationOffset;
 

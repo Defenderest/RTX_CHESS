@@ -91,6 +91,18 @@ TArray<FIntPoint> APawnPiece::GetValidMoves(const AChessGameState* GameState, co
     return ValidMoves;
 }
 
+bool APawnPiece::IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const
+{
+    FIntPoint CurrentPos = GetBoardPosition();
+    int32 Direction = (PieceColor == EPieceColor::White) ? 1 : -1;
+
+    // Пешка атакует ТОЛЬКО две клетки по диагонали вперед
+    FIntPoint DiagonalLeft = FIntPoint(CurrentPos.X - 1, CurrentPos.Y + Direction);
+    FIntPoint DiagonalRight = FIntPoint(CurrentPos.X + 1, CurrentPos.Y + Direction);
+
+    return (TargetSquare == DiagonalLeft || TargetSquare == DiagonalRight);
+}
+
 void APawnPiece::NotifyMoveCompleted_Implementation()
 {
     if (!bHasMoved) // Устанавливаем флаг только если он еще не был установлен

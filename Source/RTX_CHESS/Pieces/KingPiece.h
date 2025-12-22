@@ -28,6 +28,8 @@ public:
     // Также включает логику для рокировки.
     virtual TArray<FIntPoint> GetValidMoves(const AChessGameState* GameState, const AChessBoard* Board) const override;
 
+    virtual bool IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const override;
+
     // bHasMoved теперь наследуется от AChessPiece
 
     // Вызывается после того, как король совершил ход, чтобы обновить bHasMoved

@@ -8,6 +8,7 @@
 class UTextBlock;
 class UListView;
 class UButton;
+class UImage;
 
 UCLASS()
 class RTX_CHESS_API ULobbyWidget : public UUserWidget
@@ -18,25 +19,47 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Lobby")
     void UpdateLobbyInfo();
 
+    virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
     UFUNCTION(BlueprintPure, Category = "Lobby")
     FString GetLobbyIPAddress() const;
 
 protected:
     virtual void NativeConstruct() override;
 
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UTextBlock> IpAddressText;
-
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UTextBlock> TimeControlText;
 
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UListView> PlayerListView;
+    // --- Поля для статистики матчу ---
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UImage> WhitePlayerAvatar;
 
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> WhitePlayerNameText;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> WhitePlayerRatingText;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UImage> BlackPlayerAvatar;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> BlackPlayerNameText;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> BlackPlayerRatingText;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> GamePhaseText;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UTextBlock> FullmoveText;
+    // --------------------------------------
+
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UButton> StartGameButton;
     
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UButton> LeaveLobbyButton;
 
     UFUNCTION()

@@ -25,75 +25,51 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
 
-	// Updates the rotation of the clock hands based on the current time
+	/** Оновлює обертання стрілок */
 	void UpdateClockHands();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> SceneRoot;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> ClockBodyMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	/** Компоненти-півоти для стрілок (їх треба обертати) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> WhiteMinuteHandPivot;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> WhiteSecondHandPivot;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> BlackMinuteHandPivot;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USceneComponent> BlackSecondHandPivot;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	/** Самі моделі стрілок */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> WhiteMinuteHandMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> WhiteSecondHandMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> BlackMinuteHandMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> BlackSecondHandMesh;
 
-	// Total remaining time for each player in seconds
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock", meta = (AllowPrivateAccess = "true"))
-	float WhitePlayerTimeSeconds;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock", meta = (AllowPrivateAccess = "true"))
-	float BlackPlayerTimeSeconds;
-
-	// The player whose clock is currently running
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock", meta = (AllowPrivateAccess = "true"))
-	EPieceColor ActivePlayerColor;
-
-	// Axis of rotation for the clock hands
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals", meta = (AllowPrivateAccess = "true"))
+	/** Вісь обертання стрілок */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals")
 	EClockHandRotationAxis HandRotationAxis;
 
-	// The local position for the pivot point of the white player's clock hands
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals", meta = (AllowPrivateAccess = "true"))
-	FVector WhiteClockHandsPivotLocation;
-
-	// The local position for the pivot point of the black player's clock hands
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals", meta = (AllowPrivateAccess = "true"))
-	FVector BlackClockHandsPivotLocation;
-
-	// The local offset for the minute hand mesh from its pivot point
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals", meta = (AllowPrivateAccess = "true"))
-	FVector MinuteHandMeshOffset;
-
-	// The local offset for the second hand mesh from its pivot point
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock|Visuals", meta = (AllowPrivateAccess = "true"))
-	FVector SecondHandMeshOffset;
-
-	// Whether the clock is currently running
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chess Clock", meta = (AllowPrivateAccess = "true"))
+private:
+	float WhitePlayerTimeSeconds;
+	float BlackPlayerTimeSeconds;
+	EPieceColor ActivePlayerColor;
 	bool bIsClockRunning;
 
 public:	
 	virtual void Tick(float DeltaTime) override;
-
 };

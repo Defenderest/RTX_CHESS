@@ -166,9 +166,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "Chess Piece")
     bool HasMoved() const;
 
-    UFUNCTION(BlueprintCallable, Category = "Chess Piece")
-    virtual TArray<FIntPoint> GetValidMoves(const class AChessGameState* GameState, const AChessBoard* Board) const;
+    // Returns all valid moves for this piece based on its type and position.
+    virtual TArray<FIntPoint> GetValidMoves(const class AChessGameState* GameState, const class AChessBoard* Board) const;
 
+    /** Returns true if this piece is attacking the specified square, regardless of whether the move is legal (i.e. even if it leaves king in check). */
+    virtual bool IsAttackingSquare(const FIntPoint& TargetSquare, const class AChessGameState* GameState, const class AChessBoard* Board) const;
+
+    // Called when the piece is selected by a player.
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Chess Piece")
     void OnSelected();
     virtual void OnSelected_Implementation();

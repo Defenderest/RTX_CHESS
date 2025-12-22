@@ -315,6 +315,14 @@ void AChessPlayerController::TogglePauseMenu()
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState) return;
 
+    // Если мы находимся в лобби (ждем игрока), нажатие Esc возвращает в главное меню.
+    if (GameState->bIsInLobby)
+    {
+        UE_LOG(LogTemp, Log, TEXT("TogglePauseMenu: In lobby, returning to main menu."));
+        ReturnToMainMenu();
+        return;
+    }
+
     const EGamePhase CurrentPhase = GameState->GetGamePhase();
     if (CurrentPhase == EGamePhase::WaitingToStart || CurrentPhase == EGamePhase::AwaitingPromotion)
     {
@@ -380,48 +388,52 @@ void AChessPlayerController::ToggleGraphicsSettingsMenu()
 
 void AChessPlayerController::TogglePlayerInfoWidget()
 {
-    UE_LOG(LogTemp, Log, TEXT("Player Info Widget toggled via key press."));
-
-    // Do not allow opening this widget if we are in the main menu.
-    AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
-    if (!GameState)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TogglePlayerInfoWidget: GameState is null, cannot toggle widget."));
-        return;
-    }
-
-    const EGamePhase CurrentPhase = GameState->GetGamePhase();
-    if (CurrentPhase == EGamePhase::WaitingToStart)
-    {
-        UE_LOG(LogTemp, Log, TEXT("TogglePlayerInfoWidget: Widget is disabled in the main menu (WaitingToStart phase)."));
-        return;
-    }
+    UE_LOG(LogTemp, Log, TEXT("Lobby Widget toggled via key press (Tab)."));
 
     // If widget is already shown, hide it.
-    if (PlayerInfoWidgetInstance && PlayerInfoWidgetInstance->IsInViewport())
+    if (LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport())
     {
-        PlayerInfoWidgetInstance->RemoveFromParent();
+        LobbyWidgetInstance->RemoveFromParent();
     }
     else // Otherwise, show it.
     {
-        if (PlayerInfoWidgetClass)
+        if (LobbyWidgetClass)
         {
-            if (!PlayerInfoWidgetInstance)
+            if (!LobbyWidgetInstance)
             {
-                PlayerInfoWidgetInstance = CreateWidget<UPlayerInfoWidget>(this, PlayerInfoWidgetClass);
+                LobbyWidgetInstance = CreateWidget<ULobbyWidget>(this, LobbyWidgetClass);
             }
             
-            if (PlayerInfoWidgetInstance)
+            if (LobbyWidgetInstance && !LobbyWidgetInstance->IsInViewport())
             {
-                PlayerInfoWidgetInstance->AddToViewport(5); // Z-Order
+                LobbyWidgetInstance->AddToViewport(5);
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerInfoWidgetClass not assigned in Blueprint!"));
+            UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: LobbyWidgetClass not assigned in Blueprint!"));
         }
     }
-    // We do not call UpdateInputMode() because this widget is just an overlay and should not change input mode.
+}
+
+void AChessPlayerController::ShowPlayerInfoWidget()
+{
+    if (PlayerInfoWidgetClass)
+    {
+        if (!PlayerInfoWidgetInstance)
+        {
+            PlayerInfoWidgetInstance = CreateWidget<UPlayerInfoWidget>(this, PlayerInfoWidgetClass);
+        }
+        
+        if (PlayerInfoWidgetInstance && !PlayerInfoWidgetInstance->IsInViewport())
+        {
+            PlayerInfoWidgetInstance->AddToViewport(5); // Z-Order
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AChessPlayerController: PlayerInfoWidgetClass not assigned in Blueprint!"));
+    }
 }
 
 void AChessPlayerController::ToggleProfileWidget()
@@ -512,28 +524,26 @@ void AChessPlayerController::Client_ShowGameOverScreen_Implementation(const FTex
 
 void AChessPlayerController::ShowLobbyUI()
 {
-    if (IsLocalController() && LobbyWidgetClass)
+    if (IsLocalController())
     {
-        if (!LobbyWidgetInstance)
+        // Удаляем главное меню, если оно есть
+        if (StartMenuWidgetInstance)
         {
-            LobbyWidgetInstance = CreateWidget<ULobbyWidget>(this, LobbyWidgetClass);
+            StartMenuWidgetInstance->RemoveFromParent();
+            StartMenuWidgetInstance = nullptr;
         }
-        if (LobbyWidgetInstance && !LobbyWidgetInstance->IsInViewport())
-        {
-            // Remove start menu if it exists
-            if (StartMenuWidgetInstance && StartMenuWidgetInstance->IsInViewport())
-            {
-                StartMenuWidgetInstance->RemoveFromParent();
-                StartMenuWidgetInstance = nullptr;
-            }
 
-            LobbyWidgetInstance->AddToViewport(10);
-            UpdateInputMode();
-        }
-    }
-    else if (IsLocalController())
-    {
-        UE_LOG(LogTemp, Error, TEXT("LobbyWidgetClass is not set in BP_ChessPlayerController!"));
+        // На случай, если виджет был создан, но не сохранен в переменную (хотя это маловероятно)
+        // можно было бы искать его по классу, но обнуления переменной должно хватить.
+
+        // Вместо показа LobbyWidget, мы просто настраиваем камеру и показываем инфо об игроках
+        SetMenuCamera();
+        ShowPlayerInfoWidget();
+        
+        // Обновляем режим ввода, чтобы мышь была доступна
+        UpdateInputMode();
+
+        UE_LOG(LogTemp, Log, TEXT("ShowLobbyUI: Lobby widget skipped, showing PlayerInfo and using MenuCamera."));
     }
 }
 
@@ -693,13 +703,25 @@ AChessGameMode* AChessPlayerController::GetChessGameMode() const
 
 void AChessPlayerController::SetPlayerColorChoiceForBotGame(int32 ChoiceIndex)
 {
+    // Оновлюємо вибір кольору на сервері для всіх
+    Server_SetLobbyColorPreference(ChoiceIndex);
+
     if (AChessGameMode* GM = GetChessGameMode())
     {
         GM->SetPlayerColorForBotGameFromInt(ChoiceIndex);
     }
-    else
+}
+
+bool AChessPlayerController::Server_SetLobbyColorPreference_Validate(int32 NewColorIndex)
+{
+    return NewColorIndex >= 0 && NewColorIndex <= 2;
+}
+
+void AChessPlayerController::Server_SetLobbyColorPreference_Implementation(int32 NewColorIndex)
+{
+    if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
     {
-        UE_LOG(LogTemp, Warning, TEXT("AChessPlayerController::SetPlayerColorChoiceForBotGame: Could not get ChessGameMode."));
+        GS->LobbyColorPreference = NewColorIndex;
     }
 }
 
@@ -804,18 +826,18 @@ void AChessPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void AChessPlayerController::DetermineInitialUI()
 {
-    // If lobby widget is already shown, do nothing.
-    // This prevents re-opening the main menu over the lobby.
-    if (LobbyWidgetInstance && LobbyWidgetInstance->IsInViewport())
-    {
-        return;
-    }
-
     AChessGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AChessGameState>() : nullptr;
     if (!GameState)
     {
         // If GameState is still invalid, this is a serious issue.
         UE_LOG(LogTemp, Fatal, TEXT("AChessPlayerController::DetermineInitialUI: AChessGameState is NULL! Check GameMode Override in World Settings."));
+        return;
+    }
+
+    // Если мы уже в лобби или игра идет, не показываем стартовое меню
+    if (GameState->bIsInLobby)
+    {
+        ShowLobbyUI();
         return;
     }
 
@@ -1089,27 +1111,56 @@ void AChessPlayerController::Server_RequestStartGame_Implementation()
     {
         if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
         {
-            // Check if there are two players in lobby
-            if (GS->PlayerArray.Num() >= 2)
+            AChessGameMode* GM = GetChessGameMode();
+            const bool bIsBotGame = GM && GM->GetCurrentGameModeType() == EGameModeType::PlayerVsBot;
+
+            // Check if there are enough players in lobby (2 for PvP, 1 for Bot game)
+            if (GS->PlayerArray.Num() >= 2 || (bIsBotGame && GS->PlayerArray.Num() >= 1))
             {
                 // Exit lobby state
                 GS->SetIsInLobby(false);
 
                 // Start game (this triggers Client_GameStarted on all clients)
-                if (AChessGameMode* GM = GetChessGameMode())
+                if (GM)
                 {
-                    GM->StartNewGame();
+                    if (bIsBotGame)
+                    {
+                        GM->StartBotGame();
+                    }
+                    else
+                    {
+                        GM->StartNewGame();
+                    }
                 }
             }
             else
             {
                 // Not enough players
-                UE_LOG(LogTemp, Warning, TEXT("Cannot start game: Not enough players in the lobby."));
+                UE_LOG(LogTemp, Warning, TEXT("Cannot start game: Not enough players in the lobby. Current players: %d. IsBotGame: %d"), GS->PlayerArray.Num(), (int32)bIsBotGame);
             }
         }
     }
 }
 
+
+bool AChessPlayerController::Server_SetLobbyTimeControl_Validate(ETimeControlType NewTime)
+{
+    return true;
+}
+
+void AChessPlayerController::Server_SetLobbyTimeControl_Implementation(ETimeControlType NewTime)
+{
+    if (AChessGameState* GS = GetWorld()->GetGameState<AChessGameState>())
+    {
+        GS->SetLobbyTimeControl(NewTime);
+        UE_LOG(LogTemp, Log, TEXT("Host changed Lobby Time Control to: %d"), (int32)NewTime);
+    }
+}
+
+bool AChessPlayerController::Server_SetPlayerProfile_Validate(const FPlayerProfile& Profile)
+{
+    return true;
+}
 
 void AChessPlayerController::Server_SetPlayerProfile_Implementation(const FPlayerProfile& Profile)
 {

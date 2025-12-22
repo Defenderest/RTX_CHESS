@@ -22,6 +22,7 @@ AChessGameState::AChessGameState()
     bCanBlackCastleQueenSide = true;
     WhiteTimeSeconds = -1.f; // -1 означает бесконечность
     BlackTimeSeconds = -1.f;
+    LobbyColorPreference = 1; // Random by default
 }
 
 void AChessGameState::OnRep_CurrentTurn()
@@ -90,6 +91,8 @@ void AChessGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     DOREPLIFETIME(AChessGameState, CurrentGameMode);
     DOREPLIFETIME(AChessGameState, bIsInLobby);
     DOREPLIFETIME(AChessGameState, LobbyTimeControl);
+    DOREPLIFETIME(AChessGameState, LobbyColorPreference);
+    DOREPLIFETIME(AChessGameState, MoveHistory);
 }
 
 void AChessGameState::Tick(float DeltaSeconds)
@@ -238,110 +241,64 @@ bool AChessGameState::IsPlayerInCheck(EPieceColor PlayerColor, const AChessBoard
     return Board->IsSquareAttackedBy(KingPosition, OpponentColor);
 }
 
-bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board) // Removed const
+bool AChessGameState::IsPlayerInCheckmate(EPieceColor PlayerColor, const AChessBoard* Board)
 {
     if (!IsPlayerInCheck(PlayerColor, Board))
     {
-        return false; // Не мат, если игрок не в шахе
+        return false;
     }
 
-    // Проверяем все возможные ходы для всех фигур игрока
-    for (AChessPiece* PlayerPiece : ActivePieces)
+    // Проверяем все фигуры игрока
+    TArray<TObjectPtr<AChessPiece>> PiecesToProcess = ActivePieces;
+
+    for (auto& PiecePtr : PiecesToProcess)
     {
+        AChessPiece* PlayerPiece = PiecePtr.Get();
         if (PlayerPiece && PlayerPiece->GetPieceColor() == PlayerColor)
         {
-            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(this, Board);
-            FIntPoint OriginalPosition = PlayerPiece->GetBoardPosition();
-
-            for (const FIntPoint& TargetPosition : ValidMoves)
+            TArray<FIntPoint> PseudoLegalMoves = PlayerPiece->GetValidMoves(this, Board);
+            
+            for (const FIntPoint& TargetPosition : PseudoLegalMoves)
             {
-                // Симулируем ход
-                AChessPiece* CapturedPiece = GetPieceAtGridPosition(TargetPosition);
-
-                // Временно удаляем фигуры из состояния
-                RemovePieceFromState(PlayerPiece);
-                if (CapturedPiece)
+                if (IsMoveLegal(PlayerPiece, TargetPosition, Board))
                 {
-                    RemovePieceFromState(CapturedPiece);
-                }
-
-                // Временно обновляем позицию фигуры
-                PlayerPiece->SetBoardPosition(TargetPosition);
-                AddPieceToState(PlayerPiece); // Добавляем на новую позицию
-
-                // Проверяем, останется ли игрок в шахе после этого ход��
-                bool bStillInCheck = IsPlayerInCheck(PlayerColor, Board);
-
-                // Отменяем симуляцию хода
-                RemovePieceFromState(PlayerPiece);
-                PlayerPiece->SetBoardPosition(OriginalPosition);
-                AddPieceToState(PlayerPiece);
-                if (CapturedPiece)
-                {
-                    AddPieceToState(CapturedPiece);
-                }
-
-                if (!bStillInCheck)
-                {
-                    return false; // Найден ход, который выводит из шаха, значит это не мат
+                    // Найден хотя бы один легальный ход, значит это не мат
+                    return false;
                 }
             }
         }
     }
 
-    return true; // Нет ходов, чтобы выйти из шаха, значит это мат
+    return true; 
 }
 
-bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board) // Removed const
+bool AChessGameState::IsStalemate(EPieceColor PlayerColor, const AChessBoard* Board)
 {
     if (IsPlayerInCheck(PlayerColor, Board))
     {
-        return false; // Не пат, если игрок в шахе (это может быть мат)
+        return false;
     }
 
-    // Проверяем, есть ли у игрока хотя бы один допустимый ход, который не приводит к шаху
-    for (AChessPiece* PlayerPiece : ActivePieces)
+    TArray<TObjectPtr<AChessPiece>> PiecesToProcess = ActivePieces;
+
+    for (auto& PiecePtr : PiecesToProcess)
     {
+        AChessPiece* PlayerPiece = PiecePtr.Get();
         if (PlayerPiece && PlayerPiece->GetPieceColor() == PlayerColor)
         {
-            TArray<FIntPoint> ValidMoves = PlayerPiece->GetValidMoves(this, Board);
-            FIntPoint OriginalPosition = PlayerPiece->GetBoardPosition();
-
-            for (const FIntPoint& TargetPosition : ValidMoves)
+            TArray<FIntPoint> PseudoLegalMoves = PlayerPiece->GetValidMoves(this, Board);
+            
+            for (const FIntPoint& TargetPosition : PseudoLegalMoves)
             {
-                // Симулируем ход
-                AChessPiece* CapturedPiece = GetPieceAtGridPosition(TargetPosition);
-
-                RemovePieceFromState(PlayerPiece);
-                if (CapturedPiece)
+                if (IsMoveLegal(PlayerPiece, TargetPosition, Board))
                 {
-                    RemovePieceFromState(CapturedPiece);
-                }
-
-                PlayerPiece->SetBoardPosition(TargetPosition);
-                AddPieceToState(PlayerPiece);
-
-                // Проверяем, будет ли игрок в шахе после этого хода
-                bool bIsInCheckAfterMove = IsPlayerInCheck(PlayerColor, Board);
-
-                // Отменяем симуляцию хода
-                RemovePieceFromState(PlayerPiece);
-                PlayerPiece->SetBoardPosition(OriginalPosition);
-                AddPieceToState(PlayerPiece);
-                if (CapturedPiece)
-                {
-                    AddPieceToState(CapturedPiece);
-                }
-
-                if (!bIsInCheckAfterMove)
-                {
-                    return false; // Найден допустимый ход, кот��рый не приводит к шаху, значит это не пат
+                    return false;
                 }
             }
         }
     }
 
-    return true; // Нет допустимых ходов, и игрок не в шахе, значит это пат
+    return true;
 }
 
 bool AChessGameState::IsMoveLegal(AChessPiece* PieceToMove, const FIntPoint& TargetPosition, const AChessBoard* Board)
@@ -428,7 +385,7 @@ void AChessGameState::ResetGameStateForNewGame()
         bCanBlackCastleQueenSide = true;
         ClearEnPassantData();
         PawnToPromote = nullptr;
-        // CurrentTurnColor и GamePhase устанавливаются в GameMode
+        MoveHistory.Empty();
     }
 }
 

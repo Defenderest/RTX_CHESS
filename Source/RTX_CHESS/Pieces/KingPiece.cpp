@@ -124,6 +124,18 @@ TArray<FIntPoint> AKingPiece::GetValidMoves(const AChessGameState* GameState, co
     return ValidMoves;
 }
 
+bool AKingPiece::IsAttackingSquare(const FIntPoint& TargetSquare, const AChessGameState* GameState, const AChessBoard* Board) const
+{
+    FIntPoint CurrentPos = GetBoardPosition();
+    
+    // Король атакует любую клетку на расстоянии 1 по горизонтали, вертикали или диагонали.
+    int32 Dx = FMath::Abs(CurrentPos.X - TargetSquare.X);
+    int32 Dy = FMath::Abs(CurrentPos.Y - TargetSquare.Y);
+
+    // Клетка атакована, если она соседняя и это не сама клетка короля.
+    return (Dx <= 1 && Dy <= 1) && !(Dx == 0 && Dy == 0);
+}
+
 void AKingPiece::NotifyMoveCompleted_Implementation()
 {
     if (!bHasMoved) // Устанавливаем флаг только если он еще не был установлен
